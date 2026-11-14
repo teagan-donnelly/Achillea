@@ -10,6 +10,8 @@ import {
   metricName,
   sourceName,
   Trend,
+  DeviceStatus,
+  patientMonitor,
 } from "./Monitoring";
 import { EventTimeline } from "./EventTimeline";
 export function PatientCard({
@@ -23,10 +25,12 @@ export function PatientCard({
 }) {
   const vitals = state.vitals.filter((v) => v.patientId === p.id),
     current = latestReadings(vitals);
+  const monitor = patientMonitor(state, p.id);
+  const sensors = state.devices?.filter(
+    (d) => d.patientId === p.id && d.bodyRegion !== "BEDSIDE_MONITOR",
+  );
   const tasks = rounds.filter((r) => r.task.patientId === p.id),
-    next = tasks
-      .slice()
-      .sort((a, b) => Date.parse(a.task.dueAt) - Date.parse(b.task.dueAt))[0];
+    next = tasks[0];
   const drafts = state.charts.filter(
       (c) => c.patientId === p.id && c.status === "DRAFT",
     ).length,
@@ -47,24 +51,27 @@ export function PatientCard({
         <ArrowRight size={18} />
       </div>
       <p>{p.summary}</p>
+      <DeviceStatus device={monitor} />
       <div className="compact-vitals">
         {current.map((v) => (
           <div key={v.metric}>
             <small>{metricName(v.metric)}</small>
             <strong>
-              {["Unavailable", "Disconnected"].includes(readingState(v))
+              {["Unavailable", "Disconnected", "Signal unavailable"].includes(
+                readingState(v, monitor),
+              )
                 ? "Unavailable"
                 : v.value}{" "}
               <span>{v.unit}</span>
             </strong>
             <small
               className={
-                readingState(v) === "Old reading"
+                readingState(v, monitor) === "Old reading"
                   ? "freshness old"
                   : "freshness"
               }
             >
-              {readingState(v)} - {freshness(v)}
+              {readingState(v, monitor)} - {freshness(v)}
             </small>
             <small>{sourceName(v)}</small>
             <Trend
@@ -88,11 +95,15 @@ export function PatientCard({
         {p.repositionPlan && (
           <span>
             <Radio size={15} />
-            {!movement
-              ? "Sensor status unavailable"
-              : movement.quality === "PELVIS_DISCONNECTED"
-                ? "Pelvic sensor disconnected"
-                : `Last simulated sensor report: connected at ${time(movement.capturedAt)}`}
+            {sensors?.length
+              ? sensors.some((d) => d.connectionState === "DISCONNECTED")
+                ? "Sensor disconnected · orientation unknown"
+                : `Simulated sensors: ${sensors.map((d) => `${words(d.bodyRegion)} ${words(d.freshness)}`).join(" · ")}`
+              : !movement
+                ? "Sensor status unavailable"
+                : movement.quality === "PELVIS_DISCONNECTED"
+                  ? "Pelvic sensor disconnected"
+                  : `Last simulated sensor report: connected at ${time(movement.capturedAt)}`}
           </span>
         )}
         <p>
@@ -133,9 +144,19 @@ export function ActivityHome({
       state.movements.filter((m) => m.patientId === p.id).at(-1)?.quality ===
       "PELVIS_DISCONNECTED",
   );
+  const unavailableMonitors = (state.devices ?? []).filter(
+    (d) =>
+      assigned(d.patientId) &&
+      d.bodyRegion === "BEDSIDE_MONITOR" &&
+      (d.connectionState !== "CONNECTED" || d.freshness !== "FRESH"),
+  );
   const attention = rounds.filter((r) => r.rank <= 1),
     count =
-      attention.length + drafts.length + movements.length + disconnected.length;
+      attention.length +
+      drafts.length +
+      movements.length +
+      disconnected.length +
+      unavailableMonitors.length;
   const events = state.events
     .filter(
       (e) =>
@@ -145,7 +166,7 @@ export function ActivityHome({
           (filter === "documentation"
             ? e.type.startsWith("chart")
             : filter === "monitoring"
-              ? /^(vital|movement)/.test(e.type)
+              ? /^(vital|movement|device)/.test(e.type)
               : e.type.startsWith("task"))),
     )
     .slice()
@@ -206,6 +227,20 @@ export function ActivityHome({
               <span>
                 <strong>Pelvic sensor disconnected</strong>
                 <small>{identity(p.id)} · Review monitoring availability</small>
+              </span>
+              <ArrowRight size={17} />
+            </Link>
+          ))}
+          {unavailableMonitors.map((d) => (
+            <Link key={d.id} to={`/patients/${d.patientId}?section=vitals`}>
+              <Radio size={20} />
+              <span>
+                <strong>
+                  Monitor {words(d.connectionState)} · {words(d.freshness)}
+                </strong>
+                <small>
+                  {identity(d.patientId)} · Review source availability
+                </small>
               </span>
               <ArrowRight size={17} />
             </Link>

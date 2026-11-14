@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Link,
   NavLink,
@@ -37,6 +37,9 @@ export default function App() {
     [updatedAt, setUpdatedAt] = useState<string | null>(null);
   const navigate = useNavigate(),
     location = useLocation();
+  const currentUnit = useRef(unit),
+    requestSequence = useRef(0),
+    appliedSequence = useRef(0);
   const loaded = state !== null;
   useEffect(() => {
     const heading = document.querySelector<HTMLHeadingElement>("main h1");
@@ -46,23 +49,32 @@ export default function App() {
     }
   }, [location.pathname, loaded]);
   const refresh = useCallback(async () => {
+    const request = ++requestSequence.current;
     try {
       const [s, r] = await Promise.all([
         api<State>("/state"),
         api<Round[]>(`/rounds?unit=${unit}`),
       ]);
+      if (request < appliedSequence.current || unit !== currentUnit.current)
+        return;
+      appliedSequence.current = request;
       setState(s);
       setUpdatedAt(new Date().toISOString());
       setRounds(r);
       setError("");
     } catch (e) {
+      if (request < appliedSequence.current || unit !== currentUnit.current)
+        return;
+      appliedSequence.current = request;
       setError(e instanceof Error ? e.message : "Cannot connect");
     }
   }, [unit]);
   useEffect(() => {
     void refresh();
     const timer = setInterval(() => void refresh(), 3000);
-    return () => clearInterval(timer);
+    return () => {
+      clearInterval(timer);
+    };
   }, [refresh]);
   useEffect(() => {
     if (!notice) return;
@@ -153,7 +165,10 @@ export default function App() {
               aria-label="Demo unit"
               value={unit}
               onChange={(e) => {
+                currentUnit.current = e.target.value;
                 setUnit(e.target.value);
+                setRounds([]);
+                setSearch("");
                 navigate("/");
               }}
             >
@@ -345,6 +360,9 @@ export default function App() {
               ["no-movement", "Make turn review due"],
               ["disconnect", "Disconnect pelvis sensor"],
               ["reconnect", "Reconnect sensor"],
+              ["monitor-disconnect", "Disconnect bedside monitor"],
+              ["monitor-delay", "Delay bedside monitor"],
+              ["monitor-reconnect", "Reconnect bedside monitor"],
             ].map(([key, title]) => (
               <button
                 disabled={busy}

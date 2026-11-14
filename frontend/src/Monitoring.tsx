@@ -1,4 +1,4 @@
-import type { Vital } from "./types";
+import type { Device, State, Vital } from "./types";
 import { words, time } from "./api";
 export const STALE_AFTER_MINUTES = 15; // Display freshness only; not a clinical alert threshold.
 export function orderedReadings(values: Vital[]) {
@@ -13,15 +13,44 @@ export function latestReadings(values: Vital[]) {
     sorted.filter((v) => v.metric === metric).at(-1)!,
   );
 }
-export function readingState(v: Vital) {
+export function readingState(v: Vital, device?: Device) {
   if (v.quality === "MISSING" || !Number.isFinite(v.value))
     return "Unavailable";
   if (v.quality.includes("DISCONNECTED")) return "Disconnected";
+  if (device?.connectionState === "DISCONNECTED") return "Disconnected";
+  if (device?.freshness === "UNKNOWN") return "Signal unavailable";
   if (!Number.isFinite(Date.parse(v.observedAt))) return "Time unavailable";
-  if (Date.now() - Date.parse(v.observedAt) > STALE_AFTER_MINUTES * 60000)
+  if (
+    device?.freshness === "STALE" ||
+    Date.now() - Date.parse(v.observedAt) >
+      (device ? 60000 : STALE_AFTER_MINUTES * 60000)
+  )
     return "Old reading";
+  if (device?.connectionState === "DELAYED" || v.quality === "DELAYED")
+    return "Delayed reading";
   if (v.quality !== "VALID") return "Check signal quality";
   return "Recent reading";
+}
+export function patientMonitor(state: State, patientId: string) {
+  return state.devices?.find(
+    (d) => d.patientId === patientId && d.bodyRegion === "BEDSIDE_MONITOR",
+  );
+}
+export function DeviceStatus({ device }: { device?: Device }) {
+  if (!device) return null;
+  return (
+    <p className="monitor-status" aria-label="Monitor availability">
+      Monitor: {words(device.connectionState)} · {words(device.freshness)} ·
+      simulated
+      <small>
+        {" "}
+        Sampled {device.lastSampledAt
+          ? time(device.lastSampledAt)
+          : "unknown"}{" "}
+        · received {device.lastSeenAt ? time(device.lastSeenAt) : "unknown"}
+      </small>
+    </p>
+  );
 }
 export function freshness(v: Vital) {
   const elapsed = Date.now() - Date.parse(v.observedAt);

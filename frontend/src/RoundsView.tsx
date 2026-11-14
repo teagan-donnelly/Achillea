@@ -20,17 +20,23 @@ export function RoundsView({
     {
       title: "Now",
       description: "Explicit priority or scheduled review time has passed",
-      items: rounds.filter((r) => r.rank <= 1),
+      items: rounds.filter((r) =>
+        r.horizon ? r.horizon === "NOW" : r.rank <= 1,
+      ),
     },
     {
       title: "Next",
       description: "Scheduled within the next 30 minutes",
-      items: rounds.filter((r) => r.rank === 2),
+      items: rounds.filter((r) =>
+        r.horizon ? r.horizon === "NEXT" : r.rank === 2,
+      ),
     },
     {
       title: "Later",
       description: "Remaining planned care, in the backend sequence",
-      items: rounds.filter((r) => r.rank >= 3),
+      items: rounds.filter((r) =>
+        r.horizon ? r.horizon === "LATER" : r.rank >= 3,
+      ),
     },
   ];
   const completed = state.tasks.filter(

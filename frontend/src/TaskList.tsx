@@ -179,7 +179,17 @@ export function TaskList({
                           .filter(
                             (m) =>
                               m.patientId === t.patientId &&
-                              m.verificationStatus === "CONFIRMED_CARE",
+                              m.verificationStatus === "CONFIRMED_CARE" &&
+                              !state.charts.some(
+                                (c) =>
+                                  c.status !== "DRAFT" &&
+                                  c.linkedMovementId === m.id &&
+                                  state.tasks.some(
+                                    (task) =>
+                                      task.id === c.linkedTaskId &&
+                                      task.status === "COMPLETED",
+                                  ),
+                              ),
                           )
                           .map((m) => (
                             <option key={m.id} value={m.id}>

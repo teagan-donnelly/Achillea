@@ -34,7 +34,7 @@ export function EventTimeline({
             /chart\.confirmed|task\.complete/.test(e.type) ||
             (e.type === "movement.reviewed" &&
               e.details.startsWith("CONFIRMED_CARE")),
-          monitor = /^(vital|movement)/.test(e.type),
+          monitor = /^(vital|movement|device)/.test(e.type),
           Icon = done
             ? CheckCircle
             : e.type.startsWith("chart")

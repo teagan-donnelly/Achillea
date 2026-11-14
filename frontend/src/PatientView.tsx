@@ -1,9 +1,16 @@
 import { useEffect, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { ArrowLeft, HeartPulse, Radio } from "lucide-react";
-import type { Chart, Round, State } from "./types";
+import type { Chart, Movement, Round, State } from "./types";
 import { time, words } from "./api";
-import { latestReadings, readingState, freshness, Trend } from "./Monitoring";
+import {
+  latestReadings,
+  readingState,
+  freshness,
+  Trend,
+  DeviceStatus,
+  patientMonitor,
+} from "./Monitoring";
 import { EventTimeline } from "./EventTimeline";
 import { TaskList, type Mutate } from "./TaskList";
 export function PatientView({
@@ -33,7 +40,9 @@ export function PatientView({
         ? "Chart"
         : params.get("section") === "tasks"
           ? "Care tasks"
-          : "Overview",
+          : params.get("section") === "vitals"
+            ? "Vitals"
+            : "Overview",
     ),
     [text, setText] = useState(requestedChart?.text ?? ""),
     [type, setType] = useState(requestedChart?.type ?? "OBSERVATION"),
@@ -115,6 +124,7 @@ export function PatientView({
       .filter((m) => m.verificationStatus === "CONFIRMED_CARE")
       .at(-1);
   const current = latestReadings(vitals);
+  const monitor = patientMonitor(state, p.id);
   async function save() {
     try {
       const body = {
@@ -185,6 +195,7 @@ export function PatientView({
               <Radio size={14} /> Simulated monitor
             </span>
           </div>
+          <DeviceStatus device={monitor} />
           <div className="vital-grid">
             {current.map((v) => (
               <article className="vital" key={v.metric}>
@@ -193,7 +204,13 @@ export function PatientView({
                   {words(v.metric)}
                 </h3>
                 <p className="reading">
-                  {v.quality === "MISSING" ? "Unavailable" : v.value}
+                  {[
+                    "Unavailable",
+                    "Disconnected",
+                    "Signal unavailable",
+                  ].includes(readingState(v, monitor))
+                    ? "Unavailable"
+                    : v.value}
                   <span>{v.unit}</span>
                 </p>
                 <small>
@@ -204,20 +221,26 @@ export function PatientView({
                 </small>
                 <span
                   className={
-                    readingState(v) === "Old reading"
+                    readingState(v, monitor) === "Old reading"
                       ? "freshness old"
                       : "freshness"
                   }
                 >
-                  {readingState(v)} ? {freshness(v)}
+                  {readingState(v, monitor)} · {freshness(v)}
                 </span>
                 <Trend readings={vitals.filter((x) => x.metric === v.metric)} />
               </article>
             ))}
+            {!current.length && (
+              <p className="empty">
+                No monitor readings available. Check source availability before
+                documenting measurements.
+              </p>
+            )}
           </div>
           <button
             className="secondary"
-            disabled={busy}
+            disabled={busy || monitor?.connectionState === "DISCONNECTED"}
             onClick={() =>
               void mutate(`/demo/scenarios/vital?patientId=${id}`).catch(
                 () => {},
@@ -226,6 +249,19 @@ export function PatientView({
           >
             Receive simulated monitor reading
           </button>
+          {monitor?.connectionState === "DISCONNECTED" && (
+            <button
+              className="secondary"
+              disabled={busy}
+              onClick={() =>
+                void mutate(
+                  `/demo/scenarios/monitor-reconnect?patientId=${id}`,
+                ).catch(() => {})
+              }
+            >
+              Reconnect simulated monitor
+            </button>
+          )}
         </>
       )}
       {(tab === "Care tasks" || tab === "Overview") && (
@@ -269,45 +305,18 @@ export function PatientView({
             relief.
           </p>
           <div className="sensor-regions">
-            <div>
-              <Radio size={22} />
-              <strong>Upper torso</strong>
-              <small>
-                {latest
-                  ? "Last report: connected (simulated)"
-                  : "Connectivity unavailable"}
-              </small>
-              <span>{latest ? `${latest.chestAfter}°` : "No observation"}</span>
-              <small>
-                Simulated ·{" "}
-                {latest ? time(latest.capturedAt) : "Awaiting sample"}
-              </small>
-            </div>
-            <div>
-              <Radio size={22} />
-              <strong>Pelvis</strong>
-              <small>
-                {!latest
-                  ? "Connectivity unavailable"
-                  : latest.quality === "PELVIS_DISCONNECTED"
-                    ? "Disconnected - review needed"
-                    : "Last report: connected (simulated)"}
-              </small>
-              <span>
-                {latest?.quality === "PELVIS_DISCONNECTED"
-                  ? "Unknown / disconnected"
-                  : latest
-                    ? `${latest.pelvisAfter}°`
-                    : "No observation"}
-              </span>
-              <small>
-                {latest?.quality === "PELVIS_DISCONNECTED"
-                  ? "Missing data is not no movement"
-                  : latest
-                    ? `Observed ${time(latest.capturedAt)}`
-                    : "No observation"}
-              </small>
-            </div>
+            <SensorRegion
+              state={state}
+              patientId={p.id}
+              region="UPPER_TORSO"
+              latest={latest}
+            />
+            <SensorRegion
+              state={state}
+              patientId={p.id}
+              region="PELVIS"
+              latest={latest}
+            />
           </div>
           <p>
             Last detected movement:{" "}
@@ -345,6 +354,14 @@ export function PatientView({
                     Chest {m.chestBefore}° → {m.chestAfter}° · Pelvis{" "}
                     {m.pelvisBefore}° → {m.pelvisAfter}° · Source samples:{" "}
                     {m.sampleIds.length}
+                    <br />
+                    Torso source: {m.chestSensorId ?? "Unavailable"} · Pelvis
+                    source: {m.pelvisSensorId ?? "Unavailable"}
+                    <br />
+                    Heuristic confidence:{" "}
+                    {m.confidence == null
+                      ? "Unavailable"
+                      : `${Math.round(m.confidence * 100)}% (simulation only)`}
                   </small>
                 </details>
                 {m.verificationStatus !== "CONFIRMED_CARE" && (
@@ -649,6 +666,64 @@ export function PatientView({
           </section>
         </div>
       )}
+    </div>
+  );
+}
+
+function SensorRegion({
+  state,
+  patientId,
+  region,
+  latest,
+}: {
+  state: State;
+  patientId: string;
+  region: string;
+  latest?: Movement;
+}) {
+  const device = state.devices?.find(
+    (d) => d.patientId === patientId && d.bodyRegion === region,
+  );
+  const sample = state.samples
+    ?.filter((x) => x.patientId === patientId && x.bodyRegion === region)
+    .slice()
+    .sort((a, b) => Date.parse(a.capturedAt) - Date.parse(b.capturedAt))
+    .at(-1);
+  const disconnected = device
+    ? device.connectionState === "DISCONNECTED"
+    : region === "PELVIS" && latest?.quality === "PELVIS_DISCONNECTED";
+  const angle =
+    sample?.rollDegrees ??
+    (region === "PELVIS" ? latest?.pelvisAfter : latest?.chestAfter);
+  const captured = sample?.capturedAt ?? latest?.capturedAt;
+  return (
+    <div>
+      <Radio size={22} />
+      <strong>{region === "PELVIS" ? "Pelvis" : "Upper torso"}</strong>
+      <small>
+        {device
+          ? `${words(device.connectionState)} · ${words(device.freshness)} (simulated)`
+          : disconnected
+            ? "Disconnected - review needed"
+            : latest
+              ? "Last report: connected (simulated)"
+              : "Connectivity unavailable"}
+      </small>
+      <span>
+        {disconnected
+          ? "Unknown / disconnected"
+          : angle === undefined
+            ? "No observation"
+            : `${angle}°`}
+      </span>
+      <small>
+        {disconnected
+          ? "Missing data is not no movement"
+          : captured
+            ? `Observed ${time(captured)}`
+            : "Awaiting sample"}
+      </small>
+      {device && <small>Source: {device.id}</small>}
     </div>
   );
 }
