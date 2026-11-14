@@ -2,6 +2,8 @@
 
 All endpoints below require demo mode, use assigned patients only, and retain existing V2 response shapes. Timestamps are ISO-8601 UTC. Data and rules are synthetic; ordering expresses workflow timing, never medical urgency. No external credentials or hardware are required.
 
+Integration follow-up: `/api/workspace?unit=...` supplies unit-scoped workflow metadata in the existing State shape, with empty vitals/samples/events arrays (retrieve those through monitoring updates). It does not erase stored evidence. See [V3 integration](../INTEGRATION_V3.md) for connected frontend behavior and verified startup commands.
+
 Implemented additive surfaces:
 
 - `GET /api/activity/summary?unit=ICU&patientId=...`: routine measurements grouped by patient/source/15-minute receipt window, with exact measurement IDs and counts; non-routine measurements and raw events remain individually traceable.

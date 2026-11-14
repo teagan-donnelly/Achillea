@@ -6,36 +6,33 @@ Care that moves with you. Achillea combines assigned-patient monitoring, bedside
 
 ## Combined application
 
-`integration/achillea-v2` combines `feature/clinical-data` (`e18b416`) and `feature/mobile-redesign` (`720c8a1`), both based on `874f2ee`. Main and the feature branches remain separate. React/TypeScript/Vite uses typed REST calls and three-second polling through a same-origin proxy; Spring Boot/Java 21 persists a versioned demo aggregate in file-backed H2. Monitor and independent chest/pelvis adapters supply simulated observations.
+`integration/achillea-v3` combines backend `feature/clinical-demo` (`e880f02`) and frontend `feature/mobile-polish` (`80d569c`), both based on V2 `af2d7d4`. It connects backend activity summaries, incremental monitoring, sensor history, rounds reason codes, review scheduling, and five guided demo presets to the mobile interface. Main and V2 are unchanged.
 
 ## Install and run
 
-Prerequisites: **Java 21**, **Maven 3.6.3+**, and **Node 22.12+ or 24+** (verified with Node 24). First installation requires access to Maven Central/npm; the demo requires no external credentials afterward.
+Requires Java 21, Maven 3.6.3+, and Node 22.12+ or 24+. See the [V3 integration runbook](docs/INTEGRATION_V3.md) for the exact installed Windows Maven/Java paths, disposable test configuration, verification results, and two-minute demonstration.
 
-From the repository root, use two terminals. The commands work in PowerShell and macOS/Linux shells (use `npm.cmd` on Windows if PowerShell blocks npm.ps1).
+Terminal 1, from repository root (PowerShell):
 
-Terminal 1:
-
-```sh
-git switch integration/achillea-v2
-mvn -f backend/pom.xml verify
-cd backend
-java -jar target/achillea-0.1.0.jar --spring.datasource.url=jdbc:h2:file:./data/achillea-v2-demo
+```powershell
+git switch integration/achillea-v3
+mvn -f backend/pom.xml -Dachillea.build.directory=target/v3-integration verify
+Set-Location backend
+java -jar target/v3-integration/achillea-0.1.0.jar --server.port=18084 --spring.datasource.url=jdbc:h2:file:./data/achillea-v3-demo
 ```
 
-Terminal 2, starting at the repository root:
+Terminal 2, from repository root:
 
-```sh
-cd frontend
-npm ci
-npm run dev -- --port 5173 --strictPort
+```powershell
+Set-Location frontend
+npm.cmd ci
+$env:API_PROXY_TARGET = 'http://127.0.0.1:18084'
+npm.cmd run dev -- --port 15174 --strictPort
 ```
 
-Open **http://127.0.0.1:5173/**. Backend health is http://127.0.0.1:8080/api/health. Wait for Spring Boot to start before opening the app. The frontend displays an actionable connection error if the API is unavailable. Stop each server with Ctrl+C.
+Open **http://127.0.0.1:15174/**. Backend health: http://127.0.0.1:18084/api/health. If the verified demo is already running on these ports, open the link directly. Stop a server with Ctrl+C before starting another instance on its port. On macOS/Linux use npm and export API_PROXY_TARGET=http://127.0.0.1:18084.
 
-The explicit `achillea-v2-demo` database above separates this combined demo from the original default `backend/data/achillea`. It persists between restarts. Existing files are preserved; no startup command erases data. An absent database is seeded automatically. Existing older datasets need an **explicit** reset to opt into the expanded data. Reset permanently discards records in that selected *synthetic demo database*; use it only after saving any demo work you want to keep.
-
-If Maven is installed outside PATH on this development machine, see the exact PowerShell executable/cache commands in [backend integration notes](docs/backend/integration-notes.md). If ports are occupied, stop your earlier instance or select different ports and set API_PROXY_TARGET as described below. StrictPort prevents opening the wrong frontend silently.
+The named V3 file database preserves existing demo files and persists between restarts. An absent database automatically seeds the expanded synthetic census. No startup/preset automatically resets saved data. Reset synthetic demo asks for confirmation and permanently discards the selected database's records. Live tests must use the separate disposable database described in the runbook.
 
 ## Configuration
 
@@ -62,7 +59,7 @@ Fresh data contains **10 L&D and 7 ICU census patients**, with **three assigned 
 4. Review candidate, enter a bedside verification note, verify and confirm the care observation. Explicitly Complete the prescribed task using that confirmed movement and nurse verification.
 5. Use disconnect/reconnect controls to show unknown sensor data and unavailable monitor readings. Return to Rounds to see backend Now/Next/Later groups, priority reasons, acknowledgments, deferrals, and completed care. Activity shows the saved audit history.
 
-Full recording guidance: [demo script](docs/DEMO_SCRIPT.md). No video is generated/uploaded automatically. This is a software simulation, not a claim of validated pressure relief, treatment recommendations, injury prevention, or clinical deployment readiness.
+V3 recording guidance and all five presets: [integration runbook](docs/INTEGRATION_V3.md). Original V2 guidance: [demo script](docs/DEMO_SCRIPT.md). No video is generated/uploaded automatically. This is a software simulation, not a claim of validated pressure relief, treatment recommendations, injury prevention, or clinical deployment readiness.
 
 ## Checks
 

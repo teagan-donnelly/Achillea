@@ -33,6 +33,9 @@ class DemoDisabledTest {
     mvc.perform(get("/api/health")).andExpect(status().isOk());
     mvc.perform(get("/api/demo/census")).andExpect(status().isForbidden());
     mvc.perform(get("/api/state")).andExpect(status().isForbidden());
+    mvc
+      .perform(get("/api/workspace?unit=ICU"))
+      .andExpect(status().isForbidden());
     mvc.perform(get("/api/activity/summary")).andExpect(status().isForbidden());
     mvc
       .perform(get("/api/monitoring/updates"))

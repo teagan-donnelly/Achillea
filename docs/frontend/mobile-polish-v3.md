@@ -1,5 +1,7 @@
 # Achillea V3 mobile polish
 
+Integration follow-up: this document records the original frontend branch. [V3 integration](../INTEGRATION_V3.md) documents the combined application, new API connections, exact startup/demo commands, and live verification.
+
 ## Branch and scope
 
 Branch: `feature/mobile-polish`, based on `origin/integration/achillea-v2` at `af2d7d4b7b8c5de2d1a20932e37450b31833e74b`. Implemented in the separate `Achillea-mobile-polish` worktree to isolate parallel backend work. The original Achillea directory is unchanged. Only `frontend/**` and this frontend documentation are owned by this change. No main/integration merge was performed.

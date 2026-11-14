@@ -2,13 +2,14 @@ import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { patientReturnState } from "./navigation-context";
 import { ArrowUp, Check, Clock } from "lucide-react";
-import type { Round, State, Chart } from "./types";
+import type { Round, State, Chart, Task } from "./types";
 import { time, words } from "./api";
+import { RoundReasons } from "./RoundReasons";
 export type Mutate = (
   path: string,
   body?: unknown,
   method?: string,
-) => Promise<Chart | State>;
+) => Promise<Chart | State | Task>;
 export function TaskList({
   rounds,
   state,
@@ -46,7 +47,7 @@ export function TaskList({
           <p>No active tasks for this unit.</p>
         </div>
       )}
-      {rounds.map(({ task: t, reason: why, rank }) => (
+      {rounds.map(({ task: t, reason: why, rank, reasonCodes }) => (
         <article
           className={`task ${rank === 0 ? "high" : ""}`}
           key={t.id}
@@ -75,6 +76,7 @@ export function TaskList({
             {why} · {words(t.source)}
           </small>
           {t.deferReason && <p>Deferred: {t.deferReason}</p>}
+          <RoundReasons codes={reasonCodes} />
           {compact ? (
             <Link className="text-link" to="/rounds">
               Review task →

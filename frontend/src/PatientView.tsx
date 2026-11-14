@@ -19,6 +19,7 @@ import {
 } from "./Monitoring";
 import { EventTimeline } from "./EventTimeline";
 import { TaskList, type Mutate } from "./TaskList";
+import { SensorEvidence } from "./SensorEvidence";
 export function PatientView({
   state,
   rounds,
@@ -70,7 +71,8 @@ export function PatientView({
     [review, setReview] = useState(""),
     [reviewNote, setReviewNote] = useState(""),
     [reviewVerified, setReviewVerified] = useState(false),
-    [trendMetric, setTrendMetric] = useState("");
+    [trendMetric, setTrendMetric] = useState(""),
+    [showAllMovements, setShowAllMovements] = useState(false);
   const [dirty, setDirty] = useState(false),
     [needsSave, setNeedsSave] = useState(true),
     [storageError, setStorageError] = useState(false);
@@ -423,13 +425,48 @@ export function PatientView({
               </strong>
             </p>
             <p>
-              Last nurse-confirmed care:{" "}
+              Last nurse-confirmed movement review:{" "}
               <strong>
                 {lastConfirmed?.reviewedAt
                   ? time(lastConfirmed.reviewedAt)
                   : "None in this demo"}
               </strong>
             </p>
+            <p>
+              Last documented care completion:{" "}
+              <strong>
+                {charts
+                  .filter(
+                    (c) =>
+                      c.type === "TASK_COMPLETION" &&
+                      c.status === "CONFIRMED" &&
+                      c.linkedMovementId,
+                  )
+                  .at(-1)?.confirmedAt
+                  ? time(
+                      charts
+                        .filter(
+                          (c) =>
+                            c.type === "TASK_COMPLETION" &&
+                            c.status === "CONFIRMED" &&
+                            c.linkedMovementId,
+                        )
+                        .at(-1)!.confirmedAt!,
+                    )
+                  : "None in this demo"}
+              </strong>
+            </p>
+            <SensorEvidence patientId={p.id} revision={state.serverTime} />
+            {movements.length > 4 && (
+              <button
+                className="secondary"
+                onClick={() => setShowAllMovements(!showAllMovements)}
+              >
+                {showAllMovements
+                  ? "Show latest four movements"
+                  : `Show all ${movements.length} movements`}
+              </button>
+            )}
             {!movements.length && (
               <p>
                 No movement candidates yet. Use Demo controls to generate
@@ -437,11 +474,17 @@ export function PatientView({
               </p>
             )}
             {movements
-              .slice(-4)
+              .slice(showAllMovements ? 0 : -4)
               .reverse()
               .map((m) => (
                 <article className="movement" key={m.id}>
                   <strong>{words(m.classification)}</strong>
+                  {m.reviewRequired && (
+                    <p>
+                      Review required:{" "}
+                      {m.reviewReasonCodes?.map(words).join(" / ")}
+                    </p>
+                  )}
                   <p>
                     {words(m.quality)} · {time(m.capturedAt)} ·{" "}
                     {words(m.verificationStatus)}
@@ -792,7 +835,13 @@ function SensorRegion({
     : region === "PELVIS" && latest?.quality === "PELVIS_DISCONNECTED";
   const angle =
     sample?.rollDegrees ??
-    (region === "PELVIS" ? latest?.pelvisAfter : latest?.chestAfter);
+    (latest?.sampleIds.some((id) =>
+      id.endsWith(region === "PELVIS" ? "-pelvis" : "-chest"),
+    )
+      ? region === "PELVIS"
+        ? latest.pelvisAfter
+        : latest.chestAfter
+      : undefined);
   const captured = sample?.capturedAt ?? latest?.capturedAt;
   return (
     <div>

@@ -10,6 +10,9 @@ export interface Patient {
   scenario?: string | null;
 }
 export interface Task {
+  scheduleState?: string | null;
+  relatedDeviceId?: string | null;
+  relatedMovementId?: string | null;
   id: string;
   patientId: string;
   title: string;
@@ -38,6 +41,8 @@ export interface Vital {
   sourceId?: string | null;
 }
 export interface Movement {
+  reviewRequired?: boolean;
+  reviewReasonCodes?: string[];
   id: string;
   patientId: string;
   classification: string;
@@ -80,6 +85,7 @@ export interface Event {
   timestamp: string;
 }
 export interface Device {
+  updateIntervalSeconds?: number;
   id: string;
   patientId: string;
   bodyRegion: string;
@@ -116,8 +122,58 @@ export interface State {
   monitorTick?: number;
 }
 export interface Round {
+  reasonCodes?: string[];
   task: Task;
   reason: string;
   rank: number;
   horizon?: "NOW" | "NEXT" | "LATER";
+}
+
+export interface ActivityItem {
+  id: string;
+  patientId: string | null;
+  category: string;
+  type: string;
+  sourceId: string | null;
+  startedAt: string;
+  timestamp: string;
+  count: number;
+  summary: string;
+  measurementIds: string[];
+  sourceEventIds: string[];
+  rawEventIds: string[];
+}
+export interface MonitoringUpdates {
+  serverTime: string;
+  nextSince: string;
+  inclusive: boolean;
+  measurements: Vital[];
+  orientationSamples: OrientationSample[];
+  devices: Device[];
+  events: Event[];
+}
+export interface SensorHistory {
+  patientId: string;
+  orientationUnit: string;
+  ruleVersion: string;
+  samples: OrientationSample[];
+  devices: Device[];
+  connectivityEvents: Event[];
+  movements: { movement: Movement; charts: Chart[] }[];
+}
+export interface DemoStep {
+  title: string;
+  method: string;
+  path: string;
+  body: Record<string, unknown>;
+  captureAs: string | null;
+}
+export interface DemoPlan {
+  key: string;
+  patientId: string;
+  notice: string;
+  beforeRounds: Round[];
+  state: State;
+  evidenceIds: Record<string, string>;
+  steps: DemoStep[];
 }

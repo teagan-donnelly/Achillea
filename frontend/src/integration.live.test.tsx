@@ -72,6 +72,7 @@ describe.skipIf(!base)(
     it("retrieves expanded assignments and renders backend activity and monitoring history", async () => {
       open();
       await screen.findByRole("heading", { name: "Activity" });
+      fireEvent.click(screen.getByLabelText("Show original event history"));
       expect(
         screen.getAllByText(
           /Historical synthetic monitor observations received/,
@@ -368,6 +369,124 @@ describe.skipIf(!base)(
         },
         { timeout: 8000 },
       );
+    }, 30000);
+
+    it("runs all five guided presets through explicit frontend actions", async () => {
+      open();
+      await screen.findByRole("heading", { name: "Activity" });
+      for (const [key, label] of [
+        ["routine-shift", "Routine shift"],
+        ["device-event", "Device event"],
+        ["repositioning", "Patient repositioning"],
+        ["bedside-documentation", "Bedside documentation"],
+        ["adaptive-rounds", "Adaptive rounds"],
+      ]) {
+        const unit = key === "repositioning" ? "ICU" : "L_AND_D";
+        if (
+          (screen.getByLabelText("Demo unit") as HTMLSelectElement).value !==
+          unit
+        ) {
+          fireEvent.change(screen.getByLabelText("Demo unit"), {
+            target: { value: unit },
+          });
+          await screen.findByRole("heading", { name: "Activity" });
+        }
+        fireEvent.click(screen.getByRole("button", { name: "Demo controls" }));
+        const before = await request<State>("/state");
+        fireEvent.click(await screen.findByRole("button", { name: label }));
+        await screen.findByRole("heading", { name: label });
+        await screen.findByRole("button", { name: "Run this step" });
+        expect((await request<State>("/state")).charts).toHaveLength(
+          before.charts.length,
+        );
+        const count = document.querySelectorAll(".preset-guide li").length;
+        for (let index = 0; index < count; index++) {
+          const note = screen.queryByLabelText("Synthetic bedside note");
+          const reason = screen.queryByLabelText("Deferral reason");
+          const verify = screen.queryByLabelText(
+            "I explicitly verify this synthetic nursing action.",
+          );
+          if (note)
+            fireEvent.change(note, {
+              target: { value: `Live V3 ${key} nurse action ${index}` },
+            });
+          if (reason)
+            fireEvent.change(reason, {
+              target: {
+                value:
+                  "Synthetic current bedside task before this scheduled review",
+              },
+            });
+          if (verify) fireEvent.click(verify);
+          const run = screen.getByRole("button", { name: "Run this step" });
+          await waitFor(() => expect(run).toBeEnabled());
+          fireEvent.click(run);
+          await waitFor(
+            () =>
+              expect(
+                [...document.querySelectorAll(".preset-guide li")].filter(
+                  (li) => li.textContent?.includes("completed"),
+                ),
+              ).toHaveLength(index + 1),
+            { timeout: 10000 },
+          );
+        }
+        expect(screen.getByText(/Demonstration complete/)).toBeInTheDocument();
+        fireEvent.click(screen.getByRole("button", { name: "Close" }));
+      }
+      const final = await request<State>("/state");
+      expect(final.tasks.find((t) => t.id === "task-3")?.status).toBe(
+        "COMPLETED",
+      );
+      expect(
+        final.charts.some(
+          (c) =>
+            c.status === "AMENDED" &&
+            c.text.includes("Live V3 bedside-documentation"),
+        ),
+      ).toBe(true);
+      const history = await request<{ movements: { charts: Chart[] }[] }>(
+        "/patients/synthetic-icu-01/sensor-history",
+      );
+      expect(
+        history.movements.some((entry) =>
+          entry.charts.some((c) => c.type === "TASK_COMPLETION"),
+        ),
+      ).toBe(true);
+    }, 60000);
+
+    it("schedules an actual review and renders backend priority reason codes", async () => {
+      open("/rounds");
+      await screen.findByRole("heading", { name: "Rounds" });
+      fireEvent.click(screen.getByText("Schedule a synthetic review"));
+      fireEvent.change(screen.getByLabelText("Assigned patient"), {
+        target: { value: "synthetic-ld-01" },
+      });
+      fireEvent.change(screen.getByLabelText("Review title"), {
+        target: { value: "Live V3 explicit workflow review" },
+      });
+      fireEvent.change(screen.getByLabelText("Review time (local)"), {
+        target: { value: "2026-01-01T12:00" },
+      });
+      fireEvent.change(screen.getByLabelText("Workflow priority"), {
+        target: { value: "TIMELY" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Schedule review" }));
+      await screen.findByRole("link", {
+        name: "Live V3 explicit workflow review",
+      });
+      const rounds = await request<
+        { task: { title: string }; horizon: string; reasonCodes: string[] }[]
+      >("/rounds?unit=L_AND_D");
+      const scheduled = rounds.find(
+        (r) => r.task.title === "Live V3 explicit workflow review",
+      )!;
+      expect(scheduled.horizon).toBe("NOW");
+      expect(scheduled.reasonCodes).toContain("SCHEDULED_OVERDUE");
+      expect(scheduled.reasonCodes).toContain("EXPLICIT_TIMELY_PRIORITY");
+      expect(
+        screen.getAllByText(/EXPLICIT_TIMELY_PRIORITY/).length,
+      ).toBeGreaterThan(0);
     }, 30000);
 
     it("never renders a numeric missing sample as an available current measurement", async () => {

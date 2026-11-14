@@ -1,3 +1,4 @@
+import { fixturePayload } from "./test-api-fixture";
 import { afterEach, describe, it, expect, vi } from "vitest";
 import {
   cleanup,
@@ -134,7 +135,7 @@ describe("Mobile navigation", () => {
       "fetch",
       vi.fn(async (url: string) => ({
         ok: true,
-        json: async () => (url.includes("/rounds") ? rounds : state),
+        json: async () => fixturePayload(url, state, rounds),
       })),
     );
     render(
@@ -223,7 +224,7 @@ describe("Clinical information hierarchy", () => {
       "fetch",
       vi.fn(async (url: string) => ({
         ok: true,
-        json: async () => (url.includes("/rounds") ? rounds : state),
+        json: async () => fixturePayload(url, state, rounds),
       })),
     );
     render(

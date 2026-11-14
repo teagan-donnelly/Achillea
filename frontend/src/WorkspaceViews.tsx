@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { patientReturnState } from "./navigation-context";
 import { ArrowRight, CheckCircle, ClipboardList, Radio } from "lucide-react";
-import type { Patient, Round, State } from "./types";
+import type { ActivityItem, Patient, Round, State } from "./types";
+import { BackendActivity } from "./BackendActivity";
 import { time, words } from "./api";
 import {
   freshness,
@@ -144,11 +145,13 @@ export function PatientCard({
 }
 export function ActivityHome({
   state,
+  summaries,
   patients,
   rounds,
   label,
 }: {
   state: State;
+  summaries?: ActivityItem[];
   patients: Patient[];
   rounds: Round[];
   label: string;
@@ -165,6 +168,7 @@ export function ActivityHome({
   const movements = state.movements.filter(
     (m) =>
       assigned(m.patientId) &&
+      m.reviewRequired !== false &&
       !["CONFIRMED_CARE", "NOT_CARE"].includes(m.verificationStatus),
   );
   const disconnected = patients.filter(
@@ -379,7 +383,27 @@ export function ActivityHome({
             ))}
           </select>
         </div>
-        <EventTimeline events={events} patients={patients} />
+        {summaries ? (
+          <BackendActivity
+            state={state}
+            events={events}
+            patients={patients}
+            items={summaries.filter(
+              (item) =>
+                (!patient || item.patientId === patient) &&
+                (filter === "all" ||
+                  (filter === "documentation"
+                    ? item.type.startsWith("chart")
+                    : filter === "monitoring"
+                      ? /^(monitoring|measurement|vital|movement|device)/.test(
+                          item.type,
+                        )
+                      : item.type.startsWith("task"))),
+            )}
+          />
+        ) : (
+          <EventTimeline events={events} patients={patients} />
+        )}
       </section>
     </>
   );

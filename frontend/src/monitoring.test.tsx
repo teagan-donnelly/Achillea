@@ -1,4 +1,5 @@
-﻿import { afterEach, expect, it, vi } from "vitest";
+import { fixturePayload } from "./test-api-fixture";
+import { afterEach, expect, it, vi } from "vitest";
 import {
   cleanup,
   fireEvent,
@@ -175,7 +176,7 @@ it("refreshes task state and Activity after an acknowledged API response", async
     }
     return {
       ok: true,
-      json: async () => (url.includes("/rounds") ? [updatedRound] : data),
+      json: async () => fixturePayload(url, data, [updatedRound]),
     };
   });
   vi.stubGlobal("fetch", fetch);
@@ -213,9 +214,7 @@ it("keeps ICU workflows separate when switching units", async () => {
     vi.fn(async (url: string) => ({
       ok: true,
       json: async () =>
-        url.includes("/rounds")
-          ? []
-          : { ...state, patients: [...state.patients, icu] },
+        fixturePayload(url, { ...state, patients: [...state.patients, icu] }),
     })),
   );
   render(

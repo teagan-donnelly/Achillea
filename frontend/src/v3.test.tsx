@@ -1,4 +1,5 @@
-﻿import { afterEach, expect, it, vi } from "vitest";
+import { fixturePayload } from "./test-api-fixture";
+import { afterEach, expect, it, vi } from "vitest";
 import {
   cleanup,
   fireEvent,
@@ -158,9 +159,7 @@ it("opens a focused task from Rounds and returns to that schedule", async () => 
     vi.fn(async (url: string) => ({
       ok: true,
       json: async () =>
-        url.includes("/rounds")
-          ? rounds
-          : { ...state, tasks: [rounds[0].task] },
+        fixturePayload(url, { ...state, tasks: [rounds[0].task] }, rounds),
     })),
   );
   render(
@@ -201,7 +200,7 @@ it("opens monitoring from Activity and switches between actual recorded trends",
     vi.fn(async (url: string) => ({
       ok: true,
       json: async () =>
-        url.includes("/rounds") ? [] : { ...state, vitals, events: [event] },
+        fixturePayload(url, { ...state, vitals, events: [event] }),
     })),
   );
   render(

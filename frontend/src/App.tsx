@@ -19,15 +19,18 @@ import {
   Wifi,
   WifiOff,
 } from "lucide-react";
-import type { Chart, Patient, Round, State } from "./types";
+import type { ActivityItem, Chart, Patient, Round, State, Task } from "./types";
 import { api } from "./api";
 import { PatientView } from "./PatientView";
 import { RoundsView } from "./RoundsView";
 import { ActivityHome, PatientCard } from "./WorkspaceViews";
 import { SwipeNavigation } from "./SwipeNavigation";
+import { loadWorkspace, type WorkspaceSnapshot } from "./workspace-feed";
+import { DemoPresets } from "./DemoPresets";
 export default function App() {
   const [state, setState] = useState<State | null>(null),
     [rounds, setRounds] = useState<Round[]>([]),
+    [activity, setActivity] = useState<ActivityItem[]>([]),
     [unit, setUnit] = useState("L_AND_D"),
     [error, setError] = useState(""),
     [notice, setNotice] = useState(""),
@@ -40,6 +43,8 @@ export default function App() {
   const currentUnit = useRef(unit),
     requestSequence = useRef(0),
     appliedSequence = useRef(0);
+  const feed = useRef<WorkspaceSnapshot | null>(null),
+    unitGeneration = useRef(0);
   const loaded = state !== null;
   useEffect(() => {
     const heading = document.querySelector<HTMLHeadingElement>("main h1");
@@ -50,20 +55,29 @@ export default function App() {
   }, [location.pathname, loaded]);
   const refresh = useCallback(async () => {
     const request = ++requestSequence.current;
+    const generation = unitGeneration.current;
     try {
-      const [s, r] = await Promise.all([
-        api<State>("/state"),
-        api<Round[]>(`/rounds?unit=${unit}`),
-      ]);
-      if (request < appliedSequence.current || unit !== currentUnit.current)
+      const snapshot = await loadWorkspace(unit, feed.current);
+      if (
+        generation !== unitGeneration.current ||
+        request < appliedSequence.current ||
+        unit !== currentUnit.current
+      )
         return;
+      const { state: s, rounds: r } = snapshot;
+      feed.current = snapshot;
+      setActivity(snapshot.activity);
       appliedSequence.current = request;
       setState(s);
       setUpdatedAt(new Date().toISOString());
       setRounds(r);
       setError("");
     } catch (e) {
-      if (request < appliedSequence.current || unit !== currentUnit.current)
+      if (
+        generation !== unitGeneration.current ||
+        request < appliedSequence.current ||
+        unit !== currentUnit.current
+      )
         return;
       appliedSequence.current = request;
       setError(e instanceof Error ? e.message : "Cannot connect");
@@ -84,7 +98,8 @@ export default function App() {
   async function mutate(path: string, body: unknown = {}, method?: string) {
     setBusy(true);
     try {
-      const result = await api<Chart | State>(path, body, method);
+      const result = await api<Chart | State | Task>(path, body, method);
+      if (path === "/demo/reset") feed.current = null;
       await refresh();
       setNotice("Saved to the synthetic demo record");
       return result;
@@ -166,6 +181,11 @@ export default function App() {
               value={unit}
               onChange={(e) => {
                 currentUnit.current = e.target.value;
+                unitGeneration.current++;
+                feed.current = null;
+                setState(null);
+                setActivity([]);
+                setUpdatedAt(null);
                 setUnit(e.target.value);
                 setRounds([]);
                 setSearch("");
@@ -207,8 +227,8 @@ export default function App() {
               <div className="error" role="alert">
                 <strong>Unable to reach the local backend.</strong>
                 <p>
-                  {error}. Start Spring Boot on port 8080, then retry. Your
-                  unsaved note stays on screen.
+                  {error}. Check the backend and API proxy configuration, then
+                  retry. Your unsaved note stays on screen.
                 </p>
                 <button onClick={() => void refresh()}>Retry connection</button>
               </div>
@@ -226,6 +246,7 @@ export default function App() {
                     <ActivityHome
                       key={unit}
                       state={state}
+                      summaries={activity}
                       patients={patients}
                       rounds={rounds}
                       label={label}
@@ -302,6 +323,7 @@ export default function App() {
                     <ActivityHome
                       key={unit}
                       state={state}
+                      summaries={activity}
                       patients={patients}
                       rounds={rounds}
                       label={label}
@@ -332,8 +354,12 @@ export default function App() {
           {notice}
         </div>
       )}
-      {demo && (
-        <aside className="demo-panel" aria-label="Simulation control panel">
+      {
+        <aside
+          hidden={!demo}
+          className="demo-panel"
+          aria-label="Simulation control panel"
+        >
           <div className="section-heading">
             <h2>
               <FlaskConical size={20} /> Demo studio
@@ -345,6 +371,16 @@ export default function App() {
           <p>
             Simulation controls only. Every action is recorded by the backend.
           </p>
+          <DemoPresets
+            key={`${unit}:${state?.demoStartedAt ?? "loading"}`}
+            patients={patients}
+            busy={busy}
+            refresh={refresh}
+            onNavigate={(pid, section) => {
+              setDemo(false);
+              navigate(`/patients/${pid}?section=${section}`);
+            }}
+          />
           <ol>
             <li>L&D: send a reading, open Maya, save and confirm a note.</li>
             <li>Switch to ICU. Compare partial and coordinated movement.</li>
@@ -357,6 +393,14 @@ export default function App() {
               ["flagged", "Flagged synthetic reading"],
               ["partial", "Chest-only movement"],
               ["coordinated", "Coordinated turn candidate"],
+              ...(unit === "ICU"
+                ? [
+                    ["pelvic-only", "Pelvis-only movement"],
+                    ["sensor-delay", "Delayed sensor evidence"],
+                    ["uncertain", "Uncertain sensor evidence"],
+                    ["incomplete", "Incomplete sensor evidence"],
+                  ]
+                : []),
               ["no-movement", "Make turn review due"],
               ["disconnect", "Disconnect pelvis sensor"],
               ["reconnect", "Reconnect sensor"],
@@ -370,7 +414,7 @@ export default function App() {
                 key={key}
                 onClick={() =>
                   void mutate(
-                    `/demo/scenarios/${key}?patientId=${patients[0]?.id ?? "synthetic-ld-01"}`,
+                    `/demo/scenarios/${key}?patientId=${(key === "vital" || key === "flagged" || key.startsWith("monitor-") ? patients[0]?.id : state?.patients.find((p) => p.repositionPlan)?.id) ?? "synthetic-icu-01"}`,
                   ).catch(() => {})
                 }
               >
@@ -405,7 +449,7 @@ export default function App() {
             hardware required.
           </small>
         </aside>
-      )}
+      }
     </div>
   );
 }

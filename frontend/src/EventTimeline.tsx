@@ -114,11 +114,13 @@ function EventRow({
 export function EventTimeline({
   events,
   patients,
+  defaultGrouped = true,
 }: {
   events: Event[];
   patients: Patient[];
+  defaultGrouped?: boolean;
 }) {
-  const [grouped, setGrouped] = useState(true);
+  const [grouped, setGrouped] = useState(defaultGrouped);
   const groups = grouped
     ? groupReceipts(events)
     : events

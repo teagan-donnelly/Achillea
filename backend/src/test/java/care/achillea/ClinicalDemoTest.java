@@ -27,6 +27,25 @@ import org.springframework.test.web.servlet.MockMvc;
 @Import(ClinicalEngineTest.TimeConfig.class)
 class ClinicalDemoTest {
 
+  @Test
+  void workspaceScopesWorkflowWithoutResendingOrErasingObservationHistory()
+    throws Exception {
+    mvc
+      .perform(get("/api/workspace?unit=ICU"))
+      .andExpect(status().isOk())
+      .andExpect(jsonPath("$.patients.length()").value(3))
+      .andExpect(jsonPath("$.tasks.length()").value(9))
+      .andExpect(jsonPath("$.vitals.length()").value(0))
+      .andExpect(jsonPath("$.events.length()").value(0))
+      .andExpect(jsonPath("$.samples.length()").value(0))
+      .andExpect(jsonPath("$.patients[0].unit").value("ICU"));
+    assertTrue(service.read().vitals.size() > 0);
+    assertTrue(service.read().events.size() > 0);
+    mvc
+      .perform(get("/api/workspace?unit=INVALID"))
+      .andExpect(status().isBadRequest());
+  }
+
   @Autowired
   CareService service;
 

@@ -47,6 +47,7 @@ public class ClinicalController {
       )
       .forEach(p -> ids.add(p.id()));
     s.patients.removeIf(p -> !ids.contains(p.id()));
+    s.tasks.removeIf(t -> !ids.contains(t.patientId));
     s.vitals.removeIf(v -> !ids.contains(v.patientId()));
     s.samples.removeIf(x -> !ids.contains(x.patientId()));
     s.movements.removeIf(m -> !ids.contains(m.patientId));
@@ -64,6 +65,16 @@ public class ClinicalController {
     @RequestParam(required = false) String patientId
   ) {
     return ClinicalViews.activity(scope(unit, patientId));
+  }
+
+  /** Lightweight workflow snapshot; observation/audit history comes from the delta API. */
+  @GetMapping("/workspace")
+  public State workspace(@RequestParam String unit) {
+    State s = scope(unit, null);
+    s.vitals.clear();
+    s.samples.clear();
+    s.events.clear();
+    return s;
   }
 
   public record Updates(

@@ -4,6 +4,7 @@ import { ArrowRight, CheckCircle } from "lucide-react";
 import type { Round, State } from "./types";
 import { TaskList, type Mutate } from "./TaskList";
 import { time } from "./api";
+import { ScheduleReview } from "./ScheduleReview";
 export function RoundsView({
   rounds,
   state,
@@ -72,6 +73,7 @@ export function RoundsView({
           </a>
         ))}
       </nav>
+      <ScheduleReview patients={state.patients} mutate={mutate} busy={busy} />
       {rounds[0] && (
         <section className="next-action">
           <span className="eyebrow">NEXT SUGGESTED ACTION</span>

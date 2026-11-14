@@ -15,3 +15,4 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
 );
 
 import "./v3.css";
+import "./integration-v3.css";
