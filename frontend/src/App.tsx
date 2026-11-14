@@ -1,33 +1,393 @@
-import {useCallback,useEffect,useState} from 'react';
-import {Link,NavLink,Route,Routes,useNavigate} from 'react-router-dom';
-import {Activity,ArrowRight,CalendarCheck,Check,ChevronRight,FlaskConical,HeartPulse,LayoutDashboard,Leaf,RefreshCw,Search,Users,Wifi,WifiOff} from 'lucide-react';
-import type {Chart,Patient,Round,State} from './types';
-import {api,time,words} from './api';
-import {PatientView} from './PatientView';
-import {TaskList} from './TaskList';
-export default function App(){
- const [state,setState]=useState<State|null>(null),[rounds,setRounds]=useState<Round[]>([]),[unit,setUnit]=useState('L_AND_D'),[error,setError]=useState(''),[notice,setNotice]=useState(''),[demo,setDemo]=useState(false),[busy,setBusy]=useState(false),[search,setSearch]=useState('');
- const navigate=useNavigate();
- const refresh=useCallback(async()=>{try{const [s,r]=await Promise.all([api<State>('/state'),api<Round[]>(`/rounds?unit=${unit}`)]);setState(s);setRounds(r);setError('');}catch(e){setError(e instanceof Error?e.message:'Cannot connect');}},[unit]);
- useEffect(()=>{void refresh();const timer=setInterval(()=>void refresh(),3000);return()=>clearInterval(timer);},[refresh]);
- useEffect(()=>{if(!notice)return;const timer=setTimeout(()=>setNotice(''),5000);return()=>clearTimeout(timer);},[notice]);
- async function mutate(path:string,body:unknown={},method?:string){setBusy(true);try{const result=await api<Chart|State>(path,body,method);await refresh();setNotice('Saved to the synthetic demo record');return result;}catch(e){setNotice(e instanceof Error?e.message:'Action failed');throw e;}finally{setBusy(false);}}
- const patients=state?.patients.filter(p=>p.unit===unit)??[];
- const label=unit==='ICU'?'ICU · expansion scenario':'Labor & delivery';
- function patientCard(p:Patient){const vital=state?.vitals.filter(v=>v.patientId===p.id&&v.metric==='HEART_RATE').at(-1);const task=rounds.find(r=>r.task.patientId===p.id);return <Link className="patient-row" key={p.id} to={`/patients/${p.id}`}><span className="room"><small>ROOM</small>{p.room}</span><span className="patient-description"><strong>{p.name}</strong><span>{p.summary}</span><small>{task?`Next: ${task.task.title}`:'No active tasks'}</small></span><span className="patient-vital"><HeartPulse size={16}/><strong>{vital?.value??'—'}</strong><small>bpm · simulated</small></span><ChevronRight size={18}/></Link>;}
- return <div className="app"><aside className="sidebar"><Link to="/" className="brand"><Leaf size={28}/><span>Achillea<small>Care that moves with you.</small></span></Link><nav aria-label="Main navigation">{[["/","Shift",LayoutDashboard],["/patients","Patients",Users],["/rounds","Rounds",CalendarCheck],["/activity","Activity",Activity]].map(([path,title,Icon])=>{const Glyph=Icon as typeof Activity;return <NavLink end={path==='/'} key={path as string} to={path as string}><Glyph size={20}/><span>{title as string}</span></NavLink>;})}</nav><div className="sidebar-bottom"><p>Designed for the bedside.<br/>Built around your judgment.</p><button className="demo-toggle" onClick={()=>setDemo(!demo)}><FlaskConical size={18}/> Demo controls</button><div className="nurse"><span className="avatar">JE</span><span><strong>Jordan Ellis, RN</strong><small>Demo nurse · assigned care</small></span></div></div></aside>
- <div className="workspace"><header className="topbar"><span className="mobile-brand"><Leaf size={21}/> Achillea</span><label className="unit-picker">Demo unit<select aria-label="Demo unit" value={unit} onChange={e=>{setUnit(e.target.value);navigate('/');}}><option value="L_AND_D">Labor & delivery</option><option value="ICU">ICU · expansion scenario</option></select></label><span className={`connection ${error?'offline':''}`}>{error?<WifiOff size={16}/>:<Wifi size={16}/>} {error?'Offline':'Local API connected'}</span><button className="mobile-demo secondary" aria-label="Open demo controls" onClick={()=>setDemo(!demo)}><FlaskConical size={19}/></button></header>
- <div className="simulation"><FlaskConical size={14}/><span>Synthetic-data educational demo · Not for clinical use</span></div>
- <main id="main">{error&&<div className="error" role="alert"><strong>Unable to reach the local backend.</strong><p>{error}. Start Spring Boot on port 8080, then retry. Your unsaved note stays on screen.</p><button onClick={()=>void refresh()}>Retry connection</button></div>}
- {!state&&!error&&<div className="loading" role="status">Connecting to your demo shift…</div>}
- {state&&<Routes><Route path="/" element={<><div className="page-heading"><div><p className="date">Your assigned shift · {label}</p><h1>A little clarity.<br/><em>A lot of care.</em></h1><p>Everything you need for your next bedside visit.</p></div><Link className="primary" to="/rounds">Start rounds <ArrowRight size={18}/></Link></div><div className="shift-summary"><span><strong>{patients.length}</strong> assigned patients</span><span><strong>{rounds.filter(r=>r.rank<=2).length}</strong> tasks needing review</span><span><strong>{rounds[0]?time(rounds[0].task.dueAt):'—'}</strong> next scheduled task</span></div><div className="dashboard-grid"><section><div className="section-heading"><h2>Your patients</h2><Link to="/patients">View all <ArrowRight size={16}/></Link></div><div className="surface">{patients.map(patientCard)}</div><div className="care-note"><Leaf size={24}/><div><strong>Your judgment stays at the center.</strong><p>Readings inform your review. Only your explicit confirmation documents care.</p></div></div></section><section><div className="section-heading"><h2>Needs your attention</h2><span>{rounds.length} active</span></div><TaskList rounds={rounds.slice(0,3)} state={state} mutate={mutate} busy={busy} compact/></section></div><section className="recent"><div className="section-heading"><h2>Latest activity</h2><Link to="/activity">Open timeline <ArrowRight size={16}/></Link></div>{state.events.filter(e=>!e.patientId||patients.some(p=>p.id===e.patientId)).slice(-3).reverse().map(e=><div className="event-row" key={e.id}><span className="event-dot"/><div><strong>{words(e.type.replace('.',' '))}</strong><p>{e.details}</p><small>{e.source}</small></div><time>{time(e.timestamp)}</time></div>)}</section></>}/>
- <Route path="/patients" element={<><h1>Your patients</h1><p>Assigned to Jordan Ellis, RN · {label} · Synthetic records</p><label className="search"><Search size={19}/><input aria-label="Search assigned patients" placeholder="Search name, room, or synthetic wristband ID" value={search} onChange={e=>setSearch(e.target.value)}/></label><div className="surface">{patients.filter(p=>(p.name+p.room+p.id).toLowerCase().includes(search.toLowerCase())).map(patientCard)}{!patients.some(p=>(p.name+p.room+p.id).toLowerCase().includes(search.toLowerCase()))&&<p className="empty">No assigned patients match your search.</p>}</div></>}/>
- <Route path="/patients/:id" element={<PatientView state={state} rounds={rounds} unit={unit} mutate={mutate} busy={busy}/>}/>
- <Route path="/rounds" element={<><h1>A thoughtful next step.</h1><p>Your rounds · {label}</p><details className="explanation"><summary>Why this order?</summary><p>Explicit high priority → past due → due within 30 minutes → routine future tasks. Due time and stable ID break ties. You can move routine future tasks. These are demo workflow rules, not clinical triage. Notes stay in place while live data refreshes.</p></details><TaskList rounds={rounds} state={state} mutate={mutate} busy={busy}/></>}/>
- <Route path="/activity" element={<Timeline state={state} patients={patients}/>}/><Route path="*" element={<><h1>Page not found</h1><Link to="/">Return to your shift</Link></>}/></Routes>}
- </main><footer>Achillea · A calmer bedside workflow.<span>Simulated hardware. Human-confirmed care.</span></footer></div>
- {notice&&<div className="toast" role="status"><Check size={18}/>{notice}</div>}
- {demo&&<aside className="demo-panel" aria-label="Simulation control panel"><div className="section-heading"><h2><FlaskConical size={20}/> Demo studio</h2><button className="secondary" onClick={()=>setDemo(false)}>Close</button></div><p>Simulation controls only. Every action is recorded by the backend.</p><ol><li>L&D: send a reading, open Maya, save and confirm a note.</li><li>Switch to ICU. Compare partial and coordinated movement.</li><li>Review movement, verify care, then complete the task.</li><li>Show rounds and the activity timeline.</li></ol><div className="scenario-buttons">{[['vital','New monitor reading'],['flagged','Flagged synthetic reading'],['partial','Chest-only movement'],['coordinated','Coordinated turn candidate'],['no-movement','Make turn review due'],['disconnect','Disconnect pelvis sensor'],['reconnect','Reconnect sensor']].map(([key,title])=><button disabled={busy} className="secondary" key={key} onClick={()=>void mutate(`/demo/scenarios/${key}?patientId=${patients[0]?.id??'synthetic-ld-01'}`).catch(()=>{})}>{title}</button>)}</div><button className="reset" disabled={busy} onClick={()=>{if(window.confirm('Reset all synthetic demo records, including drafts?'))void mutate('/demo/reset').catch(()=>{});}}><RefreshCw size={16}/> Reset synthetic demo</button><small>Repositioning is enabled only by the ICU care plan. No AI key or hardware required.</small></aside>}
- </div>;
+import { useCallback, useEffect, useState } from "react";
+import {
+  Link,
+  NavLink,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+} from "react-router-dom";
+import {
+  Activity,
+  CalendarCheck,
+  Check,
+  FlaskConical,
+  Leaf,
+  RefreshCw,
+  Search,
+  Users,
+  Wifi,
+  WifiOff,
+} from "lucide-react";
+import type { Chart, Patient, Round, State } from "./types";
+import { api } from "./api";
+import { PatientView } from "./PatientView";
+import { RoundsView } from "./RoundsView";
+import { ActivityHome, PatientCard } from "./WorkspaceViews";
+import { SwipeNavigation } from "./SwipeNavigation";
+export default function App() {
+  const [state, setState] = useState<State | null>(null),
+    [rounds, setRounds] = useState<Round[]>([]),
+    [unit, setUnit] = useState("L_AND_D"),
+    [error, setError] = useState(""),
+    [notice, setNotice] = useState(""),
+    [demo, setDemo] = useState(false),
+    [busy, setBusy] = useState(false),
+    [search, setSearch] = useState(""),
+    [updatedAt, setUpdatedAt] = useState<string | null>(null);
+  const navigate = useNavigate(),
+    location = useLocation();
+  const loaded = state !== null;
+  useEffect(() => {
+    const heading = document.querySelector<HTMLHeadingElement>("main h1");
+    if (heading) {
+      heading.tabIndex = -1;
+      heading.focus({ preventScroll: true });
+    }
+  }, [location.pathname, loaded]);
+  const refresh = useCallback(async () => {
+    try {
+      const [s, r] = await Promise.all([
+        api<State>("/state"),
+        api<Round[]>(`/rounds?unit=${unit}`),
+      ]);
+      setState(s);
+      setUpdatedAt(new Date().toISOString());
+      setRounds(r);
+      setError("");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Cannot connect");
+    }
+  }, [unit]);
+  useEffect(() => {
+    void refresh();
+    const timer = setInterval(() => void refresh(), 3000);
+    return () => clearInterval(timer);
+  }, [refresh]);
+  useEffect(() => {
+    if (!notice) return;
+    const timer = setTimeout(() => setNotice(""), 5000);
+    return () => clearTimeout(timer);
+  }, [notice]);
+  async function mutate(path: string, body: unknown = {}, method?: string) {
+    setBusy(true);
+    try {
+      const result = await api<Chart | State>(path, body, method);
+      await refresh();
+      setNotice("Saved to the synthetic demo record");
+      return result;
+    } catch (e) {
+      setNotice(e instanceof Error ? e.message : "Action failed");
+      throw e;
+    } finally {
+      setBusy(false);
+    }
+  }
+  const patients = state?.patients.filter((p) => p.unit === unit) ?? [];
+  const label =
+    unit === "ICU" ? "ICU · expansion scenario" : "Labor & delivery";
+  function patientCard(p: Patient) {
+    return (
+      <PatientCard key={p.id} patient={p} state={state!} rounds={rounds} />
+    );
+  }
+  return (
+    <div className="app">
+      <aside className="sidebar">
+        <Link to="/" className="brand">
+          <Leaf size={28} />
+          <span>
+            Achillea<small>Care that moves with you.</small>
+          </span>
+        </Link>
+        <nav aria-label="Main navigation">
+          {[
+            ["/", "Activity", Activity],
+            ["/patients", "Patients", Users],
+            ["/rounds", "Rounds", CalendarCheck],
+          ].map(([path, title, Icon]) => {
+            const Glyph = Icon as typeof Activity;
+            return (
+              <NavLink
+                end={path === "/"}
+                key={path as string}
+                to={path as string}
+                className={
+                  path === "/" && location.pathname === "/activity"
+                    ? "active"
+                    : undefined
+                }
+              >
+                <Glyph size={20} />
+                <span>{title as string}</span>
+              </NavLink>
+            );
+          })}
+        </nav>
+        <div className="sidebar-bottom">
+          <p>
+            Designed for the bedside.
+            <br />
+            Built around your judgment.
+          </p>
+          <button className="demo-toggle" onClick={() => setDemo(!demo)}>
+            <FlaskConical size={18} /> Demo controls
+          </button>
+          <div className="nurse">
+            <span className="avatar">JE</span>
+            <span>
+              <strong>Jordan Ellis, RN</strong>
+              <small>Demo nurse · assigned care</small>
+            </span>
+          </div>
+        </div>
+      </aside>
+      <div className="workspace">
+        <header className="topbar">
+          <span className="mobile-brand">
+            <Leaf size={21} /> Achillea
+          </span>
+          <label className="unit-picker">
+            Demo unit
+            <select
+              aria-label="Demo unit"
+              value={unit}
+              onChange={(e) => {
+                setUnit(e.target.value);
+                navigate("/");
+              }}
+            >
+              <option value="L_AND_D">Labor & delivery</option>
+              <option value="ICU">ICU · expansion scenario</option>
+            </select>
+          </label>
+          <span className={`connection ${error ? "offline" : ""}`}>
+            {error ? <WifiOff size={16} /> : <Wifi size={16} />}{" "}
+            {error ? "Offline" : state ? "API connected" : "Connecting"}
+          </span>
+          {updatedAt && (
+            <span className="refresh-time">
+              Updated{" "}
+              {new Date(updatedAt).toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </span>
+          )}
+          <button
+            className="mobile-demo secondary"
+            aria-label="Open demo controls"
+            onClick={() => setDemo(!demo)}
+          >
+            <FlaskConical size={19} />
+          </button>
+        </header>
+        <div className="simulation">
+          <FlaskConical size={14} />
+          <span>Synthetic-data educational demo · Not for clinical use</span>
+        </div>
+        <SwipeNavigation disabled={demo}>
+          <main id="main" key={location.pathname}>
+            {error && (
+              <div className="error" role="alert">
+                <strong>Unable to reach the local backend.</strong>
+                <p>
+                  {error}. Start Spring Boot on port 8080, then retry. Your
+                  unsaved note stays on screen.
+                </p>
+                <button onClick={() => void refresh()}>Retry connection</button>
+              </div>
+            )}
+            {!state && !error && (
+              <div className="loading" role="status">
+                Connecting to your demo shift…
+              </div>
+            )}
+            {state && (
+              <Routes>
+                <Route
+                  path="/"
+                  element={
+                    <ActivityHome
+                      key={unit}
+                      state={state}
+                      patients={patients}
+                      rounds={rounds}
+                      label={label}
+                    />
+                  }
+                />
+                <Route
+                  path="/patients"
+                  element={
+                    <>
+                      <h1>Your patients</h1>
+                      <p>
+                        Assigned to Jordan Ellis, RN · {label} · Synthetic
+                        records
+                      </p>
+                      <label className="search">
+                        <Search size={19} />
+                        <input
+                          aria-label="Search assigned patients"
+                          placeholder="Search name, room, or synthetic wristband ID"
+                          value={search}
+                          onChange={(e) => setSearch(e.target.value)}
+                        />
+                      </label>
+                      <div className="surface">
+                        {patients
+                          .filter((p) =>
+                            (p.name + p.room + p.id)
+                              .toLowerCase()
+                              .includes(search.toLowerCase()),
+                          )
+                          .map(patientCard)}
+                        {!patients.some((p) =>
+                          (p.name + p.room + p.id)
+                            .toLowerCase()
+                            .includes(search.toLowerCase()),
+                        ) && (
+                          <p className="empty">
+                            No assigned patients match your search.
+                          </p>
+                        )}
+                      </div>
+                    </>
+                  }
+                />
+                <Route
+                  path="/patients/:id"
+                  element={
+                    <PatientView
+                      key={location.pathname}
+                      state={state}
+                      rounds={rounds}
+                      unit={unit}
+                      mutate={mutate}
+                      busy={busy}
+                    />
+                  }
+                />
+                <Route
+                  path="/rounds"
+                  element={
+                    <RoundsView
+                      rounds={rounds}
+                      state={state}
+                      mutate={mutate}
+                      busy={busy}
+                      label={label}
+                    />
+                  }
+                />
+                <Route
+                  path="/activity"
+                  element={
+                    <ActivityHome
+                      key={unit}
+                      state={state}
+                      patients={patients}
+                      rounds={rounds}
+                      label={label}
+                    />
+                  }
+                />
+                <Route
+                  path="*"
+                  element={
+                    <>
+                      <h1>Page not found</h1>
+                      <Link to="/">Return to your shift</Link>
+                    </>
+                  }
+                />
+              </Routes>
+            )}
+          </main>
+        </SwipeNavigation>
+        <footer>
+          Achillea · A calmer bedside workflow.
+          <span>Simulated hardware. Human-confirmed care.</span>
+        </footer>
+      </div>
+      {notice && (
+        <div className="toast" role="status">
+          <Check size={18} />
+          {notice}
+        </div>
+      )}
+      {demo && (
+        <aside className="demo-panel" aria-label="Simulation control panel">
+          <div className="section-heading">
+            <h2>
+              <FlaskConical size={20} /> Demo studio
+            </h2>
+            <button className="secondary" onClick={() => setDemo(false)}>
+              Close
+            </button>
+          </div>
+          <p>
+            Simulation controls only. Every action is recorded by the backend.
+          </p>
+          <ol>
+            <li>L&D: send a reading, open Maya, save and confirm a note.</li>
+            <li>Switch to ICU. Compare partial and coordinated movement.</li>
+            <li>Review movement, verify care, then complete the task.</li>
+            <li>Show rounds and the activity timeline.</li>
+          </ol>
+          <div className="scenario-buttons">
+            {[
+              ["vital", "New monitor reading"],
+              ["flagged", "Flagged synthetic reading"],
+              ["partial", "Chest-only movement"],
+              ["coordinated", "Coordinated turn candidate"],
+              ["no-movement", "Make turn review due"],
+              ["disconnect", "Disconnect pelvis sensor"],
+              ["reconnect", "Reconnect sensor"],
+            ].map(([key, title]) => (
+              <button
+                disabled={busy}
+                className="secondary"
+                key={key}
+                onClick={() =>
+                  void mutate(
+                    `/demo/scenarios/${key}?patientId=${patients[0]?.id ?? "synthetic-ld-01"}`,
+                  ).catch(() => {})
+                }
+              >
+                {title}
+              </button>
+            ))}
+          </div>
+          <button
+            className="reset"
+            disabled={busy}
+            onClick={() => {
+              if (
+                window.confirm(
+                  "Reset all synthetic demo records, including drafts?",
+                )
+              )
+                void mutate("/demo/reset")
+                  .then(() => {
+                    for (const key of Object.keys(sessionStorage)) {
+                      if (key.startsWith("achillea-note-"))
+                        sessionStorage.removeItem(key);
+                    }
+                    navigate("/");
+                  })
+                  .catch(() => {});
+            }}
+          >
+            <RefreshCw size={16} /> Reset synthetic demo
+          </button>
+          <small>
+            Repositioning is enabled only by the ICU care plan. No AI key or
+            hardware required.
+          </small>
+        </aside>
+      )}
+    </div>
+  );
 }
-function Timeline({state,patients}:{state:State;patients:Patient[]}){const [patient,setPatient]=useState(''),[type,setType]=useState('');const events=state.events.filter(e=>(!e.patientId||patients.some(p=>p.id===e.patientId))&&(!patient||e.patientId===patient)&&(!type||e.type.startsWith(type))).slice().reverse();return <><h1>The care behind the record.</h1><p>Timestamped observations, decisions, and documentation.</p><div className="filters"><select aria-label="Filter activity by patient" value={patient} onChange={e=>setPatient(e.target.value)}><option value="">All assigned patients</option>{patients.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select><select aria-label="Filter activity by type" value={type} onChange={e=>setType(e.target.value)}><option value="">All event types</option>{['chart','movement','task','vital','demo'].map(t=><option key={t}>{t}</option>)}</select></div>{events.map(e=><div className="event-row" key={e.id}><span className="event-dot"/><div><strong>{words(e.type.replace('.',' '))}</strong><p>{e.details}</p><small>{state.patients.find(p=>p.id===e.patientId)?.name??'Demo environment'} · {e.source}</small></div><time dateTime={e.timestamp}>{new Date(e.timestamp).toLocaleDateString()}<br/>{time(e.timestamp)}</time></div>)}{!events.length&&<p className="empty">No matching activity yet.</p>}</>;}
