@@ -86,8 +86,14 @@ describe.skipIf(!base)(
         screen.queryByRole("heading", { name: "Alex Linden" }),
       ).not.toBeInTheDocument();
       expect(
-        screen.getAllByRole("img", { name: /historical trend/ }).length,
-      ).toBeGreaterThan(0);
+        screen.queryByRole("img", { name: /historical trend/ }),
+      ).not.toBeInTheDocument();
+      fireEvent.click(
+        screen.getByRole("heading", { name: "Maya Rowan" }).closest("a")!,
+      );
+      expect(
+        await screen.findByRole("img", { name: /Heart rate historical trend/ }),
+      ).toBeInTheDocument();
       const state = await request<State>("/state");
       expect(state.patients).toHaveLength(6);
       expect(state.devices?.length).toBeGreaterThan(6);
@@ -100,6 +106,7 @@ describe.skipIf(!base)(
         "disconnected",
       );
       expect(screen.getAllByText("Unavailable").length).toBe(3);
+      fireEvent.click(screen.getByText("Monitor simulation controls"));
       expect(
         screen.getByRole("button", {
           name: "Receive simulated monitor reading",
@@ -254,6 +261,7 @@ describe.skipIf(!base)(
           within(article).queryByRole("button", { name: "Review candidate" }),
         ).not.toBeInTheDocument(),
       );
+      fireEvent.click(screen.getByRole("button", { name: "Care tasks" }));
       const task = document.getElementById("task-task-3")!;
       fireEvent.click(within(task).getByRole("button", { name: "Complete" }));
       fireEvent.change(
@@ -353,7 +361,7 @@ describe.skipIf(!base)(
       await waitFor(
         () => {
           const reading = screen
-            .getByRole("heading", { name: "heart rate" })
+            .getByRole("heading", { name: "Heart rate" })
             .closest("article")!
             .querySelector(".reading");
           expect(reading).toHaveTextContent(String(latest.value));
@@ -375,7 +383,7 @@ describe.skipIf(!base)(
       open("/patients/synthetic-ld-01");
       await screen.findByRole("heading", { name: "Maya Rowan" });
       const article = screen
-        .getByRole("heading", { name: "heart rate" })
+        .getByRole("heading", { name: "Heart rate" })
         .closest("article")!;
       expect(within(article).getByText("Unavailable")).toBeInTheDocument();
       expect(article.querySelector(".reading")).not.toHaveTextContent("0");

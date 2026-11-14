@@ -36,19 +36,29 @@ export function patientMonitor(state: State, patientId: string) {
     (d) => d.patientId === patientId && d.bodyRegion === "BEDSIDE_MONITOR",
   );
 }
-export function DeviceStatus({ device }: { device?: Device }) {
+export function DeviceStatus({
+  device,
+  compact = false,
+}: {
+  device?: Device;
+  compact?: boolean;
+}) {
   if (!device) return null;
   return (
-    <p className="monitor-status" aria-label="Monitor availability">
+    <p
+      className={`monitor-status ${compact ? "compact" : ""}`}
+      aria-label="Monitor availability"
+    >
       Monitor: {words(device.connectionState)} · {words(device.freshness)} ·
       simulated
-      <small>
-        {" "}
-        Sampled {device.lastSampledAt
-          ? time(device.lastSampledAt)
-          : "unknown"}{" "}
-        · received {device.lastSeenAt ? time(device.lastSeenAt) : "unknown"}
-      </small>
+      {!compact && (
+        <small>
+          {" "}
+          Sampled{" "}
+          {device.lastSampledAt ? time(device.lastSampledAt) : "unknown"} ·
+          received {device.lastSeenAt ? time(device.lastSeenAt) : "unknown"}
+        </small>
+      )}
     </p>
   );
 }

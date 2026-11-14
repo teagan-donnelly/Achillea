@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
+import { patientReturnState } from "./navigation-context";
 import { ArrowUp, Check, Clock } from "lucide-react";
 import type { Round, State, Chart } from "./types";
 import { time, words } from "./api";
@@ -21,6 +22,7 @@ export function TaskList({
   busy: boolean;
   compact?: boolean;
 }) {
+  const location = useLocation();
   const [active, setActive] = useState(""),
     [reason, setReason] = useState(""),
     [verified, setVerified] = useState(false),
@@ -58,7 +60,12 @@ export function TaskList({
             <time dateTime={t.dueAt}>Due {time(t.dueAt)}</time>
           </div>
           <h3>
-            <Link to={`/patients/${t.patientId}`}>{t.title}</Link>
+            <Link
+              state={patientReturnState(location)}
+              to={`/patients/${t.patientId}`}
+            >
+              {t.title}
+            </Link>
           </h3>
           <p>
             {state.patients.find((p) => p.id === t.patientId)?.name} · Room{" "}
