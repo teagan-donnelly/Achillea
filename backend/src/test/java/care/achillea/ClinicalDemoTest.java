@@ -16,16 +16,10 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 
-@SpringBootTest(
-  properties = {
-    "spring.datasource.url=jdbc:h2:mem:clinical-demo;DB_CLOSE_DELAY=-1",
-    "spring.jpa.hibernate.ddl-auto=create-drop",
-    "app.monitor.enabled=false",
-  }
-)
+@SpringBootTest(properties = { "app.monitor.enabled=false" })
 @AutoConfigureMockMvc
 @Import(ClinicalEngineTest.TimeConfig.class)
-class ClinicalDemoTest {
+class ClinicalDemoTest extends PostgresTestSupport {
 
   @Test
   void workspaceScopesWorkflowWithoutResendingOrErasingObservationHistory()

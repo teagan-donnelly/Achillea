@@ -34,7 +34,7 @@ public class ClinicalController {
 
   private State scope(String unit, String patientId) {
     enabled();
-    State s = service.read();
+    State s = service.scoped(unit, patientId, true, null);
     if (unit != null) CareService.validateUnit(unit);
     if (patientId != null) service.patient(s, patientId);
     Set<String> ids = new HashSet<>();
@@ -64,16 +64,18 @@ public class ClinicalController {
     @RequestParam(required = false) String unit,
     @RequestParam(required = false) String patientId
   ) {
-    return ClinicalViews.activity(scope(unit, patientId));
+    enabled();
+    return ClinicalViews.activity(
+      service.evidence(unit, patientId, null, true)
+    );
   }
 
   /** Lightweight workflow snapshot; observation/audit history comes from the delta API. */
   @GetMapping("/workspace")
   public State workspace(@RequestParam String unit) {
-    State s = scope(unit, null);
-    s.vitals.clear();
-    s.samples.clear();
-    s.events.clear();
+    enabled();
+    CareService.validateUnit(unit);
+    State s = service.scoped(unit, null, false, null);
     return s;
   }
 
@@ -93,7 +95,8 @@ public class ClinicalController {
     @RequestParam(required = false) String patientId,
     @RequestParam(required = false) Instant since
   ) {
-    State s = scope(unit, patientId);
+    enabled();
+    State s = service.evidence(unit, patientId, since, false);
     CareService.input(
       since == null || !since.isAfter(s.serverTime),
       "since cannot be in the future"

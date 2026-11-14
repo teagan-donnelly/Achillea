@@ -7,8 +7,10 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 /**
@@ -18,7 +20,11 @@ import org.springframework.web.server.ResponseStatusException;
 @Service
 public class CareService {
 
-  private final StoreRepository repo;
+  private final RelationalStore repo;
+
+  @Value("${app.demo.allow-reset:false}")
+  private boolean allowReset;
+
   private final ObjectMapper json;
   private final Clock clock;
   private final DemoSeeder seeder;
@@ -26,7 +32,7 @@ public class CareService {
   private final SensorAdapter sensor;
 
   public CareService(
-    StoreRepository repo,
+    RelationalStore repo,
     ObjectMapper json,
     Clock clock,
     DemoSeeder seeder,
@@ -38,6 +44,21 @@ public class CareService {
     this.seeder = seeder;
     this.monitors = monitors;
     this.sensor = new SensorAdapter.Simulator(clock);
+  }
+
+  @Transactional(readOnly = true)
+  public Map<String, Object> health() {
+    repo.jdbc().queryForObject("select 1", Integer.class);
+    return Map.of(
+      "status",
+      "UP",
+      "version",
+      "0.2.0",
+      "synthetic",
+      true,
+      "database",
+      "PostgreSQL"
+    );
   }
 
   private String id() {
@@ -58,18 +79,7 @@ public class CareService {
     );
   }
 
-  private State load() {
-    State s = repo
-      .findById("demo")
-      .map(row -> {
-        try {
-          return json.readValue(row.payload, State.class);
-        } catch (Exception e) {
-          throw new IllegalStateException("Cannot read demo database", e);
-        }
-      })
-      .orElseGet(() -> save(seeder.create(clock.instant())));
-    // Upgrade only additive device metadata for legacy snapshots, never reset notes/tasks.
+  private State prepare(State s) {
     monitors.ensureDevices(s, clock.instant());
     MonitorSimulation.freshness(s, clock.instant());
     s.movements.forEach(WorkflowRules::classify);
@@ -77,15 +87,81 @@ public class CareService {
     return s;
   }
 
+  private State load() {
+    repo.lockAll();
+    return prepare(repo.load(null, null, true, null));
+  }
+
+  private State loadPatient(String patientId) {
+    repo.lockPatient(patientId);
+    return prepare(repo.load(patientId, null, true, null));
+  }
+
   private State save(State s) {
-    try {
-      Store row = repo.findById("demo").orElse(new Store("demo", ""));
-      row.payload = json.writeValueAsString(s);
-      repo.saveAndFlush(row);
-      return s;
-    } catch (Exception e) {
-      throw new IllegalStateException("Cannot persist demo database", e);
-    }
+    return repo.save(s);
+  }
+
+  @Transactional(readOnly = true)
+  public State scoped(
+    String unit,
+    String patientId,
+    boolean evidence,
+    Instant since
+  ) {
+    if (unit != null) validateUnit(unit);
+    State s = prepare(repo.load(patientId, unit, evidence, since));
+    if (patientId != null) patient(s, patientId);
+    return assigned(s);
+  }
+
+  @Transactional(readOnly = true)
+  public List<Vital> vitalHistory(
+    String patientId,
+    String metric,
+    Instant from,
+    Instant to,
+    int limit
+  ) {
+    patient(scoped(null, patientId, false, null), patientId);
+    input(
+      from == null || to == null || !from.isAfter(to),
+      "History start must precede end"
+    );
+    return repo.vitalHistory(patientId, metric, from, to, limit);
+  }
+
+  @Transactional(readOnly = true)
+  public State evidence(
+    String unit,
+    String patientId,
+    Instant since,
+    boolean summary
+  ) {
+    if (unit != null) validateUnit(unit);
+    State s = prepare(
+      repo.load(
+        patientId,
+        unit,
+        true,
+        since,
+        summary
+          ? Set.of(
+              "patients",
+              "devices",
+              "vital_observations",
+              "activity_events"
+            )
+          : Set.of(
+              "patients",
+              "devices",
+              "vital_observations",
+              "orientation_samples",
+              "activity_events"
+            )
+      )
+    );
+    if (patientId != null) patient(s, patientId);
+    return assigned(s);
   }
 
   private State assigned(State s) {
@@ -114,11 +190,13 @@ public class CareService {
     return s;
   }
 
-  public synchronized State read() {
-    return assigned(load());
+  @Transactional
+  public State read() {
+    return scoped(null, null, true, null);
   }
 
-  public synchronized List<Patient> census(String unit) {
+  @Transactional
+  public List<Patient> census(String unit) {
     validateUnit(unit);
     return load()
       .patients.stream()
@@ -126,7 +204,8 @@ public class CareService {
       .toList();
   }
 
-  public synchronized Map<String, Object> censusSummary(String unit) {
+  @Transactional
+  public Map<String, Object> censusSummary(String unit) {
     State s = load();
     validateUnit(unit);
     Set<String> ids = s.patients
@@ -171,22 +250,29 @@ public class CareService {
     );
   }
 
-  public synchronized State reset() {
+  @Transactional
+  public State reset() {
+    require(
+      allowReset,
+      "Destructive demo reset is disabled; enable APP_ALLOW_DEMO_RESET only for a disposable synthetic database"
+    );
     State s = seeder.create(clock.instant());
     monitors.ensureDevices(s, clock.instant());
     s.movements.forEach(WorkflowRules::classify);
     s.serverTime = clock.instant();
     MonitorSimulation.freshness(s, clock.instant());
-    return assigned(save(s));
+    repo.replace(s);
+    return read();
   }
 
-  public synchronized State monitorTick() {
+  @Transactional
+  public State monitorTick() {
     State s = load();
     monitors.tick(s, clock.instant());
     MonitorSimulation.freshness(s, clock.instant());
     WorkflowRules.apply(s, clock.instant());
     save(s);
-    return assigned(s);
+    return read();
   }
 
   public record ScheduleRequest(
@@ -196,7 +282,8 @@ public class CareService {
     String priority
   ) {}
 
-  public synchronized Task schedule(ScheduleRequest request) {
+  @Transactional
+  public Task schedule(ScheduleRequest request) {
     input(
       request != null &&
         request.dueAt() != null &&
@@ -205,7 +292,7 @@ public class CareService {
         request.title().length() <= 200,
       "Patient, dueAt, and title required (maximum 200 characters)"
     );
-    State s = load();
+    State s = loadPatient(request.patientId());
     patient(s, request.patientId());
     String priority =
       request.priority() == null ? "ROUTINE" : request.priority();
@@ -266,7 +353,8 @@ public class CareService {
   }
 
   /** Presets add evidence, never reset a database or impersonate nurse confirmation. */
-  public synchronized DemoPlan preset(String key, String patientId) {
+  @Transactional
+  public DemoPlan preset(String key, String patientId) {
     input(presetKeys().contains(key), "Unknown preset");
     State before = load();
     String pid =
@@ -684,7 +772,8 @@ public class CareService {
     return m;
   }
 
-  public synchronized Vital ingest(Observation in) {
+  @Transactional
+  public Vital ingest(Observation in) {
     input(
       in.sourceEventId() != null &&
         !in.sourceEventId().isBlank() &&
@@ -711,7 +800,7 @@ public class CareService {
         ),
       "Metric unit or quality invalid"
     );
-    State s = load();
+    State s = loadPatient(in.patientId());
     patient(s, in.patientId());
     Optional<Vital> previous = s.vitals
       .stream()
@@ -723,7 +812,11 @@ public class CareService {
         v.patientId().equals(in.patientId()) &&
           v.metric().equals(in.metric()) &&
           v.value() == in.value() &&
-          v.observedAt().equals(in.observedAt()) &&
+          v
+            .observedAt()
+            .equals(
+              in.observedAt().truncatedTo(java.time.temporal.ChronoUnit.MICROS)
+            ) &&
           v.quality().equals(in.quality()),
         "Source event ID was already used for different data"
       );
@@ -735,7 +828,7 @@ public class CareService {
       in.metric(),
       in.value(),
       in.unit(),
-      in.observedAt(),
+      in.observedAt().truncatedTo(java.time.temporal.ChronoUnit.MICROS),
       clock.instant(),
       "SIMULATED_MONITOR",
       in.sourceEventId(),
@@ -820,8 +913,9 @@ public class CareService {
       .toList();
   }
 
-  public synchronized Chart draft(Draft d, String existing, String amendment) {
-    State s = load();
+  @Transactional
+  public Chart draft(Draft d, String existing, String amendment) {
+    State s = loadPatient(d.patientId());
     patient(s, d.patientId());
     input(
       d.text() != null && !d.text().isBlank() && d.text().length() <= 5000,
@@ -904,8 +998,9 @@ public class CareService {
     return c;
   }
 
-  public synchronized State confirm(String id, Command cmd) {
-    State s = load();
+  @Transactional
+  public State confirm(String id, Command cmd) {
+    State s = loadPatient(repo.owner("chart_entries", id));
     Chart c = chart(s, id);
     require(c.status.equals("DRAFT"), "Entry already confirmed");
     require(
@@ -929,11 +1024,12 @@ public class CareService {
       "Append-only correction to entry " + c.amendmentOfId
     );
     save(s);
-    return assigned(s);
+    return read();
   }
 
-  public synchronized State taskCommand(String id, String action, Command c) {
-    State s = load();
+  @Transactional
+  public State taskCommand(String id, String action, Command c) {
+    State s = loadPatient(repo.owner("care_tasks", id));
     Task t = task(s, id);
     require(
       !Set.of("COMPLETED", "CANCELLED").contains(t.status),
@@ -1051,11 +1147,12 @@ public class CareService {
     );
     WorkflowRules.apply(s, clock.instant());
     save(s);
-    return assigned(s);
+    return read();
   }
 
-  public synchronized State review(String id, Command c) {
-    State s = load();
+  @Transactional
+  public State review(String id, Command c) {
+    State s = loadPatient(repo.owner("movement_candidates", id));
     Movement m = movement(s, id);
     input(
       Set.of("CONFIRMED_CARE", "NOT_CARE", "NEEDS_REVIEW").contains(
@@ -1088,10 +1185,11 @@ public class CareService {
       m.id + ": " + c.status() + " · " + Objects.toString(c.text(), "")
     );
     save(s);
-    return assigned(s);
+    return read();
   }
 
-  public synchronized State scenario(String key, String patientId) {
+  @Transactional
+  public State scenario(String key, String patientId) {
     State s = load();
     if (key.equals("monitor-tick")) {
       monitors.tick(s, clock.instant());
@@ -1274,7 +1372,7 @@ public class CareService {
     MonitorSimulation.freshness(s, clock.instant());
     WorkflowRules.apply(s, clock.instant());
     save(s);
-    return assigned(s);
+    return read();
   }
 
   private void addManualVital(State s, String pid, boolean flagged, Device d) {

@@ -1,0 +1,5 @@
+# Persistence migration plan
+
+Existing patient/task/device/vital/sample/movement/chart/event DTOs stay as API views. Typed relational tables replace Store.payload; child evidence/reason collections use link tables. Encounters and assignments are distinct. Commands acquire encounter row locks and commit task/chart/audit/evidence consumption together. Raw IMU ingestion uses separate direct JDBC inserts and per-stream durable filter state; it does not load the workflow dataset. Ordinary PostgreSQL time-series tables are the initial choice to preserve globally unique IDs/FKs without requiring Timescale extension permissions. Existing H2 files are never opened or reset automatically. Fresh seeding and destructive reset are separate explicit opt-ins.
+
+Risks: nullable legacy source fields, deferred seed references, confirmed movement consumption, legacy test fixtures, accelerated time and out-of-order source packets. Verification uses native PostgreSQL in tests (not H2); hosted Tiger TLS/access remains externally configured. Typesense is deferred.
