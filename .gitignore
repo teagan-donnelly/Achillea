@@ -1,0 +1,10 @@
+node_modules/
+dist/
+target/
+*.tsbuildinfo
+data/
+*.mv.db
+*.trace.db
+.env
+*.log
+.impeccable/review/

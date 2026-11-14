@@ -1,0 +1,28 @@
+package care.achillea;
+import org.junit.jupiter.api.*;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.web.server.ResponseStatusException;
+import java.util.List;
+import static org.junit.jupiter.api.Assertions.*;
+import static care.achillea.Model.*;
+@SpringBootTest(properties={"spring.datasource.url=jdbc:h2:mem:test;DB_CLOSE_DELAY=-1","spring.jpa.hibernate.ddl-auto=create-drop"})
+class WorkflowTest {
+ @Autowired CareService service;
+ @Autowired StoreRepository repo;
+ @BeforeEach void reset(){service.reset();}
+ Command cmd(String reason,Boolean verified,String movement,String status){return new Command(reason,"Observed and verified synthetic bedside care",verified,movement,status,null,null);}
+ @Test void seedAndPersistentRead(){assertEquals(3,service.read().patients.size());assertEquals(4,service.read().tasks.size());assertTrue(repo.findById("demo").isPresent());assertEquals(2,service.rounds(service.read(),"L_AND_D").stream().map(r->r.task().patientId).distinct().count());}
+ @Test void coordinatedMotionNeverCompletesCare(){State s=service.scenario("coordinated",null);assertEquals("COORDINATED_TURN_CANDIDATE",s.movements.getFirst().classification);assertEquals("OPEN",service.task(s,"task-3").status);assertTrue(s.charts.isEmpty());assertEquals(2,s.samples.size());assertEquals("UNREVIEWED",s.movements.getFirst().verificationStatus);}
+ @Test void partialMovementIsNotCoordinated(){State s=service.scenario("partial",null);assertEquals("PARTIAL_TORSO_MOVEMENT",s.movements.getFirst().classification);assertEquals(0,s.movements.getFirst().pelvisAfter);assertEquals("OPEN",service.task(s,"task-3").status);}
+ @Test void disconnectedRemainsUnknownUntilReconnect(){service.scenario("disconnect",null);State s=service.scenario("coordinated",null);assertEquals("UNKNOWN",s.movements.getLast().classification);assertEquals(1,s.movements.getLast().sampleIds.size());assertEquals("SIMULATED_GOOD",service.scenario("reconnect",null).movements.getLast().quality);}
+ @Test void completionRequiresVerifiedCare(){assertThrows(ResponseStatusException.class,()->service.taskCommand("task-3","complete",cmd(null,false,null,null)));State s=service.scenario("coordinated",null);String id=s.movements.getFirst().id;assertThrows(ResponseStatusException.class,()->service.taskCommand("task-3","complete",cmd(null,true,id,null)));service.review(id,cmd(null,true,null,"CONFIRMED_CARE"));s=service.taskCommand("task-3","complete",cmd(null,true,id,null));assertEquals("COMPLETED",service.task(s,"task-3").status);assertEquals("CONFIRMED",s.charts.getFirst().status);assertTrue(service.rounds(s,"ICU").isEmpty());}
+ @Test void deferralRequiresReasonAndIsAudited(){assertThrows(ResponseStatusException.class,()->service.taskCommand("task-1","defer",cmd("",null,null,null)));State s=service.taskCommand("task-1","defer",cmd("Patient requested later review",null,null,null));assertEquals("DEFERRED",service.task(s,"task-1").status);assertTrue(s.events.getLast().details().contains("Patient requested"));}
+ @Test void confirmedChartsAreImmutableAndAmendmentsAppend(){Draft d=new Draft("synthetic-ld-01","OBSERVATION","Synthetic observation",null,List.of(),null);Chart c=service.draft(d,null,null);service.confirm(c.id,cmd(null,true,null,null));assertThrows(ResponseStatusException.class,()->service.draft(d,c.id,null));Chart amendment=service.draft(new Draft(d.patientId(),d.type(),"Correction",null,List.of(),null),null,c.id);assertEquals(c.id,amendment.amendmentOfId);assertEquals(2,service.read().charts.size());assertEquals("Synthetic observation",service.read().charts.getFirst().text);}
+ @Test void provenanceAndPatientAssignmentAreValidated(){String v=service.read().vitals.getFirst().id();Chart c=service.draft(new Draft("synthetic-ld-01","OBSERVATION","Reviewed reading",null,List.of(v),null),null,null);assertTrue(c.provenance.contains("SIMULATED_MONITOR"));assertThrows(ResponseStatusException.class,()->service.draft(new Draft("unassigned","OBSERVATION","Invalid",null,List.of(),null),null,null));assertThrows(ResponseStatusException.class,()->service.draft(new Draft("synthetic-ld-02","OBSERVATION","Invalid",null,List.of(v),null),null,null));}
+ @Test void roundsUsePriorityThenDueAndStableIds(){State s=service.scenario("flagged","synthetic-ld-02");assertEquals("HIGH",service.rounds(s,"L_AND_D").getFirst().task().priority);assertEquals(service.rounds(s,"L_AND_D"),service.rounds(s,"L_AND_D"));}
+ @Test void demoModeGatesAllMutationEndpoints(){ApiController controller=new ApiController(service,false);assertThrows(ResponseStatusException.class,controller::reset);assertThrows(ResponseStatusException.class,()->controller.scenario("vital",null));assertThrows(ResponseStatusException.class,()->controller.draft(new Draft("synthetic-ld-01","OBSERVATION","x",null,List.of(),null)));}
+ @Test void readingRetainsSourceAndSeparateTimestamps(){State s=service.scenario("vital","synthetic-ld-01");Vital v=s.vitals.getLast();assertEquals("SIMULATED_MONITOR",v.source());assertNotNull(v.observedAt());assertNotNull(v.receivedAt());assertNotNull(v.sourceEventId());}
+ @Test void noAiKeyNeededForExplanation(){assertNotNull(new ApiController(service,true).explanation("ICU"));}
+ @Test void duplicateSourceEventIsIdempotent(){Observation o=new Observation("incoming-1","synthetic-ld-01","HEART_RATE",81,"bpm",java.time.Instant.now().minusSeconds(4),"VALID");Vital a=service.ingest(o),b=service.ingest(o);assertEquals(a.id(),b.id());assertEquals(1,service.read().vitals.stream().filter(v->v.sourceEventId().equals("incoming-1")).count());assertTrue(a.receivedAt().isAfter(a.observedAt()));}
+}
