@@ -56,6 +56,8 @@ public class Model {
       calibrationStatus = "SIMULATED_REFERENCE";
     public Instant lastSeenAt, lastSampledAt;
     public boolean manualOverride;
+    public int updateIntervalSeconds = 15;
+    public String reportedFreshness;
 
     public Device() {}
 
@@ -100,6 +102,7 @@ public class Model {
     public Instant dueAt;
     public boolean verificationRequired;
     public int order;
+    public String scheduleState, relatedDeviceId, relatedMovementId;
 
     public Task() {}
 
@@ -178,6 +181,8 @@ public class Model {
     public Instant capturedAt, receivedAt;
     public Double confidence;
     public List<String> sampleIds = new ArrayList<>();
+    public boolean reviewRequired;
+    public List<String> reviewReasonCodes = new ArrayList<>();
   }
 
   public static class Chart {
@@ -234,13 +239,24 @@ public class Model {
     String priority
   ) {}
 
-  public record Round(Task task, String reason, int rank, String horizon) {
+  public record Round(
+    Task task,
+    String reason,
+    int rank,
+    String horizon,
+    List<String> reasonCodes
+  ) {
+    public Round(Task task, String reason, int rank, String horizon) {
+      this(task, reason, rank, horizon, List.of());
+    }
+
     public Round(Task task, String reason, int rank) {
       this(
         task,
         reason,
         rank,
-        rank <= 1 ? "NOW" : rank == 2 ? "NEXT" : "LATER"
+        rank <= 1 ? "NOW" : rank == 2 ? "NEXT" : "LATER",
+        List.of()
       );
     }
   }

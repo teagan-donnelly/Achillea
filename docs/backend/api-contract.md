@@ -1,5 +1,7 @@
 # Clinical data branch: API contract
 
+V3 additive endpoints and updated retention/simulation semantics are documented in the [V3 contract](v3-contract.md). This document retains the V2 baseline API details.
+
 Base: `874f2ee05a50c9e8c0b9078ef3535625fd5ddc3c`. All original routes, string identifiers, numeric vital values, timestamp types, and frontend-consumed fields remain. No frontend or shared root files are changed. All data is synthetic; no physical hardware, EHR, real authentication, AI, or clinical validation is provided.
 
 ## Original contract inspected

@@ -72,6 +72,7 @@ public class CareService {
     // Upgrade only additive device metadata for legacy snapshots, never reset notes/tasks.
     monitors.ensureDevices(s, clock.instant());
     MonitorSimulation.freshness(s, clock.instant());
+    s.movements.forEach(WorkflowRules::classify);
     s.serverTime = clock.instant();
     return s;
   }
@@ -172,6 +173,8 @@ public class CareService {
 
   public synchronized State reset() {
     State s = seeder.create(clock.instant());
+    monitors.ensureDevices(s, clock.instant());
+    s.movements.forEach(WorkflowRules::classify);
     s.serverTime = clock.instant();
     MonitorSimulation.freshness(s, clock.instant());
     return assigned(save(s));
@@ -181,8 +184,448 @@ public class CareService {
     State s = load();
     monitors.tick(s, clock.instant());
     MonitorSimulation.freshness(s, clock.instant());
+    WorkflowRules.apply(s, clock.instant());
     save(s);
     return assigned(s);
+  }
+
+  public record ScheduleRequest(
+    String patientId,
+    String title,
+    Instant dueAt,
+    String priority
+  ) {}
+
+  public synchronized Task schedule(ScheduleRequest request) {
+    input(
+      request != null &&
+        request.dueAt() != null &&
+        request.title() != null &&
+        !request.title().isBlank() &&
+        request.title().length() <= 200,
+      "Patient, dueAt, and title required (maximum 200 characters)"
+    );
+    State s = load();
+    patient(s, request.patientId());
+    String priority =
+      request.priority() == null ? "ROUTINE" : request.priority();
+    input(
+      Set.of("ROUTINE", "TIMELY", "HIGH").contains(priority),
+      "Invalid priority"
+    );
+    Task t = new Task(
+      id(),
+      request.patientId(),
+      request.title(),
+      "SCHEDULED_REVIEW",
+      request.dueAt(),
+      false,
+      100
+    );
+    t.source = "EXPLICIT_DEMO_SCHEDULE";
+    t.priority = priority;
+    s.tasks.add(t);
+    event(
+      s,
+      t.patientId,
+      "task.created",
+      "DEMO_OPERATOR",
+      t.id + ": " + t.title + " due " + t.dueAt
+    );
+    WorkflowRules.apply(s, clock.instant());
+    save(s);
+    return t;
+  }
+
+  public record DemoStep(
+    String title,
+    String method,
+    String path,
+    Map<String, Object> body,
+    String captureAs
+  ) {}
+
+  public record DemoPlan(
+    String key,
+    String patientId,
+    String notice,
+    List<Round> beforeRounds,
+    State state,
+    Map<String, String> evidenceIds,
+    List<DemoStep> steps
+  ) {}
+
+  public static List<String> presetKeys() {
+    return List.of(
+      "routine-shift",
+      "device-event",
+      "repositioning",
+      "bedside-documentation",
+      "adaptive-rounds"
+    );
+  }
+
+  /** Presets add evidence, never reset a database or impersonate nurse confirmation. */
+  public synchronized DemoPlan preset(String key, String patientId) {
+    input(presetKeys().contains(key), "Unknown preset");
+    State before = load();
+    String pid =
+      patientId == null
+        ? key.equals("repositioning")
+          ? "synthetic-icu-01"
+          : "synthetic-ld-01"
+        : patientId;
+    Patient p = patient(before, pid);
+    input(
+      !key.equals("repositioning") || p.repositionPlan(),
+      "Repositioning preset requires an assigned patient with a repositioning plan"
+    );
+    List<Round> initial = rounds(before, p.unit());
+    Map<String, String> evidence = new LinkedHashMap<>();
+    List<DemoStep> steps = new ArrayList<>();
+    if (
+      Set.of("routine-shift", "device-event", "bedside-documentation").contains(
+        key
+      )
+    ) {
+      scenario("monitor-reconnect", pid);
+      // Fixed scenario value, independent of elapsed time and scheduler timing.
+      Vital v = ingest(
+        new Observation(
+          id(),
+          pid,
+          "HEART_RATE",
+          80,
+          "bpm",
+          clock.instant(),
+          "VALID"
+        )
+      );
+      evidence.put("vitalId", v.id());
+    }
+    switch (key) {
+      case "routine-shift" -> {
+        Task t = schedule(
+          new ScheduleRequest(
+            pid,
+            "Routine synthetic bedside review",
+            clock.instant().plusSeconds(900),
+            "ROUTINE"
+          )
+        );
+        evidence.put("taskId", t.id);
+        steps.add(
+          new DemoStep(
+            "Inspect assigned patients",
+            "GET",
+            "/api/patients?unit=" + p.unit(),
+            Map.of(),
+            null
+          )
+        );
+        steps.add(
+          new DemoStep(
+            "Inspect grouped recent monitoring",
+            "GET",
+            "/api/activity/summary?patientId=" + pid,
+            Map.of(),
+            null
+          )
+        );
+        steps.add(
+          new DemoStep(
+            "Inspect scheduled rounds",
+            "GET",
+            "/api/rounds?unit=" + p.unit(),
+            Map.of(),
+            null
+          )
+        );
+      }
+      case "device-event" -> {
+        scenario("monitor-disconnect", pid);
+        steps.add(
+          new DemoStep(
+            "Inspect disconnected device metadata",
+            "GET",
+            "/api/patients/" + pid + "/devices",
+            Map.of(),
+            null
+          )
+        );
+        steps.add(
+          new DemoStep(
+            "Simulate a delayed connection",
+            "POST",
+            "/api/demo/scenarios/monitor-delay?patientId=" + pid,
+            Map.of(),
+            null
+          )
+        );
+        steps.add(
+          new DemoStep(
+            "Receive a delayed reading",
+            "POST",
+            "/api/demo/scenarios/vital?patientId=" + pid,
+            Map.of(),
+            null
+          )
+        );
+        steps.add(
+          new DemoStep(
+            "Inspect sampled versus received times",
+            "GET",
+            "/api/monitoring/updates?patientId=" + pid,
+            Map.of(),
+            null
+          )
+        );
+        steps.add(
+          new DemoStep(
+            "Reconnect; keep review task for nurse",
+            "POST",
+            "/api/demo/scenarios/monitor-reconnect?patientId=" + pid,
+            Map.of(),
+            null
+          )
+        );
+      }
+      case "repositioning" -> {
+        scenario("reconnect", pid);
+        State s = scenario("coordinated", pid);
+        Movement m = s.movements.get(s.movements.size() - 1);
+        Task t = s.tasks
+          .stream()
+          .filter(
+            x ->
+              x.patientId.equals(pid) &&
+              x.verificationRequired &&
+              WorkflowRules.active(x)
+          )
+          .findFirst()
+          .orElse(null);
+        if (t == null) {
+          State full = load();
+          t = new Task(
+            id(),
+            pid,
+            "Review prescribed synthetic repositioning care",
+            "REPOSITION_REVIEW",
+            clock.instant(),
+            true,
+            0
+          );
+          full.tasks.add(t);
+          event(
+            full,
+            pid,
+            "task.created",
+            "DEMO_OPERATOR",
+            t.id + ": prescribed demo repositioning review"
+          );
+          WorkflowRules.apply(full, clock.instant());
+          save(full);
+        }
+        evidence.put("movementId", m.id);
+        evidence.put("taskId", t.id);
+        steps.add(
+          new DemoStep(
+            "Inspect both regions and review reasons",
+            "GET",
+            "/api/patients/" + pid + "/sensor-history",
+            Map.of(),
+            null
+          )
+        );
+        steps.add(
+          new DemoStep(
+            "Nurse reviews bedside evidence explicitly",
+            "POST",
+            "/api/movements/" + m.id + "/review",
+            Map.of(
+              "status",
+              "CONFIRMED_CARE",
+              "verified",
+              true,
+              "text",
+              "Synthetic bedside demonstration: nurse observed prescribed care."
+            ),
+            null
+          )
+        );
+        steps.add(
+          new DemoStep(
+            "Nurse documents care completion separately",
+            "POST",
+            "/api/tasks/" + t.id + "/complete",
+            Map.of(
+              "verified",
+              true,
+              "movementId",
+              m.id,
+              "text",
+              "Synthetic prescribed care explicitly verified at bedside."
+            ),
+            null
+          )
+        );
+        steps.add(
+          new DemoStep(
+            "Inspect connected history",
+            "GET",
+            "/api/patients/" + pid + "/sensor-history",
+            Map.of(),
+            null
+          )
+        );
+      }
+      case "bedside-documentation" -> {
+        Map<String, Object> body = Map.of(
+          "patientId",
+          pid,
+          "type",
+          "OBSERVATION",
+          "text",
+          "Synthetic bedside observation; monitor evidence reviewed by nurse.",
+          "linkedVitalIds",
+          List.of(evidence.get("vitalId"))
+        );
+        steps.add(
+          new DemoStep(
+            "Nurse creates draft using device evidence",
+            "POST",
+            "/api/chart/drafts",
+            body,
+            "draftId"
+          )
+        );
+        steps.add(
+          new DemoStep(
+            "Nurse confirms draft explicitly",
+            "POST",
+            "/api/chart/drafts/${draftId}/confirm",
+            Map.of("verified", true),
+            null
+          )
+        );
+        steps.add(
+          new DemoStep(
+            "Nurse appends amendment without replacing original",
+            "POST",
+            "/api/chart/${draftId}/amendments",
+            Map.of(
+              "patientId",
+              pid,
+              "type",
+              "OBSERVATION",
+              "text",
+              "Synthetic addendum: bedside observation clarified.",
+              "linkedVitalIds",
+              List.of(evidence.get("vitalId"))
+            ),
+            "amendmentId"
+          )
+        );
+        steps.add(
+          new DemoStep(
+            "Nurse confirms amendment explicitly",
+            "POST",
+            "/api/chart/drafts/${amendmentId}/confirm",
+            Map.of("verified", true),
+            null
+          )
+        );
+        steps.add(
+          new DemoStep(
+            "Inspect confirmation and amendment history",
+            "GET",
+            "/api/activity/summary?patientId=" + pid,
+            Map.of(),
+            null
+          )
+        );
+      }
+      case "adaptive-rounds" -> {
+        Task later = schedule(
+          new ScheduleRequest(
+            pid,
+            "Later synthetic workflow review",
+            clock.instant().plusSeconds(5400),
+            "ROUTINE"
+          )
+        );
+        Task due = schedule(
+          new ScheduleRequest(
+            pid,
+            "Newly due synthetic workflow review",
+            clock.instant(),
+            "ROUTINE"
+          )
+        );
+        evidence.put("laterTaskId", later.id);
+        evidence.put("taskId", due.id);
+        steps.add(
+          new DemoStep(
+            "Compare beforeRounds with new due ordering and reason codes",
+            "GET",
+            "/api/rounds?unit=" + p.unit(),
+            Map.of(),
+            null
+          )
+        );
+        steps.add(
+          new DemoStep(
+            "Nurse acknowledges newly due work",
+            "POST",
+            "/api/tasks/" + due.id + "/acknowledge",
+            Map.of(),
+            null
+          )
+        );
+        steps.add(
+          new DemoStep(
+            "Nurse defers with explicit reason",
+            "POST",
+            "/api/tasks/" + due.id + "/defer",
+            Map.of(
+              "reason",
+              "Synthetic demonstration: scheduled after current bedside review"
+            ),
+            null
+          )
+        );
+        steps.add(
+          new DemoStep(
+            "Inspect new schedule",
+            "GET",
+            "/api/rounds?unit=" + p.unit(),
+            Map.of(),
+            null
+          )
+        );
+      }
+      default -> throw new IllegalStateException(
+        "Validated preset missing implementation"
+      );
+    }
+    State full = load();
+    event(
+      full,
+      pid,
+      "demo.preset",
+      "DEMO_OPERATOR",
+      key + ": additive synthetic setup, explicit nurse actions required"
+    );
+    save(full);
+    return new DemoPlan(
+      key,
+      pid,
+      "Synthetic deterministic setup; no reset or automatic care confirmation. Execute steps explicitly; captureAs binds response.id into later paths.",
+      initial,
+      assigned(full),
+      evidence,
+      steps
+    );
   }
 
   public Patient patient(State s, String id) {
@@ -359,10 +802,17 @@ public class CareService {
           " · device connection awaiting review; no clinical urgency inferred";
         if (t.status.equals("DEFERRED")) reason +=
           " · deferred by nurse: " + t.deferReason;
-        return new Round(t, reason, rank);
+        return new Round(
+          t,
+          reason,
+          rank,
+          rank <= 1 ? "NOW" : rank == 2 ? "NEXT" : "LATER",
+          ClinicalViews.roundReasons(t, s, now)
+        );
       })
       .sorted(
         Comparator.comparingInt(Round::rank)
+          .thenComparingInt(r -> "TIMELY".equals(r.task().priority) ? 0 : 1)
           .thenComparingInt(r -> r.rank() == 3 ? r.task().order : 0)
           .thenComparing(r -> r.task().dueAt)
           .thenComparing(r -> r.task().id)
@@ -537,26 +987,26 @@ public class CareService {
           m.patientId.equals(t.patientId),
           "Movement belongs to another patient"
         );
+        if (m != null) require(
+          s.tasks
+            .stream()
+            .noneMatch(
+              x ->
+                x.status.equals("COMPLETED") &&
+                s.charts
+                  .stream()
+                  .anyMatch(
+                    note ->
+                      x.id.equals(note.linkedTaskId) &&
+                      m.id.equals(note.linkedMovementId)
+                  )
+            ),
+          "Movement was already used for completed care"
+        );
         if (t.verificationRequired) {
           require(
             m != null && m.verificationStatus.equals("CONFIRMED_CARE"),
             "Movement must be nurse-confirmed care for this patient"
-          );
-          require(
-            s.tasks
-              .stream()
-              .noneMatch(
-                x ->
-                  x.status.equals("COMPLETED") &&
-                  s.charts
-                    .stream()
-                    .anyMatch(
-                      note ->
-                        x.id.equals(note.linkedTaskId) &&
-                        m.id.equals(note.linkedMovementId)
-                    )
-              ),
-            "Movement was already used for completed care"
           );
         }
         input(
@@ -599,6 +1049,7 @@ public class CareService {
       "nurse-demo",
       t.title + (c.reason() == null ? "" : " · " + c.reason())
     );
+    WorkflowRules.apply(s, clock.instant());
     save(s);
     return assigned(s);
   }
@@ -634,7 +1085,7 @@ public class CareService {
       m.patientId,
       "movement.reviewed",
       "nurse-demo",
-      c.status() + " · " + Objects.toString(c.text(), "")
+      m.id + ": " + c.status() + " · " + Objects.toString(c.text(), "")
     );
     save(s);
     return assigned(s);
@@ -646,6 +1097,7 @@ public class CareService {
       monitors.tick(s, clock.instant());
       event(s, null, "demo.trigger", "SIMULATOR", key);
       MonitorSimulation.freshness(s, clock.instant());
+      WorkflowRules.apply(s, clock.instant());
       save(s);
       return assigned(s);
     }
@@ -689,12 +1141,26 @@ public class CareService {
           "minor",
           "disconnect",
           "reconnect",
-          "no-movement"
+          "no-movement",
+          "pelvic-only",
+          "sensor-delay",
+          "uncertain",
+          "incomplete"
         ).contains(key),
         "Unknown scenario"
       );
       String pid = patientId == null ? "synthetic-icu-01" : patientId;
       Patient p = patient(s, pid);
+      input(
+        p.repositionPlan() ||
+          !Set.of(
+            "pelvic-only",
+            "sensor-delay",
+            "uncertain",
+            "incomplete"
+          ).contains(key),
+        "New sensor scenarios require an assigned patient with a repositioning plan"
+      );
       // Legacy UI sends the selected L&D patient for global sensor controls; preserve the original ICU target.
       if (!p.repositionPlan()) pid = "synthetic-icu-01";
       patient(s, pid);
@@ -737,6 +1203,7 @@ public class CareService {
         m.sampleIds = List.of(m.id + "-chest");
         m.pelvisAfter = m.pelvisBefore;
       }
+      WorkflowRules.classify(m);
       s.movements.add(m);
       s.samples.add(
         new OrientationSample(
@@ -747,12 +1214,16 @@ public class CareService {
           m.chestAfter,
           m.capturedAt,
           clock.instant(),
-          "SIMULATED_GOOD",
+          m.quality,
           "SIMULATED"
         )
       );
-      chest.lastSeenAt = chest.lastSampledAt = clock.instant();
-      if (!m.quality.equals("PELVIS_DISCONNECTED")) {
+      chest.lastSeenAt = clock.instant();
+      chest.lastSampledAt = m.capturedAt;
+      if (
+        !m.quality.equals("PELVIS_DISCONNECTED") &&
+        !m.quality.equals("INCOMPLETE")
+      ) {
         s.samples.add(
           new OrientationSample(
             m.id + "-pelvis",
@@ -762,11 +1233,12 @@ public class CareService {
             m.pelvisAfter,
             m.capturedAt,
             clock.instant(),
-            "SIMULATED_GOOD",
+            m.quality,
             "SIMULATED"
           )
         );
-        pelvis.lastSeenAt = pelvis.lastSampledAt = clock.instant();
+        pelvis.lastSeenAt = clock.instant();
+        pelvis.lastSampledAt = m.capturedAt;
       }
       event(
         s,
@@ -800,6 +1272,7 @@ public class CareService {
     }
     event(s, null, "demo.trigger", "SIMULATOR", key);
     MonitorSimulation.freshness(s, clock.instant());
+    WorkflowRules.apply(s, clock.instant());
     save(s);
     return assigned(s);
   }

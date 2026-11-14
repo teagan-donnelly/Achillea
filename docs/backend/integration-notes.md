@@ -1,5 +1,7 @@
 # Integration and operations
 
+V3 follow-up: see [V3 contract](v3-contract.md) and [runbook](v3-demo-runbook.md) for feature/clinical-demo additions. The V2 notes below describe the original baseline; V3 replaces retention pruning with append-only raw evidence and adds device-specific intervals and explicit review tasks.
+
 Work branch: `feature/clinical-data`; base: `874f2ee05a50c9e8c0b9078ef3535625fd5ddc3c`. Merge normally with the frontend branch; there are no changes in frontend files or shared root configuration. No dependency or application-stack upgrade is required.
 
 ## Run and test

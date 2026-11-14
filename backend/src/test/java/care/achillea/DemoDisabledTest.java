@@ -33,6 +33,22 @@ class DemoDisabledTest {
     mvc.perform(get("/api/health")).andExpect(status().isOk());
     mvc.perform(get("/api/demo/census")).andExpect(status().isForbidden());
     mvc.perform(get("/api/state")).andExpect(status().isForbidden());
+    mvc.perform(get("/api/activity/summary")).andExpect(status().isForbidden());
+    mvc
+      .perform(get("/api/monitoring/updates"))
+      .andExpect(status().isForbidden());
+    mvc
+      .perform(get("/api/patients/synthetic-icu-01/sensor-history"))
+      .andExpect(status().isForbidden());
+    mvc.perform(get("/api/demo/presets")).andExpect(status().isForbidden());
+    mvc
+      .perform(post("/api/demo/presets/routine-shift"))
+      .andExpect(status().isForbidden());
+    mvc
+      .perform(
+        post("/api/demo/tasks").contentType("application/json").content("{}")
+      )
+      .andExpect(status().isForbidden());
     mvc
       .perform(get("/api/patients/synthetic-ld-01/devices"))
       .andExpect(status().isForbidden());
