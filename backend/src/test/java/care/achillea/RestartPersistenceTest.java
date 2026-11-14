@@ -38,6 +38,8 @@ class RestartPersistenceTest {
       .toString()
       .replace('\\', '/');
     String chartId;
+    String scheduledId;
+    String movementId;
     int count;
     try (ConfigurableApplicationContext first = start(database)) {
       CareService service = first.getBean(CareService.class);
@@ -71,6 +73,19 @@ class RestartPersistenceTest {
         "acknowledge",
         new Command(null, null, null, null, null, null, null)
       );
+      scheduledId = service
+        .schedule(
+          new CareService.ScheduleRequest(
+            "synthetic-ld-01",
+            "Persistent V3 review",
+            java.time.Instant.now().plusSeconds(900),
+            null
+          )
+        )
+        .id;
+      var preset = service.preset("repositioning", "synthetic-icu-01");
+      movementId = preset.evidenceIds().get("movementId");
+      service.scenario("monitor-disconnect", "synthetic-ld-01");
       count = service.read().charts.size();
     }
     try (ConfigurableApplicationContext second = start(database)) {
@@ -88,6 +103,34 @@ class RestartPersistenceTest {
       assertTrue(c.provenance.contains("SIMULATED_MONITOR"));
       assertEquals(count, state.charts.size());
       assertEquals("ACKNOWLEDGED", service.task(state, "task-1").status);
+      assertEquals(
+        "Persistent V3 review",
+        service.task(state, scheduledId).title
+      );
+      assertTrue(service.movement(state, movementId).reviewRequired);
+      assertTrue(
+        state.tasks
+          .stream()
+          .anyMatch(t -> movementId.equals(t.relatedMovementId))
+      );
+      assertTrue(
+        state.tasks
+          .stream()
+          .anyMatch(t -> "monitor-synthetic-ld-01".equals(t.relatedDeviceId))
+      );
+      assertTrue(
+        state.devices
+          .stream()
+          .anyMatch(
+            d ->
+              d.id.equals("monitor-synthetic-ld-01") &&
+              d.connectionState.equals("DISCONNECTED") &&
+              d.manualOverride
+          )
+      );
+      assertTrue(
+        state.events.stream().anyMatch(e -> e.type().equals("demo.preset"))
+      );
       assertTrue(
         state.events.stream().anyMatch(e -> e.type().equals("chart.confirmed"))
       );

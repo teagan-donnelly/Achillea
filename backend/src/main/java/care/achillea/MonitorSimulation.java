@@ -37,6 +37,8 @@ public class MonitorSimulation {
           latestVital == null ? null : latestVital.observedAt();
         s.devices.add(monitor);
       }
+      monitor(s, p.id()).updateIntervalSeconds =
+        15 + (s.patients.indexOf(p) % 3) * 15;
       if (p.repositionPlan()) for (String region : List.of(
         "UPPER_TORSO",
         "PELVIS"
@@ -86,6 +88,8 @@ public class MonitorSimulation {
     for (int index = 0; index < s.patients.size(); index++) {
       Patient p = s.patients.get(index);
       Device d = monitor(s, p.id());
+      d.updateIntervalSeconds = 15 + (index % 3) * 15;
+      String previousConnection = d.connectionState;
       if (!d.manualOverride) {
         long phase = Math.floorMod(s.monitorTick + index * 3L, 40);
         String next =
@@ -97,6 +101,11 @@ public class MonitorSimulation {
         transition(s, d, next, now);
       }
       if (d.connectionState.equals("DISCONNECTED")) continue;
+      if (
+        previousConnection.equals(d.connectionState) &&
+        d.lastSeenAt != null &&
+        now.isBefore(d.lastSeenAt.plusSeconds(d.updateIntervalSeconds))
+      ) continue;
       Instant sampled = now.minusSeconds(
         d.connectionState.equals("DELAYED") ? 90 : 1
       );
@@ -179,7 +188,7 @@ public class MonitorSimulation {
         d.lastSeenAt = now;
         d.lastSampledAt = now;
       }
-    retainHistory(s);
+    // Raw evidence stays append-only; presentation APIs aggregate repetition.
   }
 
   private void add(
@@ -204,7 +213,11 @@ public class MonitorSimulation {
         received,
         "SIMULATED_MONITOR",
         id,
-        d.connectionState.equals("DELAYED") ? "DELAYED" : "VALID",
+        d.connectionState.equals("DELAYED")
+          ? "DELAYED"
+          : s.monitorTick % 23 == 0
+            ? "SUSPECTED_ARTIFACT"
+            : "VALID",
         d.id
       )
     );
@@ -264,41 +277,5 @@ public class MonitorSimulation {
             : d.lastSampledAt.isBefore(now.minusSeconds(60))
               ? "STALE"
               : "FRESH";
-  }
-
-  private void retainHistory(State s) {
-    // Retain at most 360 unlinked observations per patient/metric, but never delete chart provenance.
-    Set<String> linked = new HashSet<>();
-    s.charts.forEach(c -> linked.addAll(c.linkedVitalIds));
-    Map<String, Integer> counts = new HashMap<>();
-    Set<String> keep = new HashSet<>(linked);
-    s.vitals
-      .stream()
-      .sorted(Comparator.comparing(Vital::observedAt).reversed())
-      .forEach(v -> {
-        int count = counts.merge(
-          v.patientId() + "/" + v.metric(),
-          1,
-          Integer::sum
-        );
-        if (count <= 360) keep.add(v.id());
-      });
-    s.vitals.removeIf(v -> !keep.contains(v.id()));
-    Set<String> sampleRefs = new HashSet<>();
-    s.movements.forEach(m -> sampleRefs.addAll(m.sampleIds));
-    Map<String, Integer> samples = new HashMap<>();
-    Set<String> retainedSamples = new HashSet<>(sampleRefs);
-    s.samples
-      .stream()
-      .sorted(Comparator.comparing(OrientationSample::capturedAt).reversed())
-      .forEach(x -> {
-        if (
-          samples.merge(x.sensorId(), 1, Integer::sum) <= 360
-        ) retainedSamples.add(x.id());
-      });
-    s.samples.removeIf(x -> !retainedSamples.contains(x.id()));
-    if (s.events.size() > 4000) s.events
-      .subList(0, s.events.size() - 4000)
-      .clear();
   }
 }
