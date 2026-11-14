@@ -1,4 +1,5 @@
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
+import { patientReturnState } from "./navigation-context";
 import { ArrowRight, CheckCircle } from "lucide-react";
 import type { Round, State } from "./types";
 import { TaskList, type Mutate } from "./TaskList";
@@ -16,6 +17,7 @@ export function RoundsView({
   busy: boolean;
   label: string;
 }) {
+  const location = useLocation();
   const groups = [
     {
       title: "Now",
@@ -57,6 +59,19 @@ export function RoundsView({
         </div>
         <span className="count-badge">{rounds.length} open</span>
       </div>
+      <nav className="schedule-track" aria-label="Schedule segments">
+        {groups.map((g) => (
+          <a href={`#schedule-${g.title.toLowerCase()}`} key={g.title}>
+            <span>{g.title}</span>
+            <strong>{g.items.length}</strong>
+            <small>
+              {g.items.length
+                ? `${time(g.items[0].task.dueAt)} first in sequence`
+                : "No planned tasks"}
+            </small>
+          </a>
+        ))}
+      </nav>
       {rounds[0] && (
         <section className="next-action">
           <span className="eyebrow">NEXT SUGGESTED ACTION</span>
@@ -75,6 +90,7 @@ export function RoundsView({
           </p>
           <small>{rounds[0].reason}</small>
           <Link
+            state={patientReturnState(location)}
             className="primary"
             to={`/patients/${rounds[0].task.patientId}?section=tasks#task-${rounds[0].task.id}`}
           >
@@ -95,13 +111,17 @@ export function RoundsView({
         {groups
           .filter((g) => g.items.length)
           .map((g) => (
-            <section key={g.title}>
+            <section
+              key={g.title}
+              id={`schedule-${g.title.toLowerCase()}`}
+              className="schedule-segment"
+            >
               <div className="section-heading">
                 <div>
                   <h2>{g.title}</h2>
                   <p>{g.description}</p>
                 </div>
-                <span>{g.items.length}</span>
+                <span className="count-badge">{g.items.length} tasks</span>
               </div>
               <TaskList
                 rounds={g.items}
@@ -123,7 +143,9 @@ export function RoundsView({
         {groups
           .filter((g) => !g.items.length)
           .map((g) => (
-            <span key={g.title}>{g.title}: no scheduled tasks</span>
+            <span key={g.title} id={`schedule-${g.title.toLowerCase()}`}>
+              {g.title}: no scheduled tasks
+            </span>
           ))}
       </div>
       {completed.length > 0 && (

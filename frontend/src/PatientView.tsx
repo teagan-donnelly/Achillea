@@ -1,5 +1,10 @@
 import { useEffect, useState } from "react";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import {
+  Link,
+  useLocation,
+  useParams,
+  useSearchParams,
+} from "react-router-dom";
 import { ArrowLeft, HeartPulse, Radio } from "lucide-react";
 import type { Chart, Movement, Round, State } from "./types";
 import { time, words } from "./api";
@@ -10,6 +15,7 @@ import {
   Trend,
   DeviceStatus,
   patientMonitor,
+  metricName,
 } from "./Monitoring";
 import { EventTimeline } from "./EventTimeline";
 import { TaskList, type Mutate } from "./TaskList";
@@ -27,6 +33,12 @@ export function PatientView({
   busy: boolean;
 }) {
   const { id } = useParams();
+  const location = useLocation();
+  const returnTo = ["/", "/activity", "/patients", "/rounds"].includes(
+    location.state?.from,
+  )
+    ? location.state.from
+    : "/patients";
   const [params] = useSearchParams();
   const p = state.patients.find((p) => p.id === id && p.unit === unit);
   const requestedChart = state.charts.find(
@@ -42,7 +54,9 @@ export function PatientView({
           ? "Care tasks"
           : params.get("section") === "vitals"
             ? "Vitals"
-            : "Overview",
+            : params.get("section") === "sensors"
+              ? "Sensors"
+              : "Overview",
     ),
     [text, setText] = useState(requestedChart?.text ?? ""),
     [type, setType] = useState(requestedChart?.type ?? "OBSERVATION"),
@@ -55,7 +69,8 @@ export function PatientView({
     [amend, setAmend] = useState(""),
     [review, setReview] = useState(""),
     [reviewNote, setReviewNote] = useState(""),
-    [reviewVerified, setReviewVerified] = useState(false);
+    [reviewVerified, setReviewVerified] = useState(false),
+    [trendMetric, setTrendMetric] = useState("");
   const [dirty, setDirty] = useState(false),
     [needsSave, setNeedsSave] = useState(true),
     [storageError, setStorageError] = useState(false);
@@ -104,6 +119,19 @@ export function PatientView({
       }
   }, [id, dirty, text, type, task, linkVitals, draft, amend]);
   useEffect(() => {
+    const section = params.get("section");
+    const selected = (
+      {
+        chart: "Chart",
+        tasks: "Care tasks",
+        vitals: "Vitals",
+        sensors: "Sensors",
+        overview: "Overview",
+      } as Record<string, string>
+    )[section ?? ""];
+    if (selected) setTab(selected);
+  }, [params]);
+  useEffect(() => {
     const anchor = window.location.hash.slice(1);
     if (anchor && tab === "Care tasks")
       document.getElementById(anchor)?.scrollIntoView?.({ block: "center" });
@@ -125,6 +153,10 @@ export function PatientView({
       .at(-1);
   const current = latestReadings(vitals);
   const monitor = patientMonitor(state, p.id);
+  const patientRounds = rounds.filter((r) => r.task.patientId === id),
+    selectedMetric = current.some((v) => v.metric === trendMetric)
+      ? trendMetric
+      : current[0]?.metric;
   async function save() {
     try {
       const body = {
@@ -160,8 +192,13 @@ export function PatientView({
           this patient.
         </p>
       )}
-      <Link className="back" to="/patients">
-        <ArrowLeft size={16} /> Assigned patients
+      <Link className="back" to={returnTo}>
+        <ArrowLeft size={16} />{" "}
+        {returnTo === "/rounds"
+          ? "Back to Rounds"
+          : returnTo === "/" || returnTo === "/activity"
+            ? "Back to Activity"
+            : "Assigned patients"}
       </Link>
       <div className="patient-heading">
         <div>
@@ -175,8 +212,35 @@ export function PatientView({
         </div>
         <button onClick={() => setTab("Chart")}>Document care</button>
       </div>
+      <section
+        className="patient-work-summary"
+        aria-label="Patient care summary"
+      >
+        <div>
+          <span className="eyebrow">CARE AT A GLANCE</span>
+          <strong>
+            {patientRounds.length} open tasks /{" "}
+            {charts.filter((c) => c.status === "DRAFT").length} chart drafts
+          </strong>
+          <p>
+            {patientRounds[0]
+              ? `${patientRounds[0].task.title} - due ${time(patientRounds[0].task.dueAt)}`
+              : "No outstanding scheduled tasks"}
+          </p>
+        </div>
+        <button className="secondary" onClick={() => setTab("Care tasks")}>
+          Review care
+        </button>
+      </section>
       <div className="tabs" aria-label="Patient sections">
-        {["Overview", "Vitals", "Care tasks", "Chart", "History"].map((t) => (
+        {[
+          "Overview",
+          "Vitals",
+          "Care tasks",
+          "Chart",
+          ...(p.repositionPlan ? ["Sensors"] : []),
+          "History",
+        ].map((t) => (
           <button
             aria-pressed={tab === t}
             className={tab === t ? "selected" : ""}
@@ -201,7 +265,7 @@ export function PatientView({
               <article className="vital" key={v.metric}>
                 <h3>
                   <HeartPulse size={16} />
-                  {words(v.metric)}
+                  {metricName(v.metric)}
                 </h3>
                 <p className="reading">
                   {[
@@ -228,7 +292,6 @@ export function PatientView({
                 >
                   {readingState(v, monitor)} · {freshness(v)}
                 </span>
-                <Trend readings={vitals.filter((x) => x.metric === v.metric)} />
               </article>
             ))}
             {!current.length && (
@@ -238,33 +301,67 @@ export function PatientView({
               </p>
             )}
           </div>
-          <button
-            className="secondary"
-            disabled={busy || monitor?.connectionState === "DISCONNECTED"}
-            onClick={() =>
-              void mutate(`/demo/scenarios/vital?patientId=${id}`).catch(
-                () => {},
-              )
-            }
-          >
-            Receive simulated monitor reading
-          </button>
-          {monitor?.connectionState === "DISCONNECTED" && (
+          {selectedMetric && (
+            <section className="monitor-history" data-no-swipe>
+              <div className="section-heading">
+                <div>
+                  <p className="eyebrow">CONNECTED MONITORING</p>
+                  <h2>Recorded trend</h2>
+                </div>
+                <label>
+                  Measurement
+                  <select
+                    aria-label="Trend measurement"
+                    value={selectedMetric}
+                    onChange={(e) => setTrendMetric(e.target.value)}
+                  >
+                    {current.map((v) => (
+                      <option key={v.metric} value={v.metric}>
+                        {metricName(v.metric)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <Trend
+                readings={vitals.filter((v) => v.metric === selectedMetric)}
+              />
+              <p className="monitor-footnote">
+                Source observations inform your review. They do not confirm
+                care.
+              </p>
+            </section>
+          )}
+          <details className="monitor-demo-controls">
+            <summary>Monitor simulation controls</summary>
             <button
               className="secondary"
-              disabled={busy}
+              disabled={busy || monitor?.connectionState === "DISCONNECTED"}
               onClick={() =>
-                void mutate(
-                  `/demo/scenarios/monitor-reconnect?patientId=${id}`,
-                ).catch(() => {})
+                void mutate(`/demo/scenarios/vital?patientId=${id}`).catch(
+                  () => {},
+                )
               }
             >
-              Reconnect simulated monitor
+              Receive simulated monitor reading
             </button>
-          )}
+            {monitor?.connectionState === "DISCONNECTED" && (
+              <button
+                className="secondary"
+                disabled={busy}
+                onClick={() =>
+                  void mutate(
+                    `/demo/scenarios/monitor-reconnect?patientId=${id}`,
+                  ).catch(() => {})
+                }
+              >
+                Reconnect simulated monitor
+              </button>
+            )}
+          </details>
         </>
       )}
-      {(tab === "Care tasks" || tab === "Overview") && (
+      {tab === "Care tasks" && (
         <section>
           <h2>Care tasks</h2>
           <TaskList
@@ -294,158 +391,159 @@ export function PatientView({
           </p>
         </section>
       )}
-      {p.repositionPlan && (tab === "Overview" || tab === "Care tasks") && (
-        <section className="sensor-panel">
-          <div className="section-heading">
-            <h2>Repositioning monitoring</h2>
-            <span>Prototype heuristic</span>
-          </div>
-          <p>
-            Orientation observations do not confirm repositioning or pressure
-            relief.
-          </p>
-          <div className="sensor-regions">
-            <SensorRegion
-              state={state}
-              patientId={p.id}
-              region="UPPER_TORSO"
-              latest={latest}
-            />
-            <SensorRegion
-              state={state}
-              patientId={p.id}
-              region="PELVIS"
-              latest={latest}
-            />
-          </div>
-          <p>
-            Last detected movement:{" "}
-            <strong>
-              {latest ? time(latest.capturedAt) : "No observations"}
-            </strong>
-          </p>
-          <p>
-            Last nurse-confirmed care:{" "}
-            <strong>
-              {lastConfirmed?.reviewedAt
-                ? time(lastConfirmed.reviewedAt)
-                : "None in this demo"}
-            </strong>
-          </p>
-          {!movements.length && (
+      {p.repositionPlan &&
+        (tab === "Overview" || tab === "Care tasks" || tab === "Sensors") && (
+          <section className="sensor-panel">
+            <div className="section-heading">
+              <h2>Repositioning monitoring</h2>
+              <span>Prototype heuristic</span>
+            </div>
             <p>
-              No movement candidates yet. Use Demo controls to generate
-              independent region observations.
+              Orientation observations do not confirm repositioning or pressure
+              relief.
             </p>
-          )}
-          {movements
-            .slice(-4)
-            .reverse()
-            .map((m) => (
-              <article className="movement" key={m.id}>
-                <strong>{words(m.classification)}</strong>
-                <p>
-                  {words(m.quality)} · {time(m.capturedAt)} ·{" "}
-                  {words(m.verificationStatus)}
-                </p>
-                <details>
-                  <summary>Sensor observation details</summary>
-                  <small>
-                    Chest {m.chestBefore}° → {m.chestAfter}° · Pelvis{" "}
-                    {m.pelvisBefore}° → {m.pelvisAfter}° · Source samples:{" "}
-                    {m.sampleIds.length}
-                    <br />
-                    Torso source: {m.chestSensorId ?? "Unavailable"} · Pelvis
-                    source: {m.pelvisSensorId ?? "Unavailable"}
-                    <br />
-                    Heuristic confidence:{" "}
-                    {m.confidence == null
-                      ? "Unavailable"
-                      : `${Math.round(m.confidence * 100)}% (simulation only)`}
-                  </small>
-                </details>
-                {m.verificationStatus !== "CONFIRMED_CARE" && (
-                  <div className="actions">
-                    <button
-                      className="secondary"
-                      onClick={() => {
-                        setReview(m.id);
-                        setReviewNote("");
-                        setReviewVerified(false);
+            <div className="sensor-regions">
+              <SensorRegion
+                state={state}
+                patientId={p.id}
+                region="UPPER_TORSO"
+                latest={latest}
+              />
+              <SensorRegion
+                state={state}
+                patientId={p.id}
+                region="PELVIS"
+                latest={latest}
+              />
+            </div>
+            <p>
+              Last detected movement:{" "}
+              <strong>
+                {latest ? time(latest.capturedAt) : "No observations"}
+              </strong>
+            </p>
+            <p>
+              Last nurse-confirmed care:{" "}
+              <strong>
+                {lastConfirmed?.reviewedAt
+                  ? time(lastConfirmed.reviewedAt)
+                  : "None in this demo"}
+              </strong>
+            </p>
+            {!movements.length && (
+              <p>
+                No movement candidates yet. Use Demo controls to generate
+                independent region observations.
+              </p>
+            )}
+            {movements
+              .slice(-4)
+              .reverse()
+              .map((m) => (
+                <article className="movement" key={m.id}>
+                  <strong>{words(m.classification)}</strong>
+                  <p>
+                    {words(m.quality)} · {time(m.capturedAt)} ·{" "}
+                    {words(m.verificationStatus)}
+                  </p>
+                  <details>
+                    <summary>Sensor observation details</summary>
+                    <small>
+                      Chest {m.chestBefore}° → {m.chestAfter}° · Pelvis{" "}
+                      {m.pelvisBefore}° → {m.pelvisAfter}° · Source samples:{" "}
+                      {m.sampleIds.length}
+                      <br />
+                      Torso source: {m.chestSensorId ?? "Unavailable"} · Pelvis
+                      source: {m.pelvisSensorId ?? "Unavailable"}
+                      <br />
+                      Heuristic confidence:{" "}
+                      {m.confidence == null
+                        ? "Unavailable"
+                        : `${Math.round(m.confidence * 100)}% (simulation only)`}
+                    </small>
+                  </details>
+                  {m.verificationStatus !== "CONFIRMED_CARE" && (
+                    <div className="actions">
+                      <button
+                        className="secondary"
+                        onClick={() => {
+                          setReview(m.id);
+                          setReviewNote("");
+                          setReviewVerified(false);
+                        }}
+                      >
+                        Review candidate
+                      </button>
+                      <button
+                        className="secondary"
+                        disabled={busy}
+                        onClick={() =>
+                          void mutate(`/movements/${m.id}/review`, {
+                            status: "NOT_CARE",
+                          }).catch(() => {})
+                        }
+                      >
+                        Not care
+                      </button>
+                      <button
+                        className="secondary"
+                        disabled={busy}
+                        onClick={() =>
+                          void mutate(`/movements/${m.id}/review`, {
+                            status: "NEEDS_REVIEW",
+                          }).catch(() => {})
+                        }
+                      >
+                        Needs review
+                      </button>
+                    </div>
+                  )}
+                  {review === m.id && (
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        void mutate(`/movements/${m.id}/review`, {
+                          status: "CONFIRMED_CARE",
+                          verified: reviewVerified,
+                          text: reviewNote,
+                        })
+                          .then(() => setReview(""))
+                          .catch(() => {});
                       }}
                     >
-                      Review candidate
-                    </button>
-                    <button
-                      className="secondary"
-                      disabled={busy}
-                      onClick={() =>
-                        void mutate(`/movements/${m.id}/review`, {
-                          status: "NOT_CARE",
-                        }).catch(() => {})
-                      }
-                    >
-                      Not care
-                    </button>
-                    <button
-                      className="secondary"
-                      disabled={busy}
-                      onClick={() =>
-                        void mutate(`/movements/${m.id}/review`, {
-                          status: "NEEDS_REVIEW",
-                        }).catch(() => {})
-                      }
-                    >
-                      Needs review
-                    </button>
-                  </div>
-                )}
-                {review === m.id && (
-                  <form
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      void mutate(`/movements/${m.id}/review`, {
-                        status: "CONFIRMED_CARE",
-                        verified: reviewVerified,
-                        text: reviewNote,
-                      })
-                        .then(() => setReview(""))
-                        .catch(() => {});
-                    }}
-                  >
-                    <label>
-                      Bedside verification note
-                      <textarea
-                        required
-                        value={reviewNote}
-                        onChange={(e) => setReviewNote(e.target.value)}
-                        placeholder="Describe the care you personally verified"
-                      />
-                    </label>
-                    <label className="checkbox">
-                      <input
-                        type="checkbox"
-                        checked={reviewVerified}
-                        required
-                        onChange={(e) => setReviewVerified(e.target.checked)}
-                      />
-                      I verified actual care, beyond the sensor observation.
-                    </label>
-                    <button
-                      disabled={busy || !reviewVerified || !reviewNote.trim()}
-                    >
-                      Confirm care observation
-                    </button>
-                    <p>
-                      Then explicitly complete the prescribed task below to
-                      create its confirmed chart entry.
-                    </p>
-                  </form>
-                )}
-              </article>
-            ))}
-        </section>
-      )}
+                      <label>
+                        Bedside verification note
+                        <textarea
+                          required
+                          value={reviewNote}
+                          onChange={(e) => setReviewNote(e.target.value)}
+                          placeholder="Describe the care you personally verified"
+                        />
+                      </label>
+                      <label className="checkbox">
+                        <input
+                          type="checkbox"
+                          checked={reviewVerified}
+                          required
+                          onChange={(e) => setReviewVerified(e.target.checked)}
+                        />
+                        I verified actual care, beyond the sensor observation.
+                      </label>
+                      <button
+                        disabled={busy || !reviewVerified || !reviewNote.trim()}
+                      >
+                        Confirm care observation
+                      </button>
+                      <p>
+                        Then explicitly complete the prescribed task below to
+                        create its confirmed chart entry.
+                      </p>
+                    </form>
+                  )}
+                </article>
+              ))}
+          </section>
+        )}
       {tab === "History" && (
         <section className="activity-timeline">
           <h2>Patient history</h2>
@@ -546,8 +644,8 @@ export function PatientView({
               <div className="provenance">
                 {current.map((v) => (
                   <p key={v.id}>
-                    {words(v.metric)}: {v.value} {v.unit} · {time(v.observedAt)}{" "}
-                    · {v.source}
+                    {metricName(v.metric)}: {v.value} {v.unit} ·{" "}
+                    {time(v.observedAt)} · {v.source}
                   </p>
                 ))}
               </div>
@@ -631,7 +729,7 @@ export function PatientView({
                       const v = state.vitals.find((v) => v.id === vid);
                       return v ? (
                         <p key={vid}>
-                          {words(v.metric)} {v.value} {v.unit} ·{" "}
+                          {metricName(v.metric)} {v.value} {v.unit} ·{" "}
                           {time(v.observedAt)} · {v.source}
                         </p>
                       ) : null;

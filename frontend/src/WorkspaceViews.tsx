@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
+import { patientReturnState } from "./navigation-context";
 import { ArrowRight, CheckCircle, ClipboardList, Radio } from "lucide-react";
 import type { Patient, Round, State } from "./types";
 import { time, words } from "./api";
@@ -9,7 +10,6 @@ import {
   readingState,
   metricName,
   sourceName,
-  Trend,
   DeviceStatus,
   patientMonitor,
 } from "./Monitoring";
@@ -23,20 +23,38 @@ export function PatientCard({
   state: State;
   rounds: Round[];
 }) {
-  const vitals = state.vitals.filter((v) => v.patientId === p.id),
-    current = latestReadings(vitals);
-  const monitor = patientMonitor(state, p.id);
+  const location = useLocation();
+  const allReadings = latestReadings(
+    state.vitals.filter((v) => v.patientId === p.id),
+  );
+  const priority = ["HEART_RATE", "SPO2", "RESPIRATORY_RATE", "TEMPERATURE"];
+  const current = allReadings
+    .slice()
+    .sort(
+      (a, b) =>
+        (priority.indexOf(a.metric) < 0 ? 99 : priority.indexOf(a.metric)) -
+        (priority.indexOf(b.metric) < 0 ? 99 : priority.indexOf(b.metric)),
+    )
+    .slice(0, 3);
+  const monitor = patientMonitor(state, p.id),
+    tasks = rounds.filter((r) => r.task.patientId === p.id),
+    next = tasks[0];
+  const drafts = state.charts.filter(
+    (c) => c.patientId === p.id && c.status === "DRAFT",
+  ).length;
   const sensors = state.devices?.filter(
     (d) => d.patientId === p.id && d.bodyRegion !== "BEDSIDE_MONITOR",
   );
-  const tasks = rounds.filter((r) => r.task.patientId === p.id),
-    next = tasks[0];
-  const drafts = state.charts.filter(
-      (c) => c.patientId === p.id && c.status === "DRAFT",
-    ).length,
-    movement = state.movements.filter((m) => m.patientId === p.id).at(-1);
+  const movement = state.movements.filter((m) => m.patientId === p.id).at(-1);
+  const reviews = tasks.filter((r) =>
+    r.horizon ? r.horizon === "NOW" : r.rank <= 1,
+  ).length;
   return (
-    <Link className="patient-card" to={`/patients/${p.id}`}>
+    <Link
+      state={patientReturnState(location)}
+      className="patient-card patient-card-v3"
+      to={`/patients/${p.id}`}
+    >
       <div className="patient-card-heading">
         <span className="room">
           <small>ROOM</small>
@@ -45,14 +63,25 @@ export function PatientCard({
         <div>
           <h2>{p.name}</h2>
           <small>
-            {p.unit === "ICU" ? "ICU" : "Labor & delivery"} · {p.id}
+            {p.unit === "ICU" ? "ICU" : "Labor & delivery"}
+            {p.carePhase ? ` / ${p.carePhase}` : ""}
           </small>
         </div>
         <ArrowRight size={18} />
       </div>
-      <p>{p.summary}</p>
-      <DeviceStatus device={monitor} />
-      <div className="compact-vitals">
+      <p className="patient-context">{p.summary}</p>
+      <div className="patient-flags">
+        <span className={reviews ? "review-flag" : "routine-flag"}>
+          <ClipboardList size={14} />
+          {tasks.length} open / {reviews} need review
+        </span>
+        {drafts > 0 && (
+          <span>
+            {drafts} draft{drafts === 1 ? "" : "s"} to confirm
+          </span>
+        )}
+      </div>
+      <div className="compact-vitals" aria-label="Selected latest measurements">
         {current.map((v) => (
           <div key={v.metric}>
             <small>{metricName(v.metric)}</small>
@@ -61,8 +90,8 @@ export function PatientCard({
                 readingState(v, monitor),
               )
                 ? "Unavailable"
-                : v.value}{" "}
-              <span>{v.unit}</span>
+                : v.value}
+              <span> {v.unit}</span>
             </strong>
             <small
               className={
@@ -73,45 +102,42 @@ export function PatientCard({
             >
               {readingState(v, monitor)} - {freshness(v)}
             </small>
-            <small>{sourceName(v)}</small>
-            <Trend
-              compact
-              readings={vitals.filter((x) => x.metric === v.metric)}
-            />
             <small>
-              {words(v.quality)} · {time(v.observedAt)}
+              <span>{sourceName(v)}</span> /{" "}
+              <time dateTime={v.observedAt}>{time(v.observedAt)}</time>
             </small>
           </div>
         ))}
         {!current.length && <span>No monitor readings available</span>}
       </div>
-      <div className="patient-care">
-        <span>
-          <ClipboardList size={15} />
-          {tasks.length} outstanding · {tasks.filter((r) => r.rank <= 1).length}{" "}
-          need review
+      <DeviceStatus device={monitor} compact />
+      {p.repositionPlan && (
+        <span className="sensor-brief">
+          <Radio size={14} />
+          {sensors?.length
+            ? sensors.some((d) => d.connectionState === "DISCONNECTED")
+              ? "Sensor disconnected - orientation unknown"
+              : `Simulated positioning sensors / ${sensors.some((d) => d.freshness !== "FRESH") ? "check freshness" : "fresh report"}`
+            : movement?.quality === "PELVIS_DISCONNECTED"
+              ? "Pelvic sensor disconnected"
+              : "Sensor status unavailable"}
         </span>
-        {drafts > 0 && <span>{drafts} drafts awaiting confirmation</span>}
-        {p.repositionPlan && (
-          <span>
-            <Radio size={15} />
-            {sensors?.length
-              ? sensors.some((d) => d.connectionState === "DISCONNECTED")
-                ? "Sensor disconnected · orientation unknown"
-                : `Simulated sensors: ${sensors.map((d) => `${words(d.bodyRegion)} ${words(d.freshness)}`).join(" · ")}`
-              : !movement
-                ? "Sensor status unavailable"
-                : movement.quality === "PELVIS_DISCONNECTED"
-                  ? "Pelvic sensor disconnected"
-                  : `Last simulated sensor report: connected at ${time(movement.capturedAt)}`}
-          </span>
-        )}
+      )}
+      <div className="patient-next">
+        <span className="eyebrow">NEXT CARE ACTION</span>
         <p>
           {next
-            ? `Next scheduled: ${next.task.title} · ${time(next.task.dueAt)}`
+            ? `${next.task.title} / ${time(next.task.dueAt)}`
             : "No scheduled care tasks"}
         </p>
-        <strong className="text-link">Open patient overview →</strong>
+        <span className="text-link">
+          Open patient overview / trends & charting
+        </span>
+        {allReadings.length > current.length && (
+          <small>
+            {allReadings.length - current.length} more measurements in record
+          </small>
+        )}
       </div>
     </Link>
   );
@@ -127,8 +153,10 @@ export function ActivityHome({
   rounds: Round[];
   label: string;
 }) {
+  const location = useLocation();
   const [filter, setFilter] = useState("all"),
-    [patient, setPatient] = useState("");
+    [patient, setPatient] = useState(""),
+    [allAttention, setAllAttention] = useState(false);
   const assigned = (id: string | null) =>
     id !== null && patients.some((p) => p.id === id);
   const drafts = state.charts.filter(
@@ -184,90 +212,6 @@ export function ActivityHome({
         </div>
         <span className="shift-person">Jordan Ellis, RN</span>
       </div>
-      <section className="attention-section">
-        <div className="section-heading">
-          <h2>Needs attention</h2>
-          <span className="count-badge">{count} to review</span>
-        </div>
-        <div className="attention-list">
-          {attention.map((r) => (
-            <Link
-              key={r.task.id}
-              to={`/patients/${r.task.patientId}?section=tasks#task-${r.task.id}`}
-            >
-              <ClipboardList size={20} />
-              <span>
-                <strong>{r.task.title}</strong>
-                <small>
-                  {identity(r.task.patientId)} · Due {time(r.task.dueAt)}
-                </small>
-                <small>{r.reason}</small>
-              </span>
-              <ArrowRight size={17} />
-            </Link>
-          ))}
-          {drafts.map((c) => (
-            <Link
-              key={c.id}
-              to={`/patients/${c.patientId}?section=chart&entry=${c.id}`}
-            >
-              <ClipboardList size={20} />
-              <span>
-                <strong>Chart draft awaiting confirmation</strong>
-                <small>
-                  {identity(c.patientId)} · Saved {time(c.authoredAt)}
-                </small>
-              </span>
-              <ArrowRight size={17} />
-            </Link>
-          ))}
-          {disconnected.map((p) => (
-            <Link key={p.id} to={`/patients/${p.id}?section=sensors`}>
-              <Radio size={20} />
-              <span>
-                <strong>Pelvic sensor disconnected</strong>
-                <small>{identity(p.id)} · Review monitoring availability</small>
-              </span>
-              <ArrowRight size={17} />
-            </Link>
-          ))}
-          {unavailableMonitors.map((d) => (
-            <Link key={d.id} to={`/patients/${d.patientId}?section=vitals`}>
-              <Radio size={20} />
-              <span>
-                <strong>
-                  Monitor {words(d.connectionState)} · {words(d.freshness)}
-                </strong>
-                <small>
-                  {identity(d.patientId)} · Review source availability
-                </small>
-              </span>
-              <ArrowRight size={17} />
-            </Link>
-          ))}
-          {movements.map((m) => (
-            <Link key={m.id} to={`/patients/${m.patientId}?section=sensors`}>
-              <Radio size={20} />
-              <span>
-                <strong>Movement awaiting nurse review</strong>
-                <small>
-                  {identity(m.patientId)} · {time(m.capturedAt)}
-                </small>
-                <small>
-                  {words(m.classification)} · Detection does not confirm care
-                </small>
-              </span>
-              <ArrowRight size={17} />
-            </Link>
-          ))}
-          {!count && (
-            <div className="attention-clear">
-              <CheckCircle size={23} />
-              <span>No outstanding reviews. Upcoming care is in Rounds.</span>
-            </div>
-          )}
-        </div>
-      </section>
       <section className="shift-summary" aria-label="Shift summary">
         <span>
           <strong>{patients.length}</strong>assigned patients
@@ -288,8 +232,121 @@ export function ActivityHome({
                 )
               : "—"}
           </strong>
-          next scheduled
+          next due action
         </span>
+      </section>
+      <section className="attention-section">
+        <div className="section-heading">
+          <h2>Needs attention</h2>
+          <span className="count-badge">{count} to review</span>
+        </div>
+        <div
+          id="shift-attention"
+          className={`attention-list ${allAttention ? "expanded" : "condensed"}`}
+        >
+          {attention.map((r) => (
+            <Link
+              state={patientReturnState(location)}
+              key={r.task.id}
+              to={`/patients/${r.task.patientId}?section=tasks#task-${r.task.id}`}
+            >
+              <ClipboardList size={20} />
+              <span>
+                <strong>{r.task.title}</strong>
+                <small>
+                  {identity(r.task.patientId)} · Due {time(r.task.dueAt)}
+                </small>
+                <small>{r.reason}</small>
+              </span>
+              <ArrowRight size={17} />
+            </Link>
+          ))}
+          {drafts.map((c) => (
+            <Link
+              state={patientReturnState(location)}
+              key={c.id}
+              to={`/patients/${c.patientId}?section=chart&entry=${c.id}`}
+            >
+              <ClipboardList size={20} />
+              <span>
+                <strong>Chart draft awaiting confirmation</strong>
+                <small>
+                  {identity(c.patientId)} · Saved {time(c.authoredAt)}
+                </small>
+              </span>
+              <ArrowRight size={17} />
+            </Link>
+          ))}
+          {disconnected.map((p) => (
+            <Link
+              state={patientReturnState(location)}
+              key={p.id}
+              to={`/patients/${p.id}?section=sensors`}
+            >
+              <Radio size={20} />
+              <span>
+                <strong>Pelvic sensor disconnected</strong>
+                <small>{identity(p.id)} · Review monitoring availability</small>
+              </span>
+              <ArrowRight size={17} />
+            </Link>
+          ))}
+          {unavailableMonitors.map((d) => (
+            <Link
+              state={patientReturnState(location)}
+              key={d.id}
+              to={`/patients/${d.patientId}?section=vitals`}
+            >
+              <Radio size={20} />
+              <span>
+                <strong>
+                  Monitor {words(d.connectionState)} · {words(d.freshness)}
+                </strong>
+                <small>
+                  {identity(d.patientId)} · Review source availability
+                </small>
+              </span>
+              <ArrowRight size={17} />
+            </Link>
+          ))}
+          {movements.map((m) => (
+            <Link
+              state={patientReturnState(location)}
+              key={m.id}
+              to={`/patients/${m.patientId}?section=sensors`}
+            >
+              <Radio size={20} />
+              <span>
+                <strong>Movement awaiting nurse review</strong>
+                <small>
+                  {identity(m.patientId)} · {time(m.capturedAt)}
+                </small>
+                <small>
+                  {words(m.classification)} · Detection does not confirm care
+                </small>
+              </span>
+              <ArrowRight size={17} />
+            </Link>
+          ))}
+          {!count && (
+            <div className="attention-clear">
+              <CheckCircle size={23} />
+              <span>No outstanding reviews. Upcoming care is in Rounds.</span>
+            </div>
+          )}
+        </div>
+        {count > 4 && (
+          <button
+            className="secondary attention-expand"
+            aria-expanded={allAttention}
+            aria-controls="shift-attention"
+            onClick={() => setAllAttention(!allAttention)}
+          >
+            {allAttention
+              ? "Show first four reviews"
+              : `View all ${count} reviews`}
+          </button>
+        )}
       </section>
       <section className="activity-timeline">
         <div className="section-heading">
