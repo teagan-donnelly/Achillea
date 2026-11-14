@@ -33,7 +33,7 @@ public class ApiController {
 
   @GetMapping("/health")
   public Object health() {
-    return Map.of("status", "UP", "version", "0.1.0", "synthetic", true);
+    return service.health();
   }
 
   @GetMapping("/state")
@@ -63,7 +63,7 @@ public class ApiController {
   ) {
     demo();
     return service
-      .read()
+      .scoped(unit, null, false, null)
       .patients.stream()
       .filter(
         p ->
@@ -78,7 +78,7 @@ public class ApiController {
   @GetMapping("/patients/{id}")
   public Object patient(@PathVariable String id) {
     demo();
-    return service.patient(service.read(), id);
+    return service.patient(service.scoped(null, id, false, null), id);
   }
 
   @GetMapping("/patients/{id}/vitals")
@@ -90,34 +90,13 @@ public class ApiController {
     @RequestParam(required = false) Instant to
   ) {
     demo();
-    State s = service.read();
-    service.patient(s, id);
-    CareService.input(
-      from == null || to == null || !from.isAfter(to),
-      "History start must precede end"
-    );
-    return s.vitals
-      .stream()
-      .filter(
-        v ->
-          v.patientId().equals(id) &&
-          (metric == null || v.metric().equals(metric)) &&
-          (from == null || !v.observedAt().isBefore(from)) &&
-          (to == null || !v.observedAt().isAfter(to))
-      )
-      .sorted(
-        Comparator.comparing(Vital::observedAt)
-          .reversed()
-          .thenComparing(Vital::id)
-      )
-      .limit(Math.max(1, Math.min(limit, 500)))
-      .toList();
+    return service.vitalHistory(id, metric, from, to, limit);
   }
 
   @GetMapping("/patients/{id}/tasks")
   public Object tasks(@PathVariable String id) {
     demo();
-    State s = service.read();
+    State s = service.scoped(null, id, false, null);
     service.patient(s, id);
     return s.tasks
       .stream()
@@ -128,7 +107,7 @@ public class ApiController {
   @GetMapping("/patients/{id}/chart")
   public Object charts(@PathVariable String id) {
     demo();
-    State s = service.read();
+    State s = service.scoped(null, id, false, null);
     service.patient(s, id);
     return s.charts
       .stream()
@@ -139,7 +118,7 @@ public class ApiController {
   @GetMapping("/patients/{id}/orientation")
   public Object orientation(@PathVariable String id) {
     demo();
-    State s = service.read();
+    State s = service.scoped(null, id, true, null);
     service.patient(s, id);
     return Map.of(
       "samples",
@@ -167,7 +146,7 @@ public class ApiController {
   @GetMapping("/patients/{id}/devices")
   public Object devices(@PathVariable String id) {
     demo();
-    State s = service.read();
+    State s = service.scoped(null, id, false, null);
     service.patient(s, id);
     return s.devices
       .stream()
@@ -212,7 +191,7 @@ public class ApiController {
   @GetMapping("/rounds")
   public Object rounds(@RequestParam(defaultValue = "L_AND_D") String unit) {
     demo();
-    return service.rounds(service.read(), unit);
+    return service.rounds(service.scoped(unit, null, false, null), unit);
   }
 
   @PostMapping("/chart/drafts")
@@ -287,13 +266,53 @@ public class ApiController {
       "summary",
       "Explicit high priority, then overdue, due within 30 minutes, then nurse-ordered routine tasks.",
       "rounds",
-      service.rounds(service.read(), unit)
+      service.rounds(service.scoped(unit, null, false, null), unit)
     );
   }
 }
 
 @RestControllerAdvice
 class ApiErrors {
+
+  @ExceptionHandler(
+    org.springframework.dao.DataIntegrityViolationException.class
+  )
+  ResponseEntity<?> conflict(Exception e) {
+    return ResponseEntity.status(409).body(
+      Map.of(
+        "code",
+        409,
+        "message",
+        "Record conflict or evidence integrity violation",
+        "timestamp",
+        Instant.now(),
+        "correlationId",
+        UUID.randomUUID()
+      )
+    );
+  }
+
+  @ExceptionHandler({
+    org.springframework.dao.CannotAcquireLockException.class,
+    org.springframework.dao.QueryTimeoutException.class,
+    org.springframework.dao.DataAccessResourceFailureException.class,
+  })
+  ResponseEntity<?> unavailable(Exception e) {
+    return ResponseEntity.status(503)
+      .header("Retry-After", "1")
+      .body(
+        Map.of(
+          "code",
+          503,
+          "message",
+          "Database temporarily unavailable or busy; retry the same event IDs",
+          "timestamp",
+          Instant.now(),
+          "correlationId",
+          UUID.randomUUID()
+        )
+      );
+  }
 
   @ExceptionHandler(ResponseStatusException.class)
   ResponseEntity<?> status(ResponseStatusException e) {

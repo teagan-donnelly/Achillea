@@ -11,14 +11,9 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.ApplicationContext;
 import org.springframework.test.web.servlet.MockMvc;
 
-@SpringBootTest(
-  properties = {
-    "spring.datasource.url=jdbc:h2:mem:disabled",
-    "app.demo-mode=false",
-  }
-)
+@SpringBootTest(properties = { "app.demo-mode=false" })
 @AutoConfigureMockMvc
-class DemoDisabledTest {
+class DemoDisabledTest extends PostgresTestSupport {
 
   @Autowired
   MockMvc mvc;

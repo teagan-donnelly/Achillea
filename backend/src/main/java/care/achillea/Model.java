@@ -9,6 +9,9 @@ public class Model {
 
   public static class State {
 
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    public java.util.Map<String, String> persisted = new java.util.HashMap<>();
+
     public List<Patient> patients = new ArrayList<>();
     public List<Task> tasks = new ArrayList<>();
     public List<Vital> vitals = new ArrayList<>();
@@ -58,6 +61,9 @@ public class Model {
     public boolean manualOverride;
     public int updateIntervalSeconds = 15;
     public String reportedFreshness;
+    public String timeDomain = "WALL_CLOCK";
+    public Instant lastSourceAt;
+    public double simulationScale = 1;
 
     public Device() {}
 

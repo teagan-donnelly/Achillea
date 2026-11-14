@@ -19,16 +19,10 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.server.ResponseStatusException;
 
-@SpringBootTest(
-  properties = {
-    "spring.datasource.url=jdbc:h2:mem:clinical;DB_CLOSE_DELAY=-1",
-    "spring.jpa.hibernate.ddl-auto=create-drop",
-    "app.monitor.enabled=false",
-  }
-)
+@SpringBootTest(properties = { "app.monitor.enabled=false" })
 @AutoConfigureMockMvc
 @Import(ClinicalEngineTest.TimeConfig.class)
-class ClinicalEngineTest {
+class ClinicalEngineTest extends PostgresTestSupport {
 
   static final Instant NOW = Instant.parse("2026-11-14T14:00:00Z");
 
@@ -655,6 +649,7 @@ class ClinicalEngineTest {
         "VALID"
       )
     );
+    s.charts.removeIf(c -> c.patientId.equals("synthetic-ld-01")); // Build a consistent legacy fixture before removing its measurements.
     // This is the most recently received packet; it is not a freshly sampled measurement.
     s.vitals.removeIf(
       v ->

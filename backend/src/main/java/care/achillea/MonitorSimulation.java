@@ -164,6 +164,7 @@ public class MonitorSimulation {
     // Orientation heartbeat samples do not create movement candidates or verified care.
     for (Device d : s.devices)
       if (
+        !"SIMULATION".equals(d.timeDomain) &&
         !d.bodyRegion.equals("BEDSIDE_MONITOR") &&
         d.connectionState.equals("CONNECTED")
       ) {
@@ -268,14 +269,17 @@ public class MonitorSimulation {
   }
 
   public static void freshness(State s, Instant now) {
-    for (Device d : s.devices)
-      d.freshness =
-        d.lastSampledAt == null
+    for (Device d : s.devices) {
+      Instant sample = "SIMULATION".equals(d.timeDomain)
+        ? d.lastSeenAt
+        : d.lastSampledAt;
+      d.freshness = d.connectionState.equals("DISCONNECTED")
+        ? "DISCONNECTED"
+        : d.connectionState.equals("UNKNOWN") || sample == null
           ? "UNKNOWN"
-          : d.connectionState.equals("DISCONNECTED")
-            ? "DISCONNECTED"
-            : d.lastSampledAt.isBefore(now.minusSeconds(60))
-              ? "STALE"
-              : "FRESH";
+          : sample.isBefore(now.minusSeconds(60))
+            ? "STALE"
+            : "FRESH";
+    }
   }
 }

@@ -11,7 +11,7 @@ import org.springframework.boot.WebApplicationType;
 import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.context.ConfigurableApplicationContext;
 
-class RestartPersistenceTest {
+class RestartPersistenceTest extends PostgresTestSupport {
 
   @TempDir
   Path temporary;
@@ -20,8 +20,18 @@ class RestartPersistenceTest {
     return new SpringApplicationBuilder(Application.class)
       .web(WebApplicationType.NONE)
       .run(
-        "--spring.datasource.url=jdbc:h2:file:" + database,
-        "--spring.jpa.hibernate.ddl-auto=update",
+        "--spring.datasource.url=" + database,
+        "--spring.datasource.hikari.schema=" +
+          database.substring(database.indexOf("currentSchema=") + 14),
+        "--spring.flyway.default-schema=" +
+          database.substring(database.indexOf("currentSchema=") + 14),
+        "--spring.flyway.schemas=" +
+          database.substring(database.indexOf("currentSchema=") + 14),
+        "--spring.datasource.username=postgres",
+        "--spring.datasource.password=postgres",
+        "--spring.datasource.hikari.data-source-properties.sslmode=disable",
+        "--app.demo.seed=true",
+        "--app.demo.allow-reset=true",
         "--app.monitor.enabled=false",
         "--spring.main.banner-mode=off",
         "--logging.level.root=ERROR",
@@ -32,11 +42,7 @@ class RestartPersistenceTest {
 
   @Test
   void confirmedChartTaskAndProvenanceSurviveApplicationRestart() {
-    String database = temporary
-      .resolve("restart")
-      .toAbsolutePath()
-      .toString()
-      .replace('\\', '/');
+    String database = databaseUrl();
     String chartId;
     String scheduledId;
     String movementId;
