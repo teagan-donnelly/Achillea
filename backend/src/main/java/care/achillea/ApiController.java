@@ -192,7 +192,9 @@ public class ApiController {
   public Object events(
     @RequestParam(required = false) String patientId,
     @RequestParam(defaultValue = "") String type,
-    @RequestParam(defaultValue = "100") int limit
+    @RequestParam(defaultValue = "100") int limit,
+    @RequestParam(required = false) Instant before,
+    @RequestParam(required = false) String beforeId
   ) {
     demo();
     State s = service.read();
@@ -204,7 +206,9 @@ public class ApiController {
           (patientId == null || patientId.equals(e.patientId())) &&
           e.type().startsWith(type)
       )
-      .sorted(Comparator.comparing(Event::timestamp).reversed())
+      .filter(e -> before == null || e.timestamp().isBefore(before) ||
+        (e.timestamp().equals(before) && beforeId != null && e.id().compareTo(beforeId) < 0))
+      .sorted(Comparator.comparing(Event::timestamp).thenComparing(Event::id).reversed())
       .limit(Math.max(1, Math.min(limit, 500)))
       .toList();
   }

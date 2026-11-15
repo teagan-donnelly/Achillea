@@ -6,6 +6,7 @@ import type { Round, State, Chart, Task } from "./types";
 import { time, words } from "./api";
 import { RoundReasons } from "./RoundReasons";
 import { PatientAvatar } from "./VisualPrimitives";
+import { confirmedMovements } from "./task-model";
 export type Mutate = (
   path: string,
   body?: unknown,
@@ -80,7 +81,10 @@ export function TaskList({
           {t.deferReason && <p>Deferred: {t.deferReason}</p>}
           <RoundReasons codes={reasonCodes} />
           {compact ? (
-            <Link className="text-link" to="/rounds">
+            <Link
+              className="text-link"
+              to={`/rounds?task=${encodeURIComponent(t.id)}&patient=${encodeURIComponent(t.patientId)}`}
+            >
               Review task →
             </Link>
           ) : (
@@ -186,27 +190,11 @@ export function TaskList({
                         onChange={(e) => setMovementId(e.target.value)}
                       >
                         <option value="">Select confirmed care</option>
-                        {state.movements
-                          .filter(
-                            (m) =>
-                              m.patientId === t.patientId &&
-                              m.verificationStatus === "CONFIRMED_CARE" &&
-                              !state.charts.some(
-                                (c) =>
-                                  c.status !== "DRAFT" &&
-                                  c.linkedMovementId === m.id &&
-                                  state.tasks.some(
-                                    (task) =>
-                                      task.id === c.linkedTaskId &&
-                                      task.status === "COMPLETED",
-                                  ),
-                              ),
-                          )
-                          .map((m) => (
-                            <option key={m.id} value={m.id}>
-                              {words(m.classification)} · {time(m.capturedAt)}
-                            </option>
-                          ))}
+                        {confirmedMovements(state, t).map((m) => (
+                          <option key={m.id} value={m.id}>
+                            {words(m.classification)} · {time(m.capturedAt)}
+                          </option>
+                        ))}
                       </select>
                       <small>
                         Review a candidate on the patient page before completing

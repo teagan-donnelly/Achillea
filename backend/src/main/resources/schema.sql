@@ -180,3 +180,49 @@ CREATE TABLE IF NOT EXISTS repositioning_plans (
   confirmed_movement_id VARCHAR(160),
   confirmed_chart_id VARCHAR(160)
 );
+
+-- Nurse-authored shift handoffs (never seeded). Sections are flattened into columns.
+CREATE TABLE IF NOT EXISTS handoffs (
+  id                                VARCHAR(160) PRIMARY KEY,
+  list_order                        INT NOT NULL,
+  patient_id                        VARCHAR(160) REFERENCES patients(id),
+  shift_date                        VARCHAR(10),
+  shift_label                       VARCHAR(16),
+  sender_id                         VARCHAR(160),
+  receiver_id                       VARCHAR(160),
+  status                            VARCHAR(32),
+  version                           INT NOT NULL,
+  section_current_concerns          VARCHAR(5000),
+  section_changes_during_shift      VARCHAR(5000),
+  section_interventions_and_response VARCHAR(5000),
+  section_outstanding_follow_up     VARCHAR(5000),
+  section_next_shift_priorities     VARCHAR(5000),
+  section_additional_observations   VARCHAR(5000),
+  created_at                        TIMESTAMP(9) WITH TIME ZONE,
+  updated_at                        TIMESTAMP(9) WITH TIME ZONE,
+  ready_at                          TIMESTAMP(9) WITH TIME ZONE,
+  reviewed_at                       TIMESTAMP(9) WITH TIME ZONE,
+  reviewed_by                       VARCHAR(160),
+  acknowledged_at                   TIMESTAMP(9) WITH TIME ZONE,
+  acknowledged_by                   VARCHAR(160)
+);
+CREATE INDEX IF NOT EXISTS handoffs_patient ON handoffs(patient_id, shift_date, shift_label);
+
+-- Append-only handoff history: one row per create and per edit.
+CREATE TABLE IF NOT EXISTS handoff_versions (
+  id                                VARCHAR(160) PRIMARY KEY,
+  list_order                        INT NOT NULL,
+  handoff_id                        VARCHAR(160) REFERENCES handoffs(id),
+  patient_id                        VARCHAR(160) REFERENCES patients(id),
+  version                           INT NOT NULL,
+  status                            VARCHAR(32),
+  saved_by                          VARCHAR(160),
+  saved_at                          TIMESTAMP(9) WITH TIME ZONE,
+  section_current_concerns          VARCHAR(5000),
+  section_changes_during_shift      VARCHAR(5000),
+  section_interventions_and_response VARCHAR(5000),
+  section_outstanding_follow_up     VARCHAR(5000),
+  section_next_shift_priorities     VARCHAR(5000),
+  section_additional_observations   VARCHAR(5000)
+);
+CREATE INDEX IF NOT EXISTS handoff_versions_handoff ON handoff_versions(handoff_id, version);

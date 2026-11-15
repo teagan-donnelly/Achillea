@@ -487,16 +487,9 @@ export function RepositioningDetail({
               : scheduleLabel(s.schedule)}
           </h2>
           <strong>{deadlineText(s.due, now)}</strong>
-          <p>
-            {s.plan
-              ? `Configured interval: ${s.plan.intervalMinutes} minutes · Individual synthetic care plan`
-              : "No active repositioning care plan"}
-          </p>
+          {!s.plan && <p>No repositioning plan</p>}
         </div>
       </div>
-      <p>
-        {s.evidence}. Sensor evidence is not proof of completed or missed care.
-      </p>
       <div className="position-layout">
         <div className="body-position">
           <svg
@@ -509,14 +502,7 @@ export function RepositioningDetail({
             <path d="M63 63 L38 136 M117 63 L142 136" fill="none" />
             <circle className="sensor-dot" cx="90" cy="92" r="11" />
             <circle className="sensor-dot" cx="90" cy="143" r="11" />
-            <text x="108" y="96" className="sensor-label">
-              Chest
-            </text>
-            <text x="108" y="147" className="sensor-label">
-              Pelvis
-            </text>
           </svg>
-          <small>Sensor placement · Synthetic evidence</small>
         </div>
         <SensorReadings state={state} patient={p} />
       </div>
@@ -527,7 +513,7 @@ export function RepositioningDetail({
           <p>
             {s.plan?.lastConfirmedCareAt
               ? new Date(s.plan.lastConfirmedCareAt).toLocaleString()
-              : "No confirmed care recorded. Schedule uses the initial care-plan deadline."}
+              : "None yet"}
           </p>
         </div>
       </div>

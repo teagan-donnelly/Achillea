@@ -7,6 +7,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import App from "./App";
+
 import "./styles.css";
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
@@ -23,3 +24,11 @@ import "./final-mobile.css";
 
 import "./responsive-design.css";
 import "./sensor-first.css";
+import "./tabbar.css";
+import "./settings.css";
+import "./ui.css";
+import "./monitoring-feed.css";
+import "./monitoring-detail.css";
+import "./patients.css";
+import "./tasks.css";
+import "./handoff.css";

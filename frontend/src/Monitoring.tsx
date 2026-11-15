@@ -23,13 +23,20 @@ export function readingState(v: Vital, device?: Device) {
   if (
     device?.freshness === "STALE" ||
     Date.now() - Date.parse(v.observedAt) >
-      (device ? 60000 : STALE_AFTER_MINUTES * 60000)
+      (device ? staleAfterMs(device) : STALE_AFTER_MINUTES * 60000)
   )
     return "Old reading";
   if (device?.connectionState === "DELAYED" || v.quality === "DELAYED")
     return "Delayed reading";
   if (v.quality !== "VALID") return "Check signal quality";
   return "Recent reading";
+}
+/** Recorded replay monitors report on the recording's cadence (backend sets the interval). */
+export function isReplayDevice(device?: Device) {
+  return !!device?.mode && (device.mode.startsWith("RECORDED") || device.mode === "SYNTHETIC_FIXTURE");
+}
+function staleAfterMs(device: Device) {
+  return isReplayDevice(device) ? Math.max(60000, (device.updateIntervalSeconds ?? 6) * 5000) : 60000;
 }
 export function patientMonitor(state: State, patientId: string) {
   return state.devices?.find(
@@ -81,11 +88,15 @@ export function metricName(metric: string) {
         SPO2: "Oxygen saturation",
         TEMPERATURE: "Temperature",
         RESPIRATORY_RATE: "Respiratory rate",
+        BLOOD_PRESSURE_SYSTOLIC: "Systolic BP",
+        BLOOD_PRESSURE_DIASTOLIC: "Diastolic BP",
       } as Record<string, string>
     )[metric] ?? words(metric)
   );
 }
 export function sourceName(v: Vital) {
+  if (v.source.startsWith("RECORDED")) return "Recorded data replay (MIMIC-IV demo)";
+  if (v.source === "SYNTHETIC_FIXTURE") return "Recorded data replay (synthetic fixture)";
   return v.source.includes("SIMULATED") ? "Simulated monitor" : words(v.source);
 }
 export function Trend({

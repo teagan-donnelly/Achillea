@@ -1,34 +1,33 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Link,
-  NavLink,
   Route,
   Routes,
   useLocation,
   useNavigate,
 } from "react-router-dom";
 import {
-  Activity,
-  CalendarCheck,
   Check,
   FlaskConical,
   Leaf,
   RefreshCw,
-  Search,
-  Users,
   Wifi,
   WifiOff,
-  Radio,
   MoreHorizontal,
 } from "lucide-react";
-import type { ActivityItem, Chart, Patient, Round, State, Task } from "./types";
+import type { ActivityItem, Chart, Round, State, Task } from "./types";
 import { api } from "./api";
 import { PatientView } from "./PatientView";
 import { RoundsView } from "./RoundsView";
-import { ActivityHome, PatientCard } from "./WorkspaceViews";
 import { SwipeNavigation } from "./SwipeNavigation";
+import { BottomNav } from "./TabBar";
+import { SettingsView } from "./SettingsView";
+import { MonitoringFeed } from "./MonitoringFeed";
+import { MonitoringDetail } from "./MonitoringDetail";
+import { PatientsDirectory } from "./PatientsDirectory";
+import { Handoff } from "./Handoff";
+import type { ScreenProps } from "./app-context";
 import { loadWorkspace, type WorkspaceSnapshot } from "./workspace-feed";
-import { PageHero } from "./VisualPrimitives";
 import { DemoPresets } from "./DemoPresets";
 import { RepositioningHome, SensorMonitoring } from "./RepositioningViews";
 import { initialUnit, saveUnit } from "./unit-preference";
@@ -41,7 +40,6 @@ export default function App() {
     [notice, setNotice] = useState(""),
     [demo, setDemo] = useState(false),
     [busy, setBusy] = useState(false),
-    [search, setSearch] = useState(""),
     [updatedAt, setUpdatedAt] = useState<string | null>(null);
   const navigate = useNavigate(),
     location = useLocation();
@@ -52,6 +50,7 @@ export default function App() {
     unitGeneration = useRef(0);
   const loaded = state !== null;
   useEffect(() => {
+    if (document.querySelector('[role="dialog"][aria-modal="true"]')) return;
     const heading = document.querySelector<HTMLHeadingElement>("main h1");
     if (heading) {
       heading.tabIndex = -1;
@@ -89,7 +88,7 @@ export default function App() {
     }
   }, [unit]);
   // Live updates: the backend pushes a Server-Sent Event after every saved change and the UI refreshes
-  // right away (at most about once a second, never overlapping). Polling stays as a fallback: every 3 s
+  // right away (never overlapping; bursts arriving during a refresh are merged into one follow-up). Polling stays as a fallback: every 3 s
   // while the stream is down, every 30 s while it is up.
   const [live, setLive] = useState(false);
   const refreshRef = useRef(refresh);
@@ -104,7 +103,7 @@ export default function App() {
       return;
     }
     if (throttle.current) return;
-    const wait = Math.max(0, 1000 - (Date.now() - lastRun.current));
+    const wait = Math.max(0, 50 - (Date.now() - lastRun.current));
     throttle.current = setTimeout(async () => {
       throttle.current = null;
       inFlight.current = true;
@@ -176,10 +175,9 @@ export default function App() {
     setUpdatedAt(null);
     setUnit(next);
     setRounds([]);
-    setSearch("");
     navigate(
       destination === "/" &&
-        ["/", "/patients", "/sensors", "/rounds", "/activity"].includes(
+        ["/", "/patients", "/sensors", "/rounds", "/settings", "/activity"].includes(
           location.pathname,
         )
         ? location.pathname
@@ -197,19 +195,34 @@ export default function App() {
       await mutate("/demo/repositioning");
       selectUnit("ICU");
       setDemo(false);
-      navigate("/");
+      navigate("/repositioning");
     } catch {
       /* App displays the server error without clearing existing records. */
     }
   }
-  function patientCard(p: Patient) {
-    return (
-      <PatientCard key={p.id} patient={p} state={state!} rounds={rounds} />
-    );
-  }
+  // Shared props for redesigned tab screens (see app-context.ts). Only built once state exists.
+  const screen: ScreenProps | null = state
+    ? {
+        state,
+        patients,
+        rounds,
+        activity,
+        unit,
+        label,
+        mutate,
+        busy,
+        refresh,
+        selectUnit,
+      }
+    : null;
+  // Routes rendered with the shared UI kit get the clean Monitoring-style shell (ui.css).
+  const usesKit =
+    location.pathname.startsWith("/monitoring/") ||
+    ["/patients", "/rounds", "/activity", "/settings"].includes(location.pathname) ||
+    /^\/patients\/[^/]+$/.test(location.pathname);
   return (
     <div
-      className={`app mockup-design route-${location.pathname === "/" || location.pathname === "/activity" ? "activity" : location.pathname === "/patients" ? "patients" : location.pathname === "/rounds" ? "rounds" : "bedside"}`}
+      className={`app mockup-design${usesKit ? " uses-kit" : ""} route-${location.pathname === "/" ? "monitoring" : location.pathname === "/activity" || location.pathname === "/repositioning" ? "activity" : location.pathname === "/patients" ? "patients" : location.pathname === "/rounds" ? "rounds" : location.pathname === "/settings" ? "settings" : "bedside"}`}
     >
       <aside className="sidebar">
         <Link to="/" className="brand">
@@ -218,31 +231,7 @@ export default function App() {
             Achillea<small>Care that moves with you.</small>
           </span>
         </Link>
-        <nav aria-label="Main navigation">
-          {[
-            ["/", "Home", Activity],
-            ["/patients", "Patients", Users],
-            ["/sensors", "Sensors", Radio],
-            ["/rounds", "Rounds", CalendarCheck],
-          ].map(([path, title, Icon]) => {
-            const Glyph = Icon as typeof Activity;
-            return (
-              <NavLink
-                end={path === "/"}
-                key={path as string}
-                to={path as string}
-                className={
-                  path === "/" && location.pathname === "/activity"
-                    ? "active"
-                    : undefined
-                }
-              >
-                <Glyph size={20} />
-                <span>{title as string}</span>
-              </NavLink>
-            );
-          })}
-        </nav>
+        <BottomNav />
         <div className="sidebar-bottom">
           <p>
             Designed for the bedside.
@@ -333,10 +322,14 @@ export default function App() {
                 Connecting to your demo shift…
               </div>
             )}
-            {state && (
+            {state && screen && (
               <Routes>
                 <Route
                   path="/"
+                  element={<MonitoringFeed state={state} patients={patients} />}
+                />
+                <Route
+                  path="/repositioning"
                   element={
                     <RepositioningHome
                       onLoadDemo={() => void loadRepositioningDemo()}
@@ -357,65 +350,7 @@ export default function App() {
                 />
                 <Route
                   path="/patients"
-                  element={
-                    <>
-                      <PageHero
-                        title="Patients"
-                        subtitle={`${label} · ${patients.length} assigned patients`}
-                      />
-                      <h2 className="visually-hidden">Your patients</h2>
-                      <p>
-                        Assigned to Jordan Ellis, RN · {label} · Synthetic
-                        records
-                      </p>
-                      <label className="search">
-                        <Search size={19} />
-                        <input
-                          aria-label="Search assigned patients"
-                          placeholder="Search name, room, or synthetic wristband ID"
-                          value={search}
-                          onChange={(e) => setSearch(e.target.value)}
-                        />
-                      </label>
-                      <div
-                        className="filter-pills unit-filters"
-                        aria-label="Assigned patient unit"
-                        data-no-swipe
-                      >
-                        <button
-                          aria-pressed={unit === "L_AND_D"}
-                          onClick={() => selectUnit("L_AND_D", "/patients")}
-                        >
-                          L&amp;D
-                          {unit === "L_AND_D" ? ` (${patients.length})` : ""}
-                        </button>
-                        <button
-                          aria-pressed={unit === "ICU"}
-                          onClick={() => selectUnit("ICU", "/patients")}
-                        >
-                          ICU{unit === "ICU" ? ` (${patients.length})` : ""}
-                        </button>
-                      </div>
-                      <div className="surface patients-grid">
-                        {patients
-                          .filter((p) =>
-                            (p.name + p.room + p.id)
-                              .toLowerCase()
-                              .includes(search.toLowerCase()),
-                          )
-                          .map(patientCard)}
-                        {!patients.some((p) =>
-                          (p.name + p.room + p.id)
-                            .toLowerCase()
-                            .includes(search.toLowerCase()),
-                        ) && (
-                          <p className="empty">
-                            No assigned patients match your search.
-                          </p>
-                        )}
-                      </div>
-                    </>
-                  }
+                  element={<PatientsDirectory {...screen} />}
                 />
                 <Route
                   path="/patients/:id"
@@ -443,17 +378,13 @@ export default function App() {
                   }
                 />
                 <Route
-                  path="/activity"
-                  element={
-                    <ActivityHome
-                      key={unit}
-                      state={state}
-                      summaries={activity}
-                      patients={patients}
-                      rounds={rounds}
-                      label={label}
-                    />
-                  }
+                  path="/settings"
+                  element={<SettingsView label={label} unit={unit} selectUnit={selectUnit} />}
+                />
+                <Route path="/activity" element={<Handoff {...screen} />} />
+                <Route
+                  path="/monitoring/:id"
+                  element={<MonitoringDetail {...screen} />}
                 />
                 <Route
                   path="*"

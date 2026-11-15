@@ -73,7 +73,7 @@ describe.skipIf(!base)(
       localStorage.removeItem("achillea-selected-unit");
       const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
       try {
-        open("/");
+        open("/repositioning");
         await screen.findByRole("heading", {
           name: "Repositioning Command Center",
         });
@@ -90,9 +90,9 @@ describe.skipIf(!base)(
         expect(staged.patients.filter((p) => p.unit === "ICU")).toHaveLength(4);
         const originalCharts = staged.charts.length;
         fireEvent.click(screen.getByRole("link", { name: /Alex Linden/ }));
-        await screen.findByRole("heading", { name: "Repositioning overdue" });
+        await screen.findByRole("heading", { name: "Alex Linden" });
         fireEvent.click(
-          screen.getByRole("button", { name: /Review & document turn/ }),
+          screen.getByRole("button", { name: /^Repositioning,/ }),
         );
         fireEvent.change(screen.getByLabelText("Bedside observation"), {
           target: {
@@ -119,8 +119,13 @@ describe.skipIf(!base)(
         expect(
           saved.events.some((e) => e.type === "repositioning.confirmed"),
         ).toBe(true);
-        fireEvent.click(screen.getByRole("link", { name: "Home" }));
-        await screen.findByRole("heading", { name: "Needs attention (1)" });
+        fireEvent.click(screen.getByRole("link", { name: "Monitoring" }));
+        await screen.findByRole("heading", { name: "Monitoring" });
+        expect(
+          saved.repositioningPlans?.find(
+            (p) => p.patientId === "synthetic-icu-01",
+          )?.lastConfirmedCareAt,
+        ).toBeTruthy();
       } finally {
         confirm.mockRestore();
       }
@@ -128,29 +133,27 @@ describe.skipIf(!base)(
 
     it("retrieves expanded assignments and renders backend activity and monitoring history", async () => {
       open();
-      await screen.findByRole("heading", { name: "Activity" });
-      fireEvent.click(screen.getByLabelText("Show original event history"));
-      expect(
-        screen.getAllByText(
-          /Historical synthetic monitor observations received/,
-        ).length,
-      ).toBeGreaterThan(0);
+      await screen.findByRole("heading", { name: "Handoff" });
+      const events = await request<{ type: string; source: string }[]>(
+        "/events?patientId=synthetic-ld-01&limit=300",
+      );
+      expect(events.length).toBeGreaterThan(0);
+      expect(events.every((e) => Boolean(e.source))).toBe(true);
       fireEvent.click(screen.getByRole("link", { name: "Patients" }));
       for (const name of ["Maya Rowan", "Elena Vale", "Iris Fern"])
         expect(
-          await screen.findByRole("heading", { name }),
+          await screen.findByRole("link", { name: new RegExp(name) }),
         ).toBeInTheDocument();
       expect(
-        screen.queryByRole("heading", { name: "Alex Linden" }),
+        screen.queryByRole("link", { name: /Alex Linden/ }),
       ).not.toBeInTheDocument();
       expect(
         screen.queryByRole("img", { name: /historical trend/ }),
       ).not.toBeInTheDocument();
-      fireEvent.click(
-        screen.getByRole("heading", { name: "Maya Rowan" }).closest("a")!,
-      );
+      fireEvent.click(screen.getByRole("link", { name: /Maya Rowan/ }));
+      fireEvent.click(screen.getByRole("tab", { name: "Trends" }));
       expect(
-        await screen.findByRole("img", { name: /Heart rate historical trend/ }),
+        await screen.findByRole("img", { name: /Heart rate from/ }),
       ).toBeInTheDocument();
       const state = await request<State>("/state");
       expect(state.patients).toHaveLength(6);
@@ -158,12 +161,21 @@ describe.skipIf(!base)(
     }, 30000);
 
     it("displays disconnected and stale monitor metadata and reconnects the correct patient", async () => {
-      open("/patients/synthetic-ld-02");
+      open("/patients/synthetic-ld-02?section=sensors");
       await screen.findByRole("heading", { name: "Elena Vale" });
-      expect(screen.getByLabelText("Monitor availability")).toHaveTextContent(
-        "disconnected",
-      );
-      expect(screen.getAllByText("Unavailable").length).toBe(3);
+      expect(screen.getByText("Offline")).toBeInTheDocument();
+      expect(
+        screen
+          .getByRole("link", { name: /^Vitals, open monitoring/ })
+          .querySelectorAll("b"),
+      ).toHaveLength(3);
+      expect(
+        [
+          ...screen
+            .getByRole("link", { name: /^Vitals, open monitoring/ })
+            .querySelectorAll("b"),
+        ].every((b) => b.textContent === "\u2013"),
+      ).toBe(true);
       fireEvent.click(screen.getByText("Monitor simulation controls"));
       expect(
         screen.getByRole("button", {
@@ -174,9 +186,7 @@ describe.skipIf(!base)(
         screen.getByRole("button", { name: "Reconnect simulated monitor" }),
       );
       await waitFor(() =>
-        expect(screen.getByLabelText("Monitor availability")).toHaveTextContent(
-          "connected · fresh",
-        ),
+        expect(screen.getByText("Connected")).toBeInTheDocument(),
       );
       expect(
         (await request<State>("/state")).devices?.find(
@@ -184,12 +194,14 @@ describe.skipIf(!base)(
         )?.connectionState,
       ).toBe("CONNECTED");
       cleanup();
-      open("/patients/synthetic-ld-03");
+      open("/patients/synthetic-ld-03?section=sensors");
       await screen.findByRole("heading", { name: "Iris Fern" });
-      expect(screen.getByLabelText("Monitor availability")).toHaveTextContent(
-        "delayed · stale",
-      );
-      expect(screen.getAllByText(/Old reading/).length).toBeGreaterThan(0);
+      expect(screen.getByText("Delayed")).toBeInTheDocument();
+      expect(
+        screen
+          .getByRole("link", { name: /^Vitals, open monitoring/ })
+          .querySelectorAll(".is-old").length,
+      ).toBeGreaterThan(0);
     }, 30000);
 
     it("saves, confirms, and amends real bedside documentation with vital provenance", async () => {
@@ -229,7 +241,7 @@ describe.skipIf(!base)(
       ).find((c) => c.text === note)!;
       expect(original.status).toBe("CONFIRMED");
       expect(original.linkedVitalIds).toHaveLength(3);
-      const article = screen.getByText(note).closest("article")!;
+      const article = screen.getByText(note).closest("li")!;
       fireEvent.click(
         within(article).getByRole("button", { name: "Append amendment" }),
       );
@@ -266,26 +278,34 @@ describe.skipIf(!base)(
 
     it("switches to ICU, reviews independent sensor events, and explicitly completes verified care", async () => {
       open();
-      await screen.findByRole("heading", { name: "Activity" });
+      await screen.findByRole("heading", { name: "Handoff" });
       fireEvent.change(screen.getByLabelText("Demo unit"), {
         target: { value: "ICU" },
       });
       fireEvent.click(screen.getByRole("link", { name: "Patients" }));
-      const heading = await screen.findByRole("heading", {
-        name: "Alex Linden",
+      const heading = await screen.findByRole("link", {
+        name: /Alex Linden/,
       });
-      fireEvent.click(heading.closest("a")!);
-      fireEvent.click(screen.getByRole("button", { name: /Sensor monitoring/ }));
+      fireEvent.click(heading);
+      fireEvent.click(
+        screen.getByRole("button", { name: /Sensor monitoring/ }),
+      );
       await screen.findByRole("heading", { name: "Repositioning monitoring" });
-      expect(screen.getByText("Source: torso-sim-01")).toBeInTheDocument();
+      expect(
+        (await request<State>("/state")).devices?.some(
+          (d) => d.id === "torso-sim-01",
+        ),
+      ).toBe(true);
       await demo("Chest-only movement");
       expect(
         (await request<State>("/state")).tasks.find((t) => t.id === "task-3")
           ?.status,
       ).toBe("OPEN");
       await demo("Coordinated turn candidate");
-      const candidate = await screen.findByText("coordinated turn candidate");
-      const article = candidate.closest("article")!;
+      const candidate = await screen.findByText("Coordinated turn candidate", {
+        selector: "strong",
+      });
+      const article = candidate.closest("li")!;
       const state = await request<State>("/state");
       const movement = state.movements
         .filter((m) => m.patientId === "synthetic-icu-01")
@@ -320,9 +340,9 @@ describe.skipIf(!base)(
           within(article).queryByRole("button", { name: "Review candidate" }),
         ).not.toBeInTheDocument(),
       );
-      fireEvent.click(screen.getByRole("button", { name: "Care" }));
+      fireEvent.click(screen.getByRole("link", { name: "Tasks" }));
       const task = document.getElementById("task-task-3")!;
-      fireEvent.click(within(task).getByRole("button", { name: "Complete" }));
+      fireEvent.click(within(task).getByRole("button", { name: /^Complete/ }));
       fireEvent.change(
         screen.getByRole("combobox", {
           name: /Previously nurse-confirmed movement/,
@@ -330,9 +350,7 @@ describe.skipIf(!base)(
         { target: { value: movement.id } },
       );
       fireEvent.click(
-        screen.getByLabelText(
-          "I verified this care at the bedside (synthetic demo).",
-        ),
+        screen.getByLabelText("I verified this care at the bedside"),
       );
       fireEvent.click(
         screen.getByRole("button", { name: "Confirm completion" }),
@@ -344,8 +362,12 @@ describe.skipIf(!base)(
         ).toBe("COMPLETED"),
       );
       await demo("Disconnect pelvis sensor");
-      fireEvent.click(screen.getByRole("button", { name: "Repositioning" }));
-      fireEvent.click(screen.getByRole("button", { name: /Sensor monitoring/ }));
+      cleanup();
+      open("/patients/synthetic-icu-01");
+      await screen.findByRole("heading", { name: "Alex Linden" });
+      fireEvent.click(
+        screen.getByRole("button", { name: /Sensor monitoring/ }),
+      );
       expect(
         await screen.findByText("Unknown / disconnected"),
       ).toBeInTheDocument();
@@ -366,27 +388,33 @@ describe.skipIf(!base)(
       });
       fireEvent.click(screen.getByRole("link", { name: "Patients" }));
       expect(
-        await screen.findByRole("heading", { name: "Maya Rowan" }),
+        await screen.findByRole("link", { name: /Maya Rowan/ }),
       ).toBeInTheDocument();
       expect(
-        screen.queryByRole("heading", { name: "Alex Linden" }),
+        screen.queryByRole("link", { name: /Alex Linden/ }),
       ).not.toBeInTheDocument();
     }, 30000);
 
     it("shows backend high priority and all task horizons, and persists nurse deferral", async () => {
       await request("/demo/scenarios/flagged?patientId=synthetic-ld-01", {});
       open("/rounds");
-      await screen.findByRole("heading", { name: "Rounds" });
-      expect(screen.getByRole("heading", { name: "Now" })).toBeInTheDocument();
-      expect(screen.getByRole("heading", { name: "Next" })).toBeInTheDocument();
+      await screen.findByRole("heading", { name: "Tasks" });
       expect(
-        screen.getByRole("heading", { name: "Later" }),
+        screen.getByRole("heading", { name: /^Overdue/ }),
       ).toBeInTheDocument();
-      expect(document.querySelector(".next-action")).toHaveTextContent(
-        "Review latest synthetic reading",
-      );
+      expect(
+        screen.getByRole("heading", { name: /^Due Now/ }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("heading", { name: /^Upcoming/ }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getAllByRole("img", { name: "High priority" }).length,
+      ).toBeGreaterThan(0);
       const task = document.getElementById("task-task-1")!;
-      fireEvent.click(within(task).getByRole("button", { name: "Defer" }));
+      fireEvent.click(within(task).getByRole("button", { name: /^Complete/ }));
+      fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+      fireEvent.click(screen.getByRole("button", { name: "Defer" }));
       fireEvent.change(screen.getByLabelText("Reason for deferral"), {
         target: { value: "Integration proof: patient requested later review" },
       });
@@ -400,8 +428,8 @@ describe.skipIf(!base)(
     }, 30000);
 
     it("polls new backend observations into the mounted patient view", async () => {
-      open("/patients/synthetic-ld-01");
-      await screen.findByRole("heading", { name: "Maya Rowan" });
+      open("/monitoring/synthetic-ld-01");
+      await screen.findByRole("article", { name: "Heart rate" });
       const initial = await request<State>("/state");
       const before = initial.vitals
         .filter(
@@ -422,9 +450,8 @@ describe.skipIf(!base)(
       await waitFor(
         () => {
           const reading = screen
-            .getByRole("heading", { name: "Heart rate" })
-            .closest("article")!
-            .querySelector(".reading");
+            .getByRole("article", { name: "Heart rate" })
+            .querySelector(".md-metric-value");
           expect(reading).toHaveTextContent(String(latest.value));
         },
         { timeout: 8000 },
@@ -433,7 +460,7 @@ describe.skipIf(!base)(
 
     it("runs all five guided presets through explicit frontend actions", async () => {
       open();
-      await screen.findByRole("heading", { name: "Activity" });
+      await screen.findByRole("heading", { name: "Handoff" });
       for (const [key, label] of [
         ["routine-shift", "Routine shift"],
         ["device-event", "Device event"],
@@ -450,7 +477,7 @@ describe.skipIf(!base)(
             target: { value: unit },
           });
           await screen.findByRole("heading", {
-            name: /^(Activity|Repositioning Command Center)$/,
+            name: /^(Handoff|Monitoring|Repositioning Command Center)$/,
           });
         }
         fireEvent.click(screen.getByRole("button", { name: "Demo controls" }));
@@ -519,8 +546,10 @@ describe.skipIf(!base)(
 
     it("schedules an actual review and renders backend priority reason codes", async () => {
       open("/rounds");
-      await screen.findByRole("heading", { name: "Rounds" });
-      fireEvent.click(screen.getByText("Schedule a synthetic review"));
+      await screen.findByRole("heading", { name: "Tasks" });
+      fireEvent.click(
+        screen.getByRole("button", { name: "Schedule a review" }),
+      );
       fireEvent.change(screen.getByLabelText("Assigned patient"), {
         target: { value: "synthetic-ld-01" },
       });
@@ -534,8 +563,8 @@ describe.skipIf(!base)(
         target: { value: "TIMELY" },
       });
       fireEvent.click(screen.getByRole("button", { name: "Schedule review" }));
-      await screen.findByRole("link", {
-        name: "Live V3 explicit workflow review",
+      await screen.findByRole("button", {
+        name: /^Live V3 explicit workflow review,/,
       });
       const rounds = await request<
         { task: { title: string }; horizon: string; reasonCodes: string[] }[]
@@ -547,7 +576,7 @@ describe.skipIf(!base)(
       expect(scheduled.reasonCodes).toContain("SCHEDULED_OVERDUE");
       expect(scheduled.reasonCodes).toContain("EXPLICIT_TIMELY_PRIORITY");
       expect(
-        screen.getAllByText(/EXPLICIT_TIMELY_PRIORITY/).length,
+        screen.getAllByRole("img", { name: "Timely priority" }).length,
       ).toBeGreaterThan(0);
     }, 30000);
 
@@ -561,13 +590,16 @@ describe.skipIf(!base)(
         observedAt: new Date().toISOString(),
         quality: "MISSING",
       });
-      open("/patients/synthetic-ld-01");
-      await screen.findByRole("heading", { name: "Maya Rowan" });
-      const article = screen
-        .getByRole("heading", { name: "Heart rate" })
-        .closest("article")!;
-      expect(within(article).getByText("Unavailable")).toBeInTheDocument();
-      expect(article.querySelector(".reading")).not.toHaveTextContent("0");
+      open("/monitoring/synthetic-ld-01");
+      const article = await screen.findByRole("article", {
+        name: "Heart rate",
+      });
+      expect(article.querySelector(".md-metric-value")).toHaveTextContent(
+        "\u2014",
+      );
+      expect(article.querySelector(".md-metric-value")).not.toHaveTextContent(
+        "0",
+      );
     }, 30000);
   },
 );

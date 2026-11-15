@@ -1,5 +1,5 @@
 import { words } from "./api";
-const labels: Record<string, string> = {
+export const REASON_LABELS: Record<string, string> = {
   EXPLICIT_HIGH_PRIORITY: "Explicit high workflow priority",
   EXPLICIT_TIMELY_PRIORITY: "Explicit timely workflow priority",
   SCHEDULED_DUE: "Scheduled review is due",
@@ -12,6 +12,8 @@ const labels: Record<string, string> = {
   TECHNICAL_DEVICE_REVIEW: "Technical device review",
   DEVICE_CONNECTION_REVIEW: "Device connection awaits review",
 };
+/** Human label for a backend reason code (falls back to the code in words). */
+export const reasonLabel = (code: string) => REASON_LABELS[code] ?? words(code);
 export function RoundReasons({ codes }: { codes?: string[] }) {
   if (!codes?.length) return null;
   return (
@@ -20,7 +22,7 @@ export function RoundReasons({ codes }: { codes?: string[] }) {
       <ul>
         {codes.map((code) => (
           <li key={code}>
-            {labels[code] ?? words(code)} <small>({code})</small>
+            {reasonLabel(code)} <small>({code})</small>
           </li>
         ))}
       </ul>

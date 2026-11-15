@@ -1,0 +1,469 @@
+/* Expanded Monitoring (MonitoringDetail.tsx): Fitbit x Apple Watch on white.
+   Shared tokens and components: ui.css / ui.tsx. Scoped under .md.
+   Type: 12 / 13 / 15 / 17 / 34. Spacing: 4 / 8 / 12 / 16 / 20 / 24. */
+
+.mockup-design .md {
+  /* Metric accents (validated: 3:1+ on white, distinct under CVD). Glyph + line only. */
+  --a-heart: #e0394a;
+  --a-spo2: #2f6fdb;
+  --a-resp: #0e9384;
+  --a-temp: #d9600f;
+  --a-torso: #237a4b;
+  --a-pelvis: #4a6fd8;
+  padding-bottom: calc(96px + env(safe-area-inset-bottom));
+}
+.mockup-design .md .md-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.mockup-design .md .ach-header {
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+}
+.mockup-design .md .md-head-pill {
+  margin-right: 6px;
+}
+
+/* ---------- Range control ---------- */
+.mockup-design .md .md-quick-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 16px var(--ach-gutter) 0;
+}
+.mockup-design .md .md-quick-actions .ach-button {
+  min-width: 0;
+  padding: 8px;
+  font-size: 0.875rem;
+  text-decoration: none;
+  line-height: 1.3;
+}
+.mockup-design .md .md-range .ach-segmented {
+  margin-top: 16px;
+}
+
+/* ---------- Vertical metric stack ---------- */
+.mockup-design .md .md-stack {
+  display: grid;
+  gap: 12px;
+  margin: 16px var(--ach-gutter) 0;
+}
+.mockup-design .md .md-metric {
+  --accent: var(--ach-green);
+  min-width: 0;
+  padding: 16px 16px 12px;
+  border-radius: var(--ach-radius-lg);
+  border: 1px solid var(--ach-border);
+  background: #fff;
+}
+.mockup-design .md .a-heart {
+  --accent: var(--a-heart);
+}
+.mockup-design .md .a-spo2 {
+  --accent: var(--a-spo2);
+}
+.mockup-design .md .a-resp {
+  --accent: var(--a-resp);
+}
+.mockup-design .md .a-temp {
+  --accent: var(--a-temp);
+}
+.mockup-design .md .md-metric-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 20px;
+}
+.mockup-design .md .md-metric-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--ach-text);
+  white-space: nowrap;
+}
+.mockup-design .md .md-metric-name svg {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  color: var(--accent);
+}
+.mockup-design .md .md-metric-aside {
+  font-size: 0.8125rem;
+  color: var(--ach-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.mockup-design .md .md-metric-aside .tight {
+  margin-left: 1px;
+}
+.mockup-design .md .md-metric-aside span:not(.tight) {
+  margin-left: 3px;
+}
+.mockup-design .md .md-metric-value {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-top: 6px;
+}
+.mockup-design .md .md-metric-value strong,
+.mockup-design .md .md-roll strong {
+  font-size: 2.125rem; /* 34 */
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  color: var(--ach-text);
+  white-space: nowrap;
+}
+.mockup-design .md :is(.md-metric-value, .md-roll) strong small {
+  margin-left: 4px;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: var(--ach-muted);
+}
+.mockup-design .md :is(.md-metric-value, .md-roll) strong small.tight {
+  margin-left: 1px;
+}
+.mockup-design .md :is(.md-metric-value, .md-roll) strong.is-empty {
+  font-weight: 400;
+  color: var(--ach-faint);
+}
+
+/* Live indicator: a small pulsing dot, shown only for live readings. */
+.mockup-design .md .md-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--ach-green);
+}
+.mockup-design .md .md-live-dot {
+  position: relative;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #22a35a;
+}
+.mockup-design .md .md-live-dot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: #22a35a;
+  animation: md-pulse 1.8s ease-out infinite;
+}
+@keyframes md-pulse {
+  from {
+    transform: scale(1);
+    opacity: 0.55;
+  }
+  to {
+    transform: scale(2.8);
+    opacity: 0;
+  }
+}
+
+/* ---------- Chart ---------- */
+.mockup-design .md .md-chart {
+  margin-top: 12px;
+}
+.mockup-design .md .md-plot {
+  position: relative;
+  height: 112px;
+  margin-right: 28px; /* y labels */
+  border-radius: 4px;
+  touch-action: pan-y;
+  cursor: crosshair;
+}
+.mockup-design .md .md-plot svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  color: var(--accent);
+}
+.mockup-design .md .md-grid {
+  stroke: var(--ach-hairline);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+.mockup-design .md .md-grid.zero {
+  stroke: #d6ddd8;
+}
+.mockup-design .md .md-marker {
+  stroke: #98a2b3;
+  stroke-width: 1;
+  stroke-dasharray: 2 3;
+  vector-effect: non-scaling-stroke;
+}
+.mockup-design .md .md-line,
+.mockup-design .md .md-dot {
+  fill: none;
+  stroke: var(--series, var(--accent));
+  stroke-width: 2.25;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+.mockup-design .md .md-dot {
+  stroke-width: 6;
+}
+.mockup-design .md .md-area {
+  stroke: none;
+}
+.mockup-design .md .s-torso {
+  --series: var(--a-torso);
+}
+.mockup-design .md .s-pelvis {
+  --series: var(--a-pelvis);
+}
+.mockup-design .md .s-pelvis .md-line {
+  stroke-dasharray: 6 4;
+}
+.mockup-design .md .md-yaxis {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 100%;
+  width: 28px;
+  pointer-events: none;
+}
+.mockup-design .md .md-yaxis span {
+  position: absolute;
+  left: 6px;
+  transform: translateY(-50%);
+  font-size: 0.6875rem;
+  line-height: 1;
+  color: var(--ach-faint);
+  font-variant-numeric: tabular-nums;
+}
+.mockup-design .md .md-cursor {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 0;
+  border-left: 1px solid rgba(17, 17, 17, 0.25);
+  pointer-events: none;
+}
+.mockup-design .md .md-cursor i {
+  position: absolute;
+  left: -5px;
+  width: 10px;
+  height: 10px;
+  margin-top: -5px;
+  border-radius: 50%;
+  background: var(--series, var(--accent));
+  box-shadow: 0 0 0 2px #fff;
+}
+.mockup-design .md .md-xaxis {
+  position: relative;
+  height: 16px;
+  margin: 6px 28px 0 0;
+  font-size: 0.6875rem;
+  color: var(--ach-faint);
+  font-variant-numeric: tabular-nums;
+}
+.mockup-design .md .md-xaxis span {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+.mockup-design .md .md-xaxis span.now {
+  right: 0;
+  transform: none;
+}
+.mockup-design .md .md-chart-empty,
+.mockup-design .md .md-chart-skeleton {
+  display: grid;
+  place-items: center;
+  height: 112px;
+  margin: 12px 0 4px;
+  border-radius: 14px;
+  background: var(--ach-surface);
+  font-size: 0.8125rem;
+  color: var(--ach-muted);
+}
+.mockup-design .md .md-chart-skeleton {
+  background: linear-gradient(90deg, #f4f7f4 0%, #fafcfa 50%, #f4f7f4 100%) 0
+    0 / 200% 100%;
+  animation: md-shimmer 1.4s linear infinite;
+}
+@keyframes md-shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+/* ---------- Position card ---------- */
+.mockup-design .md .md-rolls {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 28px;
+  margin-top: 6px;
+}
+.mockup-design .md .md-roll {
+  display: grid;
+  gap: 2px;
+}
+.mockup-design .md .md-roll-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8125rem;
+  color: var(--ach-muted);
+}
+.mockup-design .md .md-swatch {
+  width: 14px;
+  height: 0;
+  border-top: 2.5px solid var(--series);
+}
+.mockup-design .md .s-pelvis .md-swatch {
+  border-top-style: dashed;
+}
+.mockup-design .md .md-rolls .md-live {
+  align-self: flex-end;
+  margin-bottom: 8px;
+}
+.mockup-design .md .md-turn {
+  margin: 12px 0 2px;
+  padding-top: 12px;
+  border-top: 0.5px solid var(--ach-border);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--ach-text);
+  font-variant-numeric: tabular-nums;
+}
+.mockup-design .md .md-turn.overdue {
+  color: var(--ach-red);
+}
+
+/* ---------- Recent (notable events) ---------- */
+.mockup-design .md .md-events {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.mockup-design .md .md-event {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 12px;
+  min-height: 52px;
+  border-bottom: 0.5px solid var(--ach-border);
+}
+.mockup-design .md .md-event-icon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--ach-grey-soft);
+  color: var(--ach-grey-text);
+}
+.mockup-design .md .md-event.kind-turn .md-event-icon,
+.mockup-design .md .md-event.kind-nurse .md-event-icon {
+  background: var(--ach-mint);
+  color: var(--ach-green);
+}
+.mockup-design .md .md-event-icon svg {
+  width: 16px;
+  height: 16px;
+}
+.mockup-design .md .md-event-title {
+  min-width: 0;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--ach-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mockup-design .md .md-event time {
+  font-size: 0.8125rem;
+  color: var(--ach-muted);
+  font-variant-numeric: tabular-nums;
+}
+.mockup-design .md .md-more {
+  display: block;
+  min-height: 44px;
+  margin: 4px auto 0;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ach-green);
+  font: 600 0.875rem/1 var(--ach-font);
+  box-shadow: none;
+  cursor: pointer;
+}
+
+/* ---------- Quiet link to the long-term record ---------- */
+.mockup-design .md .md-record {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 52px;
+  margin: 24px var(--ach-gutter) 0;
+  border-top: 0.5px solid var(--ach-border);
+  border-bottom: 0.5px solid var(--ach-border);
+  color: var(--ach-text);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  text-decoration: none;
+}
+.mockup-design .md .md-record svg {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  color: var(--ach-faint);
+}
+.mockup-design .md :is(.md-plot, .md-more, .md-record):focus-visible {
+  outline: 2px solid var(--ach-green);
+  outline-offset: 2px;
+}
+
+/* ---------- Wide: two columns of cards ---------- */
+@media (min-width: 600px) {
+  .mockup-design .md .md-stack {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .mockup-design .md .md-position {
+    grid-column: 1 / -1;
+  }
+}
+
+/* ---------- Narrow phones ---------- */
+@media (max-width: 359px) {
+  .mockup-design .md .ach-header {
+    grid-template-columns: 44px minmax(0, 1fr) auto;
+  }
+  .mockup-design .md .md-metric {
+    padding: 14px 14px 10px;
+  }
+  .mockup-design .md .md-metric-value strong,
+  .mockup-design .md .md-roll strong {
+    font-size: 1.875rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mockup-design .md .md-live-dot::after,
+  .mockup-design .md .md-chart-skeleton {
+    animation: none;
+  }
+  .mockup-design .md .md-live-dot::after {
+    display: none;
+  }
+}
