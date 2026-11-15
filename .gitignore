@@ -8,3 +8,6 @@ data/
 .env
 *.log
 .impeccable/review/
+# Local demo database, tunnel binary and logs (never commit).
+.demo-runtime/
+backend-build.log

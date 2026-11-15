@@ -1,5 +1,7 @@
 # Achillea
 
+**Recovered hackathon demo:** use [the recovery startup, phone tunnel and two-minute walkthrough](docs/HACKATHON_RECOVERY.md). This branch is based directly on verified pre-Tiger V3; the instructions below describe the original V3 setup.
+
 Care that moves with you. Achillea combines assigned-patient monitoring, bedside documentation, sensor review, activity history, and explainable rounds in a mobile-first nurse workflow.
 
 **Hackathon simulation — not for clinical use.** All patients, measurements, devices, and care records are synthetic. No physical hardware, hospital/EHR, production authentication, or AI provider is connected. Movement detection never automatically verifies care.
