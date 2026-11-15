@@ -2,7 +2,7 @@
 
 ## Deployment
 
-Import `teagan-donnelly/Achillea` into Vercel and select `feature/vercel-tiger` for a preview. Set the project **Root Directory to the repository root**, not `frontend`. Use Node 24, install with `npm ci`, build with `npm run build`, and output `frontend/dist`. The committed `vercel.json` supplies the build/output/routing configuration. Do not merge the PR or change your production branch merely to preview it.
+Import `teagan-donnelly/Achillea` into Vercel and select `feature/vercel-tiger` for a preview. Deploy the repository root with Node 24. The committed `vercel.json` supplies the Vite preset, `npm ci`, `npm run build`, standard root `dist/` output and API/SPA routing; no dashboard build/output overrides are needed. Root Vite tooling also resolves the existing frontend through `vite.config.ts`. An existing Vercel project's Git branch and Root Directory are project-level settings that files cannot override: it must build this branch from the repository root, not `frontend`. Do not merge the PR or change your production branch merely to preview it.
 
 Add these **server-side** environment variables for the intended preview/production scope:
 

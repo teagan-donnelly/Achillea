@@ -14,7 +14,7 @@ npm run dev
 
 Open `http://127.0.0.1:5173`. Session login is temporarily disabled by default, so the workspace opens directly. To restore it, set `APP_AUTH_ENABLED=true` and configure `APP_ACCESS_PASSWORD` plus a distinct `APP_SESSION_SECRET`. The local Node listener is only a development adapter for the same function handler Vercel executes in production.
 
-Deploy the **repository root**, not `frontend/`, as a Vercel project. `vercel.json` builds the existing frontend to `frontend/dist`, routes `/api/*` to `api/index.ts`, and retains React deep links. Add server secrets in Vercel settings; see the [deployment guide](docs/VERCEL_TIGER.md).
+Deploy the **repository root**, not `frontend/`, as a Vercel project. `vercel.json` declares the Vite preset, install/build commands and standard root `dist/` output; no dashboard build/output overrides are needed. It routes `/api/*` to `api/index.ts` and retains React deep links. Add server secrets in Vercel settings; see the [deployment guide](docs/VERCEL_TIGER.md).
 
 The runtime does **not** migrate, seed, reset or alter Tiger. Historical V1/V2 SQL files remain byte-for-byte unchanged under `backend/src/main/resources/db/migration/`. The external simulator owns raw observations, orientation, classifications, stream state and device status. Achillea reads that evidence and writes only nursing workflow records and review fields. Movement never automatically confirms care.
 
