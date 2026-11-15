@@ -41,6 +41,7 @@ public class RelationalStore {
   /** Parent tables first: inserts run in this order, deletes in reverse. */
   static final List<Kind> KINDS = List.of(
     new Kind("patients", Patient.class, "patients", List.of()),
+    new Kind("repositioning_plans", Repositioning.Plan.class, "repositioningPlans", List.of()),
     new Kind("devices", Device.class, "devices", List.of()),
     new Kind("care_tasks", Task.class, "tasks", List.of()),
     new Kind("vital_observations", Vital.class, "vitals", List.of()),
@@ -231,7 +232,7 @@ public class RelationalStore {
           Field f = k.type.getField(fieldName(cols.get(i).column, k.type));
           f.set(r, values[i]);
         }
-        String id = (String) k.type.getField("id").get(r);
+        String id = id(k, r);
         for (Child c : k.children) k.type
           .getField(c.field)
           .set(r, new ArrayList<>(children.get(c.field).getOrDefault(id, List.of())));
@@ -309,7 +310,8 @@ public class RelationalStore {
     } else {
       for (Field f : type.getFields()) {
         if (Modifier.isStatic(f.getModifiers()) || List.class.isAssignableFrom(f.getType())) continue;
-        out.add(new Prop(column(f.getName()), f.getType(), o -> get(f, o)));
+        String name = type == Repositioning.Plan.class && f.getName().equals("patientId") ? "id" : column(f.getName());
+        out.add(new Prop(name, f.getType(), o -> get(f, o)));
       }
       out.sort(Comparator.comparing(p -> !p.column.equals("id"))); // keep id first for readability
     }
@@ -327,6 +329,7 @@ public class RelationalStore {
   }
 
   private static String fieldName(String column, Class<?> type) {
+    if (type == Repositioning.Plan.class && column.equals("id")) return "patientId";
     for (Field f : type.getFields()) if (column(f.getName()).equals(column)) return f.getName();
     throw new IllegalStateException("No field for column " + column);
   }

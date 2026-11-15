@@ -168,3 +168,15 @@ CREATE TABLE IF NOT EXISTS activity_events (
 );
 CREATE INDEX IF NOT EXISTS events_time ON activity_events(occurred_at);
 CREATE INDEX IF NOT EXISTS events_patient ON activity_events(patient_id, occurred_at);
+
+-- Individual synthetic care plans; the patient ID is the stable plan key.
+CREATE TABLE IF NOT EXISTS repositioning_plans (
+  id VARCHAR(160) PRIMARY KEY REFERENCES patients(id) ON DELETE CASCADE,
+  list_order INT NOT NULL,
+  interval_minutes INT NOT NULL,
+  warning_minutes INT NOT NULL,
+  initial_due_at TIMESTAMP(9) WITH TIME ZONE,
+  last_confirmed_care_at TIMESTAMP(9) WITH TIME ZONE,
+  confirmed_movement_id VARCHAR(160),
+  confirmed_chart_id VARCHAR(160)
+);

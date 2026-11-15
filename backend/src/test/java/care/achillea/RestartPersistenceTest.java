@@ -21,6 +21,8 @@ class RestartPersistenceTest {
       .web(WebApplicationType.NONE)
       .run(
         "--spring.datasource.url=jdbc:h2:file:" + database,
+        "--spring.datasource.username=sa",
+        "--spring.datasource.password=",
         "--spring.jpa.hibernate.ddl-auto=update",
         "--app.monitor.enabled=false",
         "--spring.main.banner-mode=off",
@@ -134,6 +136,62 @@ class RestartPersistenceTest {
       assertTrue(
         state.events.stream().anyMatch(e -> e.type().equals("chart.confirmed"))
       );
+    }
+  }
+
+  @Test
+  void repositioningPlanAndConfirmationSurviveRelationalRestart() {
+    String database = temporary.resolve("turn-restart").toAbsolutePath().toString().replace('\\', '/');
+    java.time.Instant due;
+    String chartId;
+    try (ConfigurableApplicationContext first = start(database)) {
+      CareService service = first.getBean(CareService.class);
+      service.reset(); service.repositioningDemo();
+      State state = service.scenario("coordinated", "synthetic-icu-01");
+      Movement movement = state.movements.getLast();
+      State confirmed = service.confirmTurn("synthetic-icu-01", new Command(null, "Verified synthetic turn at bedside", true, movement.id, null, null, null));
+      Repositioning.Plan plan = confirmed.repositioningPlans.stream().filter(p -> p.patientId.equals("synthetic-icu-01")).findFirst().orElseThrow();
+      chartId = plan.confirmedChartId;
+      due = service.repositioning("ICU").stream().filter(p -> p.patientId().equals(plan.patientId)).findFirst().orElseThrow().nextDueAt();
+    }
+    try (ConfigurableApplicationContext second = start(database)) {
+      CareService service = second.getBean(CareService.class);
+      var status = service.repositioning("ICU").stream().filter(p -> p.patientId().equals("synthetic-icu-01")).findFirst().orElseThrow();
+      assertEquals(due, status.nextDueAt()); assertNotNull(status.lastConfirmedCareAt());
+      assertEquals("CONFIRMED", service.read().charts.stream().filter(c -> c.id.equals(chartId)).findFirst().orElseThrow().status);
+    }
+  }
+
+  @Test
+  void legacyJsonImportPreservesConfirmedRepositioningPlan() throws Exception {
+    String source = temporary.resolve("source").toAbsolutePath().toString().replace('\\', '/');
+    String legacy = temporary.resolve("legacy").toAbsolutePath().toString().replace('\\', '/');
+    String payload;
+    String chartId;
+    java.time.Instant confirmedAt;
+    try (ConfigurableApplicationContext first = start(source)) {
+      CareService service = first.getBean(CareService.class);
+      service.reset();
+      Movement movement = service.scenario("coordinated", "synthetic-icu-01").movements.getLast();
+      State state = service.confirmTurn("synthetic-icu-01", new Command(null, "Verified synthetic care before migration", true, movement.id, null, null, null));
+      var plan = state.repositioningPlans.stream().filter(p -> p.patientId.equals("synthetic-icu-01")).findFirst().orElseThrow();
+      chartId = plan.confirmedChartId; confirmedAt = plan.lastConfirmedCareAt;
+      payload = first.getBean(com.fasterxml.jackson.databind.ObjectMapper.class).writeValueAsString(state);
+    }
+    try (var connection = java.sql.DriverManager.getConnection("jdbc:h2:file:" + legacy, "sa", "")) {
+      connection.createStatement().execute("create table store(id varchar(160) primary key, payload clob)");
+      try (var insert = connection.prepareStatement("insert into store(id,payload) values('demo',?)")) {
+        insert.setString(1, payload); insert.executeUpdate();
+      }
+    }
+    try (ConfigurableApplicationContext migrated = start(legacy)) {
+      State state = migrated.getBean(CareService.class).read();
+      var plan = state.repositioningPlans.stream().filter(p -> p.patientId.equals("synthetic-icu-01")).findFirst().orElseThrow();
+      assertEquals(chartId, plan.confirmedChartId); assertEquals(confirmedAt, plan.lastConfirmedCareAt);
+      assertTrue(state.charts.stream().anyMatch(c -> chartId.equals(c.id) && "CONFIRMED".equals(c.status)));
+      var jdbc = migrated.getBean(org.springframework.jdbc.core.JdbcTemplate.class);
+      assertEquals(payload, jdbc.queryForObject("select payload from store where id='demo'", String.class));
+      assertEquals(3, jdbc.queryForObject("select count(*) from repositioning_plans", Integer.class));
     }
   }
 }
