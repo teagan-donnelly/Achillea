@@ -268,6 +268,13 @@ public class ApiController {
   }
 
   /** Free-form roll angle for one body region (UPPER_TORSO or PELVIS). */
+  /** One simulator tick (vitals, postures, movements for several patients) in one request. */
+  @PostMapping("/integrations/batch")
+  public Object ingestBatch(@RequestBody SimulatorBatch batch) {
+    demo();
+    return service.ingestBatch(batch);
+  }
+
   @PostMapping("/integrations/sensors/orientation")
   public Object ingestOrientation(@RequestBody OrientationReading reading) {
     demo();

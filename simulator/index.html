@@ -39,6 +39,12 @@ button,select,input{font:inherit;color:inherit}
 .brand{display:flex;align-items:center;gap:10px;justify-self:start;padding:0 16px 0 12px;height:44px;border-radius:999px}
 .brand svg{flex:none}
 .brand b{font-size:15px;font-weight:600}
+.tscale{display:flex;align-items:center;gap:2px;margin-left:6px;padding-left:10px;border-left:1px solid rgba(38,56,47,.12)}
+.tscale .tclock{font-variant-numeric:tabular-nums;font-weight:600;font-size:13px;margin-right:6px;min-width:44px}
+.tscale button{border:0;background:transparent;color:var(--ink2);height:30px;min-width:34px;padding:0 8px;border-radius:999px;cursor:pointer;font-weight:500;font-size:12.5px;font-variant-numeric:tabular-nums}
+.tscale button:hover{color:var(--ink)}
+.tscale button.on{background:var(--greenSoft);color:var(--greenInk);font-weight:600}
+@media (max-width:1100px){.tscale .tclock{display:none}.brand b{display:none}}
 .views{display:flex;gap:2px;padding:4px;border-radius:999px}
 .views button{border:0;background:transparent;color:var(--ink2);height:36px;padding:0 14px;border-radius:999px;cursor:pointer;font-weight:500}
 .views button:hover{color:var(--ink)}
@@ -254,6 +260,7 @@ kbd{font:inherit;font-weight:600;padding:1px 6px;border-radius:5px;background:#f
   <div class="brand glass">
     <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="none" stroke="#6fbf8e" stroke-width="2"/><circle cx="12" cy="12" r="4" fill="#2f7d55"/></svg>
     <b>Pressure Injury Monitor</b>
+    <div class="tscale" id="tscale" role="group" aria-label="Time scale: how fast the shift clock runs"><span class="tclock" id="tclock" title="Shift clock">--:--</span></div>
   </div>
   <nav class="views glass" id="views" aria-label="Camera view">
     <button data-v="iso" class="on" aria-pressed="true">Perspective</button><button data-v="side" aria-pressed="false">Side</button><button data-v="foot" aria-pressed="false">Foot</button><button data-v="top" aria-pressed="false">Top</button><button data-v="under" aria-pressed="false">Surface</button>
@@ -995,10 +1002,36 @@ for(const [name,[c,p,h],cls] of PRESETS){
   $('presets').appendChild(b);
 }
 document.querySelectorAll('#source button').forEach(b=>b.onclick=()=>setSource(b.dataset.src));
-const SPEEDS=[1,60,300,600];
-for(const s of SPEEDS){const b=document.createElement('button');b.textContent=s+'×';b.dataset.s=s;b.setAttribute('aria-label',s+' times speed');
-  const on=s===state.speed;b.classList.toggle('on',on);b.setAttribute('aria-pressed',on);
-  b.onclick=()=>{state.speed=s;[...$('speeds').children].forEach(x=>{const o=+x.dataset.s===s;x.classList.toggle('on',o);x.setAttribute('aria-pressed',o);});};$('speeds').appendChild(b);}
+/* Time scale: how many simulated seconds pass per real second (0 = paused). Shown in the top bar and the
+   Simulation panel, kept in sync. Initial value: ?speed=N in the URL, else the last choice, else 300x.
+   Data sent to Achillea is always stamped with real time; the scale only changes how fast the shift plays. */
+const SPEEDS=[0,1,10,60,300,600];
+const speedLabel=s=>s===0?'Pause':s+'×';
+const speedAria=s=>s===0?'Pause the shift clock':s===1?'Real time':s+' times real time';
+function setSpeed(s,remember=true){
+  if(!SPEEDS.includes(s))return;
+  if(s>0)state.lastSpeed=s;
+  state.speed=s;
+  for(const host of [$('speeds'),$('tscale')])for(const x of host.querySelectorAll('button[data-s]')){
+    const o=+x.dataset.s===s;x.classList.toggle('on',o);x.setAttribute('aria-pressed',o);}
+  if(remember)try{localStorage.setItem('sim-speed',String(s));}catch(e){}
+}
+for(const host of [$('speeds'),$('tscale')])for(const s of SPEEDS){
+  const b=document.createElement('button');b.textContent=speedLabel(s);b.dataset.s=s;
+  b.setAttribute('aria-label',speedAria(s));b.title=speedAria(s);b.onclick=()=>setSpeed(s);host.appendChild(b);}
+{
+  let initial=+new URLSearchParams(location.search).get('speed');
+  if(!SPEEDS.includes(initial)||!new URLSearchParams(location.search).has('speed')){
+    let saved=null;try{saved=localStorage.getItem('sim-speed');}catch(e){}
+    initial=saved!=null&&SPEEDS.includes(+saved)?+saved:300;
+  }
+  setSpeed(initial,false);
+}
+// "P" toggles pause (ignored while typing in a field)
+document.addEventListener('keydown',e=>{
+  if(e.key!=='p'&&e.key!=='P'||e.ctrlKey||e.metaKey||e.altKey||/INPUT|TEXTAREA|SELECT/.test(e.target.tagName))return;
+  setSpeed(state.speed===0?(state.lastSpeed||300):0);
+});
 
 $('btnZero').onclick=()=>{state.zero.chest=state.imu.chest.roll;state.zero.pelvis=state.imu.pelvis.roll;};
 $('btnReset').onclick=()=>{
@@ -1333,7 +1366,9 @@ const doseCol=d=>d>=1?STATUS.alert:d>=0.6?STATUS.caution:STATUS.ok;
 function updPanels(){
   const E=state.est, now=state.simMin;
   $('clock').textContent=(typeof REPLAY!=='undefined'&&REPLAY.on)?tod(now)+(now>=SHIFT_LEN?' (end of shift)':''):fmtClock(now);
-  $('clockDay').textContent=`${(typeof REPLAY!=='undefined'&&REPLAY.on)?tod(now):fmtClock(now)} at ${state.speed}×`;
+  const shortClock=(typeof REPLAY!=='undefined'&&REPLAY.on)?tod(now):fmtClock(now);
+  $('clockDay').textContent=state.speed===0?`${shortClock}, paused`:`${shortClock} at ${state.speed}×`;
+  $('tclock').textContent=shortClock;
   let lbl=CLS_LABEL[state.cls.dual]; if(E.hob>30)lbl+=`, head of bed ${Math.round(E.hob)}°`;
   $('posLabel').textContent=lbl; $('posMeta').textContent=CLS_SHORT[state.cls.dual];
 
@@ -1719,6 +1754,7 @@ document.addEventListener('click',e=>{const bt=e.target.closest('#census .pt');i
 // Run Achillea with -Deterministic: its built-in fake monitor would otherwise add synthetic vitals to these patients.
 // No demo scenario endpoints are called: in this backend they also create scripted movements or synthetic vitals.
 const ACH={run:Date.now().toString(36),seq:0,on:false,checked:false,sent:0,errors:0,lastErr:'',
+  pendingMoves:[],inFlight:false,lastSentMin:null,lastSendReal:0,batches:0,rate:0,rateAt:0,rateBatches:0,
   p:Object.fromEntries(CENSUS.map(c=>[c.achilleaId,{lastVit:0,lastPos:0,lastPoll:0,settled:null,settleAt:0,bgPose:null,movements:[]}]))};
 async function achApi(path,body){
   const r=await fetch('/api'+path,body===undefined?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
@@ -1727,14 +1763,13 @@ async function achApi(path,body){
 }
 const achIso=()=>new Date().toISOString();
 const r1=x=>Math.round(x*10)/10;
-function achSend(path,body){
-  return achApi(path,body).then(r=>{ACH.sent++;return r;})
-    .catch(e=>{ACH.errors++;ACH.lastErr=`${e.status||''} ${e.message}`.trim();console.warn('Achillea',path,e.message);});
-}
 function achWaiting(id){const P=ACH.p[id];return ACH.on&&P?P.movements.filter(m=>m.reviewRequired&&m.verificationStatus==='UNREVIEWED').length:0;}
 function achStatus(){
   const el=$('achStatus'); if(!el)return;
-  el.textContent=ACH.on?`Linked to Achillea: ${CENSUS.length} patients streaming. ${ACH.sent} records sent`+(ACH.errors?`, ${ACH.errors} rejected (last: ${ACH.lastErr})`:'')+'.'
+  const cadence=state.speed===0?'shift paused; current values repeat every 15 s'
+    :`one update per simulated minute`+(ACH.rate?`, ${ACH.rate>=1?ACH.rate.toFixed(1)+' per second':'every '+Math.round(1/ACH.rate)+' s'}`:'')
+      +(state.speed>=600?'; may merge minutes if the server is busy':'');
+  el.textContent=ACH.on?`Linked to Achillea: ${CENSUS.length} patients streaming (${cadence}). ${ACH.sent} records sent`+(ACH.errors?`, ${ACH.errors} rejected (last: ${ACH.lastErr})`:'')+'.'
     :ACH.checked?'Not linked to Achillea. Run this page from the simulator dev server to link.':'Checking Achillea';
 }
 async function achConnect(){
@@ -1747,28 +1782,52 @@ function achHandoff(oldId,newId){
   if(o){o.settled=null;o.settleAt=0;bgAdvance(ob,state.simMin);o.bgPose=ob.pose;}
   if(n){n.settled=null;n.settleAt=0;}
 }
-function achVitals(id,c,spo2Lost){
-  const at=achIso(),n=++ACH.seq;
-  const send=(metric,val,unit,q)=>{if(val==null||!isFinite(+val))return;
-    achSend('/integrations/monitors/observations',{sourceEventId:`sim-${ACH.run}-${n}-${metric}`,patientId:id,metric,value:r1(+val),unit,observedAt:at,quality:q||'VALID'});};
-  send('HEART_RATE',c.HR,'bpm');
-  send('SPO2',c.SpO2,'%',spo2Lost?'MISSING':'VALID');
-  send('RESPIRATORY_RATE',c.RR,'breaths/min');
-  if(c.TempF!=null)send('TEMPERATURE',(+c.TempF-32)*5/9,'°C');
+// One batch per simulated minute: every patient's vitals and posture plus any turns that finished, applied by the
+// backend in one transaction (POST /api/integrations/batch), so Achillea's UI updates once per sim minute.
+// A real-time heartbeat (15 s) keeps monitors fresh at 1x or while paused. Only one batch is in flight at a time;
+// if the server cannot keep up at high speed, minutes merge into the next send rather than queueing.
+const ACH_HEARTBEAT_MS=15000;
+function achVitals(out,id,c,spo2Lost,at,n){
+  const add=(metric,val,unit,q)=>{if(val==null||!isFinite(+val))return;
+    out.push({sourceEventId:`sim-${ACH.run}-${n}-${id}-${metric}`,patientId:id,metric,value:r1(+val),unit,observedAt:at,quality:q||'VALID'});};
+  add('HEART_RATE',c.HR,'bpm');
+  add('SPO2',c.SpO2,'%',spo2Lost?'MISSING':'VALID');
+  add('RESPIRATORY_RATE',c.RR,'breaths/min');
+  if(c.TempF!=null)add('TEMPERATURE',(+c.TempF-32)*5/9,'°C');
+}
+function achQueueMove(body){ACH.pendingMoves.push(body);}
+function achFlush(){
+  const t=state.simMin, at=achIso(), n=++ACH.seq, observations=[], postures=[];
+  CENSUS.forEach((c,i)=>{
+    const id=c.achilleaId;
+    if(i===CUR){
+      const E=state.est, active=re=>devEvents().some(d=>re.test(d.text)&&t>=d.from&&t<d.to), disc=active(/Pelvis patch/);
+      achVitals(observations,id,REPLAY.chart,active(/SpO2/),at,n);
+      // no pelvis value while its patch is not reporting (never 0)
+      postures.push({sourceEventId:`sim-${ACH.run}-${n}-${id}`,patientId:id,upperTorsoDegrees:r1(E.chest),pelvisDegrees:disc?null:r1(E.pelvis),capturedAt:at});
+    } else {
+      const b=BG[i];bgAdvance(b,t);
+      achVitals(observations,id,b.chart,false,at,n);
+      postures.push({sourceEventId:`sim-${ACH.run}-${n}-${id}`,patientId:id,upperTorsoDegrees:b.pose,pelvisDegrees:b.pose,capturedAt:at});
+    }
+  });
+  const movements=ACH.pendingMoves.splice(0);
+  ACH.inFlight=true;ACH.lastSendReal=performance.now();ACH.lastSentMin=Math.floor(t);
+  achApi('/integrations/batch',{observations,postures,movements})
+    .then(r=>{ACH.sent+=r.accepted;ACH.batches++;
+      if(r.rejected&&r.rejected.length){ACH.errors+=r.rejected.length;const e=r.rejected[r.rejected.length-1];ACH.lastErr=`${e.status} ${e.message}`;}})
+    .catch(e=>{ACH.errors++;ACH.lastErr=`${e.status||''} ${e.message}`.trim();ACH.pendingMoves.unshift(...movements);console.warn('Achillea batch',e.message);})
+    .finally(()=>{ACH.inFlight=false;});
 }
 function achTick(){
   if(!ACH.on)return;
   const now=performance.now(), t=state.simMin;
+  // turn detection runs every frame; finished turns go into the next batch
   CENSUS.forEach((c,i)=>{
-    const id=c.achilleaId,P=ACH.p[id],fg=i===CUR,stag=i*400; // stagger patients so requests spread out
-    if(fg){
+    const id=c.achilleaId,P=ACH.p[id];
+    if(i===CUR){
       const E=state.est,A=state.actual,T=state.target;
-      const active=re=>devEvents().some(d=>re.test(d.text)&&t>=d.from&&t<d.to);
-      const disc=active(/Pelvis patch/);
-      if(now-P.lastVit>5000+stag){P.lastVit=now-stag;achVitals(id,REPLAY.chart,active(/SpO2/));}
-      // posture from the simulated chest and pelvis sensors; no pelvis value while its patch is not reporting
-      if(now-P.lastPos>2000){P.lastPos=now;
-        achSend('/integrations/sensors/posture',{sourceEventId:`sim-${ACH.run}-${++ACH.seq}`,patientId:id,upperTorsoDegrees:r1(E.chest),pelvisDegrees:disc?null:r1(E.pelvis),capturedAt:achIso()});}
+      const disc=devEvents().some(d=>/Pelvis patch/.test(d.text)&&t>=d.from&&t<d.to);
       // one movement when a turn finishes: either region changed 15° or more, body at its target, sensors caught up
       if(!P.settled)P.settled={t:T.chest,p:T.pelvis,et:E.chest,ep:E.pelvis};
       const atTarget=Math.abs(A.chest-T.chest)<0.5&&Math.abs(A.pelvis-T.pelvis)<0.5&&Math.abs(E.chest-A.chest)<1&&(disc||Math.abs(E.pelvis-A.pelvis)<1);
@@ -1779,25 +1838,28 @@ function achTick(){
           const b=P.settled;P.settled={t:T.chest,p:T.pelvis,et:E.chest,ep:E.pelvis};P.settleAt=0;
           const body={sourceEventId:`sim-${ACH.run}-turn-${++ACH.seq}`,patientId:id,upperTorsoBefore:r1(b.et),upperTorsoAfter:r1(E.chest),capturedAt:achIso(),confidence:0.9};
           if(!disc){body.pelvisBefore=r1(b.ep);body.pelvisAfter=r1(E.pelvis);}
-          achSend('/integrations/sensors/movements',body);
+          achQueueMove(body);
         }
       } else if(!atTarget)P.settleAt=0;
     } else {
       // background patient: charted position drives both sensors together
       const b=BG[i];bgAdvance(b,t);
-      if(now-P.lastVit>5000+stag){P.lastVit=now-stag;achVitals(id,b.chart,false);}
-      if(now-P.lastPos>3000){P.lastPos=now;
-        achSend('/integrations/sensors/posture',{sourceEventId:`sim-${ACH.run}-${++ACH.seq}`,patientId:id,upperTorsoDegrees:b.pose,pelvisDegrees:b.pose,capturedAt:achIso()});}
       if(P.bgPose==null)P.bgPose=b.pose;
       else if(Math.abs(b.pose-P.bgPose)>=15){
-        achSend('/integrations/sensors/movements',{sourceEventId:`sim-${ACH.run}-turn-${++ACH.seq}`,patientId:id,upperTorsoBefore:P.bgPose,upperTorsoAfter:b.pose,pelvisBefore:P.bgPose,pelvisAfter:b.pose,capturedAt:achIso(),confidence:0.9});
+        achQueueMove({sourceEventId:`sim-${ACH.run}-turn-${++ACH.seq}`,patientId:id,upperTorsoBefore:P.bgPose,upperTorsoAfter:b.pose,pelvisBefore:P.bgPose,pelvisAfter:b.pose,capturedAt:achIso(),confidence:0.9});
         P.bgPose=b.pose;
       }
     }
     // read back this run's movements and the nurse's review
+    const stag=i*400;
     if(now-P.lastPoll>3000+stag){P.lastPoll=now-stag;
       achApi(`/patients/${id}/orientation`).then(o=>{P.movements=(o.movements||[]).filter(m=>String(m.id).startsWith(`sim-${ACH.run}`));}).catch(()=>{});}
   });
+  // send: a new simulated minute, a finished turn, or the real-time heartbeat
+  const minute=Math.floor(t);
+  if(!ACH.inFlight&&(minute!==ACH.lastSentMin||ACH.pendingMoves.length||now-ACH.lastSendReal>ACH_HEARTBEAT_MS))achFlush();
+  // measured update rate for the status line
+  if(now-ACH.rateAt>2000){ACH.rate=(ACH.batches-ACH.rateBatches)/((now-ACH.rateAt)/1000);ACH.rateAt=now;ACH.rateBatches=ACH.batches;}
   achStatus();
 }
 function achChecks(add){

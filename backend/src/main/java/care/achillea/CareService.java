@@ -6,6 +6,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -23,18 +24,28 @@ public class CareService {
   private final DemoSeeder seeder;
   private final MonitorSimulation monitors;
   private final SensorAdapter sensor;
+  /** Census patients an external simulator streams to; assigned to the demo nurse on load. */
+  private final List<String> extraAssigned;
+  private final LiveUpdates live;
 
   public CareService(
     RelationalStore store,
     Clock clock,
     DemoSeeder seeder,
-    MonitorSimulation monitors
+    MonitorSimulation monitors,
+    LiveUpdates live,
+    @Value("${app.demo.assign-patients:}") List<String> extraAssigned
   ) {
     this.store = store;
+    this.live = live;
     this.clock = clock;
     this.seeder = seeder;
     this.monitors = monitors;
     this.sensor = new SensorAdapter.Simulator(clock);
+    this.extraAssigned = extraAssigned.stream()
+      .map(String::trim)
+      .filter(x -> !x.isEmpty())
+      .toList();
   }
 
   private String id() {
@@ -59,6 +70,7 @@ public class CareService {
     State s = store
       .load()
       .orElseGet(() -> save(seeder.create(clock.instant())));
+    if (assignConfiguredPatients(s)) save(s);
     // Upgrade only additive device metadata for legacy snapshots, never reset notes/tasks.
     monitors.ensureDevices(s, clock.instant());
     Repositioning.initialize(s, clock.instant());
@@ -68,10 +80,46 @@ public class CareService {
     return s;
   }
 
+  /**
+   * Opt-in (app.demo.assign-patients): moves listed synthetic census patients onto the demo
+   * nurse so an external simulator can stream to them. Idempotent; records are untouched.
+   */
+  private boolean assignConfiguredPatients(State s) {
+    boolean changed = false;
+    for (int i = 0; i < s.patients.size(); i++) {
+      Patient p = s.patients.get(i);
+      if (!extraAssigned.contains(p.id()) || "nurse-demo".equals(p.nurseId())) continue;
+      s.patients.set(
+        i,
+        new Patient(
+          p.id(),
+          p.name(),
+          p.room(),
+          p.unit(),
+          p.summary(),
+          "nurse-demo",
+          p.repositionPlan(),
+          p.carePhase(),
+          p.scenario()
+        )
+      );
+      event(
+        s,
+        p.id(),
+        "patient.assigned",
+        "SIMULATOR",
+        "Assigned to demo nurse for external simulator streaming"
+      );
+      changed = true;
+    }
+    return changed;
+  }
+
   private State save(State s) {
     Repositioning.initialize(s, clock.instant());
     try {
       store.save(s);
+      live.changed(); // after commit: tell subscribed browsers to refresh
       return s;
     } catch (RuntimeException e) {
       throw new IllegalStateException("Cannot persist demo database", e);
@@ -875,6 +923,14 @@ public class CareService {
   }
 
   public synchronized Vital ingest(Observation in) {
+    State s = load();
+    Vital v = ingestInto(s, in, true);
+    save(s);
+    return v;
+  }
+
+  /** Validates and applies one observation to a loaded state (no load/save). */
+  private Vital ingestInto(State s, Observation in, boolean audit) {
     input(
       in.sourceEventId() != null &&
         !in.sourceEventId().isBlank() &&
@@ -901,7 +957,6 @@ public class CareService {
         ),
       "Metric unit or quality invalid"
     );
-    State s = load();
     patient(s, in.patientId());
     Optional<Vital> previous = s.vitals
       .stream()
@@ -937,14 +992,13 @@ public class CareService {
     if (
       d.lastSampledAt == null || in.observedAt().isAfter(d.lastSampledAt)
     ) d.lastSampledAt = in.observedAt();
-    event(
+    if (audit) event(
       s,
       v.patientId(),
       "vital.received",
       "SIMULATED_MONITOR",
       "Observation ingested from " + d.id
     );
-    save(s);
     return v;
   }
 
@@ -963,6 +1017,13 @@ public class CareService {
   public synchronized OrientationSample ingestOrientation(
     OrientationReading in
   ) {
+    State s = load();
+    OrientationSample o = orientationInto(s, in);
+    save(s);
+    return o;
+  }
+
+  private OrientationSample orientationInto(State s, OrientationReading in) {
     validSensorEvent(in.sourceEventId(), in.capturedAt());
     input(
       Set.of("UPPER_TORSO", "PELVIS").contains(
@@ -973,7 +1034,6 @@ public class CareService {
     input(in.rollDegrees() != null, "rollDegrees required");
     validAngle(in.rollDegrees(), "rollDegrees");
     String quality = sensorQuality(in.quality());
-    State s = load();
     patient(s, in.patientId());
     Optional<OrientationSample> previous = sample(s, in.sourceEventId());
     if (previous.isPresent()) {
@@ -997,12 +1057,18 @@ public class CareService {
       quality
     );
     MonitorSimulation.freshness(s, clock.instant());
-    save(s);
     return o;
   }
 
   /** Streams both regions in one frame. Sample IDs are sourceEventId + "-UPPER_TORSO"/"-PELVIS". */
   public synchronized List<OrientationSample> ingestPosture(PostureReading in) {
+    State s = load();
+    List<OrientationSample> added = postureInto(s, in);
+    save(s);
+    return added;
+  }
+
+  private List<OrientationSample> postureInto(State s, PostureReading in) {
     validSensorEvent(in.sourceEventId(), in.capturedAt());
     input(
       in.upperTorsoDegrees() != null || in.pelvisDegrees() != null,
@@ -1011,7 +1077,6 @@ public class CareService {
     validAngle(in.upperTorsoDegrees(), "upperTorsoDegrees");
     validAngle(in.pelvisDegrees(), "pelvisDegrees");
     String quality = sensorQuality(in.quality());
-    State s = load();
     patient(s, in.patientId());
     Map<String, Double> regions = new LinkedHashMap<>();
     if (in.upperTorsoDegrees() != null) regions.put(
@@ -1058,7 +1123,6 @@ public class CareService {
       )
     );
     MonitorSimulation.freshness(s, clock.instant());
-    save(s);
     return added;
   }
 
@@ -1067,6 +1131,13 @@ public class CareService {
    * from the angle changes; like scripted scenarios it only creates evidence for nurse review.
    */
   public synchronized Movement recordMovement(MovementReading in) {
+    State s = load();
+    Movement m = movementInto(s, in);
+    save(s);
+    return m;
+  }
+
+  private Movement movementInto(State s, MovementReading in) {
     validSensorEvent(in.sourceEventId(), in.capturedAt());
     input(in.upperTorsoAfter() != null, "upperTorsoAfter required");
     validAngle(in.upperTorsoBefore(), "upperTorsoBefore");
@@ -1078,7 +1149,6 @@ public class CareService {
       "confidence must be between 0 and 1"
     );
     String quality = sensorQuality(in.quality());
-    State s = load();
     Patient p = patient(s, in.patientId());
     input(
       p.repositionPlan(),
@@ -1179,8 +1249,68 @@ public class CareService {
     );
     MonitorSimulation.freshness(s, clock.instant());
     WorkflowRules.apply(s, clock.instant());
-    save(s);
     return m;
+  }
+
+  // ------------------------------------------------ batched simulator input
+
+  /**
+   * Applies a whole simulator tick (any mix of vitals, postures and movements, for any assigned
+   * patients) with one load, one transaction and one live-update notice. Items are validated
+   * individually; a rejected item is reported and skipped, the rest are stored. Vitals get one
+   * audit event per patient per batch instead of one per reading.
+   */
+  public synchronized BatchResult ingestBatch(SimulatorBatch batch) {
+    input(batch != null, "Batch body required");
+    List<Observation> vitals = batch.observations() == null ? List.of() : batch.observations();
+    List<PostureReading> postures = batch.postures() == null ? List.of() : batch.postures();
+    List<MovementReading> moves = batch.movements() == null ? List.of() : batch.movements();
+    input(
+      vitals.size() + postures.size() + moves.size() <= 500,
+      "At most 500 items per batch"
+    );
+    State s = load();
+    List<BatchError> rejected = new ArrayList<>();
+    Map<String, Integer> vitalsPerPatient = new LinkedHashMap<>();
+    int accepted = 0;
+    for (int i = 0; i < vitals.size(); i++) {
+      Observation o = vitals.get(i);
+      try {
+        int before = s.vitals.size();
+        ingestInto(s, o, false);
+        if (s.vitals.size() > before) vitalsPerPatient.merge(o.patientId(), 1, Integer::sum);
+        accepted++;
+      } catch (ResponseStatusException e) {
+        rejected.add(new BatchError("observation", i, e.getStatusCode().value(), e.getReason()));
+      }
+    }
+    for (int i = 0; i < postures.size(); i++) {
+      try {
+        postureInto(s, postures.get(i));
+        accepted++;
+      } catch (ResponseStatusException e) {
+        rejected.add(new BatchError("posture", i, e.getStatusCode().value(), e.getReason()));
+      }
+    }
+    for (int i = 0; i < moves.size(); i++) {
+      try {
+        movementInto(s, moves.get(i));
+        accepted++;
+      } catch (ResponseStatusException e) {
+        rejected.add(new BatchError("movement", i, e.getStatusCode().value(), e.getReason()));
+      }
+    }
+    vitalsPerPatient.forEach((patientId, n) ->
+      event(
+        s,
+        patientId,
+        "vital.received",
+        "SIMULATED_MONITOR",
+        n + " observation" + (n == 1 ? "" : "s") + " ingested in one simulator batch"
+      )
+    );
+    if (accepted > 0) save(s);
+    return new BatchResult(accepted, rejected);
   }
 
   private void validSensorEvent(String sourceEventId, Instant at) {

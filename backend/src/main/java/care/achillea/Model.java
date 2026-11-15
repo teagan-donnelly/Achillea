@@ -266,6 +266,17 @@ public class Model {
     Double confidence
   ) {}
 
+  /** One simulator tick: any mix of readings for any assigned patients, stored in one transaction. */
+  public record SimulatorBatch(
+    List<Observation> observations,
+    List<PostureReading> postures,
+    List<MovementReading> movements
+  ) {}
+
+  public record BatchError(String type, int index, int status, String message) {}
+
+  public record BatchResult(int accepted, List<BatchError> rejected) {}
+
   public record Command(
     String reason,
     String text,

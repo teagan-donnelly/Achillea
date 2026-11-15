@@ -4,13 +4,62 @@ import static care.achillea.Model.*;
 
 import java.time.Instant;
 import java.util.List;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 /** Fixed fictional scenario definitions; every date is relative to the reset clock. */
 @Component
 public class DemoSeeder {
 
+  /** The ICU patients the bedside simulator (simulator/) streams to: id, name, room. */
+  static final List<String[]> SIMULATOR_PATIENTS = List.of(
+    new String[] { "synthetic-icu-01", "Alex Linden", "108" },
+    new String[] { "synthetic-icu-04", "Casey Birch", "111" },
+    new String[] { "synthetic-icu-05", "Drew Elm", "112" },
+    new String[] { "synthetic-icu-06", "Jamie Cedar", "113" },
+    new String[] { "synthetic-icu-07", "Taylor Pine", "114" }
+  );
+
+  /**
+   * "census" (default): the full synthetic census with histories, tasks and charts.
+   * "simulator": only the simulator's five ICU patients and their devices, with no seeded
+   * vitals, samples, movements, tasks, charts or events; everything shown comes from the simulator.
+   */
+  @Value("${app.demo.seed:census}")
+  String mode = "census";
+
   public State create(Instant now) {
+    return "simulator".equalsIgnoreCase(mode) ? simulatorOnly(now) : census(now);
+  }
+
+  /** Patient identities and their monitor/torso/pelvis devices only. */
+  State simulatorOnly(Instant now) {
+    State s = new State();
+    s.demoStartedAt = now;
+    for (String[] spec : SIMULATOR_PATIENTS) {
+      String id = spec[0];
+      s.patients.add(
+        new Patient(
+          id,
+          spec[1],
+          spec[2],
+          "ICU",
+          "Live bedside simulator patient (MIMIC-IV demo shift replay)",
+          "nurse-demo",
+          true,
+          "ICU stay",
+          "SIMULATOR_STREAM"
+        )
+      );
+      // Marked as just seen so they start fresh; they go stale only if the simulator stops sending.
+      s.devices.add(new Device("monitor-" + id, id, "BEDSIDE_MONITOR", now));
+      s.devices.add(new Device(chestId(id), id, "UPPER_TORSO", now));
+      s.devices.add(new Device(pelvisId(id), id, "PELVIS", now));
+    }
+    return s;
+  }
+
+  State census(Instant now) {
     State s = new State();
     s.demoStartedAt = now;
     String[] ld = {
