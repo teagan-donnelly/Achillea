@@ -88,13 +88,60 @@ export default function App() {
       setError(e instanceof Error ? e.message : "Cannot connect");
     }
   }, [unit]);
+  // Live updates: the backend pushes a Server-Sent Event after every saved change and the UI refreshes
+  // right away (at most about once a second, never overlapping). Polling stays as a fallback: every 3 s
+  // while the stream is down, every 30 s while it is up.
+  const [live, setLive] = useState(false);
+  const refreshRef = useRef(refresh);
+  refreshRef.current = refresh;
+  const inFlight = useRef(false),
+    queued = useRef(false),
+    lastRun = useRef(0),
+    throttle = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const requestRefresh = useCallback(() => {
+    if (inFlight.current) {
+      queued.current = true;
+      return;
+    }
+    if (throttle.current) return;
+    const wait = Math.max(0, 1000 - (Date.now() - lastRun.current));
+    throttle.current = setTimeout(async () => {
+      throttle.current = null;
+      inFlight.current = true;
+      lastRun.current = Date.now();
+      try {
+        await refreshRef.current();
+      } finally {
+        inFlight.current = false;
+        if (queued.current) {
+          queued.current = false;
+          requestRefresh();
+        }
+      }
+    }, wait);
+  }, []);
   useEffect(() => {
     void refresh();
-    const timer = setInterval(() => void refresh(), 3000);
+    const timer = setInterval(() => void refresh(), live ? 30000 : 3000);
     return () => {
       clearInterval(timer);
     };
-  }, [refresh]);
+  }, [refresh, live]);
+  useEffect(() => {
+    if (typeof EventSource === "undefined") return;
+    const stream = new EventSource("/api/stream");
+    stream.addEventListener("ready", () => {
+      setLive(true);
+      requestRefresh(); // catch up on anything missed while disconnected
+    });
+    stream.addEventListener("change", () => requestRefresh());
+    stream.onerror = () => setLive(false); // EventSource reconnects on its own
+    return () => {
+      stream.close();
+      if (throttle.current) clearTimeout(throttle.current);
+      throttle.current = null;
+    };
+  }, [requestRefresh]);
   useEffect(() => {
     if (!notice) return;
     const timer = setTimeout(() => setNotice(""), 5000);
@@ -233,6 +280,19 @@ export default function App() {
           <span className={`connection ${error ? "offline" : ""}`}>
             {error ? <WifiOff size={16} /> : <Wifi size={16} />}{" "}
             {error ? "Offline" : state ? "API connected" : "Connecting"}
+            {!error && state && (
+              <span
+                className={`live-badge ${live ? "on" : ""}`}
+                title={
+                  live
+                    ? "Receiving live updates from the server"
+                    : "Live stream unavailable; refreshing every 3 seconds"
+                }
+              >
+                <span className="live-dot" aria-hidden="true" />
+                {live ? "Live" : "Polling"}
+              </span>
+            )}
           </span>
           {updatedAt && (
             <span className="refresh-time">
@@ -240,6 +300,7 @@ export default function App() {
               {new Date(updatedAt).toLocaleTimeString([], {
                 hour: "2-digit",
                 minute: "2-digit",
+                second: "2-digit",
               })}
             </span>
           )}

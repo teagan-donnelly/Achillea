@@ -1,0 +1,1898 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pressure Injury Monitor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* grey, white and light green */
+  --night:#e4e9e6;          /* page and studio background */
+  --surface:rgba(255,255,255,.9);
+  --raise:#f3f6f4;          /* inset areas */
+  --raise2:#e7ece9;         /* hover, selected */
+  --hair:#dfe5e1;           /* hairlines */
+  --ink:#1f2a26;--ink2:#55615c;--ink3:#6b7671;
+  --green:#8fd4a8;          /* accent fill */
+  --greenSoft:#e4f4ea;      /* accent wash */
+  --greenInk:#2f7d55;       /* accent text and active states */
+  --blue:#4a6fa5;--pink:#b5577a;--violet:#7a68b8;   /* chest, pelvis, head of bed */
+  --ok:#2f8f5b;--caution:#a8711a;--alert:#c2463d;
+  --r-l:20px;--r-m:12px;--r-s:8px;
+  --topH:60px;--dockH:280px;--drawerW:312px;--dockMin:56px;
+  --ease:cubic-bezier(.22,.8,.24,1);
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--night);color:var(--ink);font:400 13px/1.5 Figtree,system-ui,-apple-system,sans-serif;overflow:hidden;-webkit-font-smoothing:antialiased}
+.num{font-variant-numeric:tabular-nums}
+#scene{position:fixed;inset:0}
+#loading{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;color:var(--ink2);z-index:1}
+button,select,input{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--greenInk);outline-offset:2px;border-radius:6px}
+.glass{background:var(--surface);backdrop-filter:blur(18px) saturate(120%);-webkit-backdrop-filter:blur(18px) saturate(120%);box-shadow:0 10px 30px rgba(38,56,47,.09),0 1px 2px rgba(38,56,47,.06),inset 0 0 0 1px var(--hair)}
+
+/* top */
+#topbar{position:fixed;top:12px;left:12px;right:12px;height:48px;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:16px;z-index:6;pointer-events:none}
+#topbar>*{pointer-events:auto}
+.brand{display:flex;align-items:center;gap:10px;justify-self:start;padding:0 16px 0 12px;height:44px;border-radius:999px}
+.brand svg{flex:none}
+.brand b{font-size:15px;font-weight:600}
+.tscale{display:flex;align-items:center;gap:2px;margin-left:6px;padding-left:10px;border-left:1px solid rgba(38,56,47,.12)}
+.tscale .tclock{font-variant-numeric:tabular-nums;font-weight:600;font-size:13px;margin-right:6px;min-width:44px}
+.tscale button{border:0;background:transparent;color:var(--ink2);height:30px;min-width:34px;padding:0 8px;border-radius:999px;cursor:pointer;font-weight:500;font-size:12.5px;font-variant-numeric:tabular-nums}
+.tscale button:hover{color:var(--ink)}
+.tscale button.on{background:var(--greenSoft);color:var(--greenInk);font-weight:600}
+@media (max-width:1100px){.tscale .tclock{display:none}.brand b{display:none}}
+.views{display:flex;gap:2px;padding:4px;border-radius:999px}
+.views button{border:0;background:transparent;color:var(--ink2);height:36px;padding:0 14px;border-radius:999px;cursor:pointer;font-weight:500}
+.views button:hover{color:var(--ink)}
+.views button.on{background:var(--greenSoft);color:var(--greenInk);font-weight:600}
+.status{justify-self:end;display:flex;align-items:center;gap:18px;height:44px;padding:0 8px 0 18px;border-radius:999px}
+.status>span{white-space:nowrap}
+.status .k{color:var(--ink2);margin-right:6px}
+.status .v{font-weight:600}
+.src{display:inline-flex;align-items:center;height:30px;padding:0 12px;border-radius:999px;background:var(--raise2);color:var(--ink2);font-weight:500}
+.src.live{color:var(--greenInk);background:var(--greenSoft)}
+
+/* twist alert over the scene */
+#twistBanner{position:fixed;top:76px;left:50%;transform:translateX(-50%);z-index:5;display:none;align-items:center;gap:10px;padding:10px 18px;border-radius:999px;font-size:13px;max-width:min(560px,90vw);color:var(--ink)}
+#twistBanner .dot{display:none}
+#twistBanner b{color:var(--alert)}
+#twistBanner b{font-weight:600}
+
+/* drawer */
+#left{position:fixed;top:calc(var(--topH) + 16px);left:12px;width:var(--drawerW);bottom:12px;overflow-y:auto;border-radius:var(--r-l);padding:6px 6px 10px;z-index:4;transition:transform .4s var(--ease),bottom .4s var(--ease);scrollbar-width:thin;scrollbar-color:#cdd5d0 transparent}
+body.drawer-closed #left{transform:translateX(calc(-100% - 24px))}
+body.dock-closed #left{bottom:24px}
+#drawerTab{position:fixed;top:calc(var(--topH) + 28px);left:calc(var(--drawerW) + 18px);z-index:4;width:32px;height:32px;border-radius:50%;border:0;display:grid;place-items:center;cursor:pointer;color:var(--ink2);transition:left .4s var(--ease),transform .4s var(--ease)}
+#drawerTab:hover{color:var(--ink)}
+body.drawer-closed #drawerTab{left:18px}
+body.drawer-closed #drawerTab svg{transform:rotate(180deg)}
+.census{list-style:none;margin:2px 0 4px;padding:0;display:flex;flex-direction:column;gap:4px}
+.census .pt{width:100%;text-align:left;display:flex;flex-direction:column;gap:2px;padding:8px 10px;border-radius:var(--r-m);border:1px solid transparent;background:transparent;color:var(--ink);font:inherit;cursor:pointer}
+.census .pt:hover{background:var(--raise2)}
+.census .pt.on{background:var(--greenSoft);border-color:var(--green)}
+.census .r1,.census .r2{display:flex;justify-content:space-between;gap:8px}
+.census .nm{font-weight:600;font-size:14px}.census .rm{font-size:12px;color:var(--ink3)}
+.census .r2{font-size:12px;color:var(--ink2);font-variant-numeric:tabular-nums}
+.census .r3{font-size:12px;color:var(--ink3)}.census .r3.s3{color:var(--alert);font-weight:600}.census .r3.s2{color:var(--caution);font-weight:600}.census .r3.s1{color:var(--ink2)}
+.census .more{color:var(--ink3);font-weight:400}
+details{border-radius:var(--r-m);margin:2px 0}
+details[open]{background:var(--raise)}
+summary{list-style:none;display:flex;align-items:center;justify-content:space-between;min-height:44px;padding:0 12px;cursor:pointer;font-size:15px;font-weight:600;border-radius:var(--r-m)}
+summary::-webkit-details-marker{display:none}
+summary .meta{font-size:13px;font-weight:500;color:var(--ink2);margin-left:auto;margin-right:10px}
+summary svg{transition:transform .25s var(--ease);color:var(--ink3)}
+details[open] summary svg{transform:rotate(180deg)}
+.body{padding:2px 12px 14px}
+.field{margin:8px 0 11px}
+.field .row{margin-bottom:6px}
+.row{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:28px}
+.ink2{color:var(--ink2)}
+.val{font-weight:600;font-variant-numeric:tabular-nums}
+.c-chest{color:var(--blue)}.c-pelvis{color:var(--pink)}.c-hob{color:var(--violet)}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:24px;background:transparent;margin:0;cursor:pointer;--c:var(--blue)}
+input[type=range]::-webkit-slider-runnable-track{height:4px;border-radius:2px;background:#dbe1dd}
+input[type=range]::-moz-range-track{height:4px;border-radius:2px;background:#dbe1dd}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:var(--c);margin-top:-7px;border:3px solid #fff;box-shadow:0 1px 3px rgba(38,56,47,.3)}
+input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:var(--c);border:3px solid #fff;box-shadow:0 1px 3px rgba(38,56,47,.3)}
+#sPelvis{--c:var(--pink)}#sHob{--c:var(--violet)}
+.chips{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px}
+.chips button,.btn{min-height:36px;border:0;border-radius:var(--r-s);background:var(--raise2);color:var(--ink);cursor:pointer;font-weight:500;padding:0 10px}
+.chips button:hover,.btn:hover{background:#dde4e0}
+.chips button.feature{grid-column:1/-1;background:var(--greenSoft);color:var(--greenInk);font-weight:600;box-shadow:inset 0 0 0 1px #bfe3cc}
+.chips button.feature:hover{background:#d3eddc}
+.seg{display:flex;padding:3px;border-radius:10px;background:var(--raise2);gap:2px}
+.seg button{flex:1;min-height:32px;border:0;border-radius:8px;background:transparent;color:var(--ink2);cursor:pointer;font-weight:500}
+.seg button.on{background:#fff;color:var(--greenInk);font-weight:600;box-shadow:0 1px 2px rgba(38,56,47,.12)}
+.switch{display:flex;align-items:center;justify-content:space-between;min-height:36px;cursor:pointer;gap:10px}
+.switch input{appearance:none;-webkit-appearance:none;width:36px;height:22px;border-radius:999px;background:#cdd5d0;position:relative;cursor:pointer;flex:none;transition:background .2s}
+.switch input::after{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(38,56,47,.25);transition:transform .2s var(--ease)}
+.switch input:checked{background:var(--greenInk)}
+.switch input:checked::after{transform:translateX(14px)}
+select,input[type=number]{background:#fff;border:1px solid #cfd7d2;border-radius:8px;min-height:32px;padding:0 8px;color:var(--ink)}
+input[type=number]{width:76px}
+.clock{font-size:28px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.5px}
+.band{font-weight:600}
+.hint{color:var(--ink2);font-size:13px}
+
+/* dock */
+#dock{position:fixed;left:calc(var(--drawerW) + 24px);right:12px;bottom:12px;min-height:var(--dockMinH,262px);height:auto;max-height:calc(100vh - var(--topH) - 40px);border-radius:var(--r-l);z-index:4;display:flex;flex-direction:column;transition:transform .4s var(--ease)}
+body.dock-closed #dock{transform:translateY(calc(100% + 24px))}
+body.drawer-closed #dock{left:12px}
+#dock{transition:transform .4s var(--ease),left .4s var(--ease)}
+#dockTab{position:fixed;left:50%;bottom:18px;z-index:4;transform:translate(-50%,80px);width:44px;height:32px;border-radius:999px;border:0;display:grid;place-items:center;cursor:pointer;color:var(--ink2);transition:transform .4s var(--ease)}
+#dockTab:hover{color:var(--ink)}
+body.dock-closed #dockTab{transform:translate(-50%,0)}
+.tabs{display:flex;align-items:center;gap:4px;padding:8px 8px 0 10px;height:var(--dockMin);flex:none}
+.tab{border:0;background:transparent;color:var(--ink2);min-height:36px;padding:0 14px;border-radius:999px;cursor:pointer;font-weight:500;font-size:13px}
+.tab:hover{color:var(--ink)}
+.tab[aria-selected=true]{background:var(--greenSoft);color:var(--greenInk);font-weight:600}
+.tabs .spacer{flex:1}
+#dockToggle{width:36px;height:36px;border-radius:50%;border:0;background:transparent;color:var(--ink2);cursor:pointer;display:grid;place-items:center}
+#dockToggle:hover{color:var(--ink);background:var(--raise)}
+#dockToggle svg{transition:transform .3s var(--ease)}
+body.dock-closed #dockToggle svg{transform:rotate(180deg)}
+.pane{flex:1;overflow:visible;padding:10px 22px 14px}
+.pane[hidden]{display:none}
+
+/* overview */
+.ov2{display:grid;grid-template-columns:auto minmax(0,1.5fr) minmax(0,1fr) minmax(0,.85fr);gap:20px}
+.checks{list-style:none;margin:0;padding:0}
+.checks li{display:flex;justify-content:space-between;gap:12px;padding:3px 0;border-bottom:1px solid var(--hair,#dfe5e1)}
+.checks li:last-child{border-bottom:0}
+.checks .t{font-weight:500}
+.checks .s3 .t{color:var(--alert)}.checks .s2 .t{color:var(--caution)}.checks .s0 .t{color:var(--ink2);font-weight:400}
+.checks .from{color:var(--ink3);font-size:12px;white-space:nowrap}
+.checks .ok{color:var(--ok);font-weight:500}
+.oc{min-width:0;display:flex;flex-direction:column}
+.oc .nextRow{flex:1;justify-content:center}
+.oc.vcol .ovv{flex:1;align-content:center}
+.ovv div{text-align:center}
+.oc+.oc{border-left:1px solid var(--line,#dfe5e1);padding-left:20px}
+.oc h4{margin:0 0 10px;font-size:13px;font-weight:600;color:var(--ink2)}
+.oc h4 small{font-weight:400;color:var(--ink3);margin-left:6px}
+.nextRow{display:flex;align-items:center;gap:18px}
+.nextRow .ring{width:124px;height:124px}
+.nextRow #due{font-size:19px}
+.nextRow #dueLbl{font-size:12px}
+.act{font-size:20px;font-weight:600;line-height:1.25}
+.sug{margin-top:4px;color:var(--greenInk);font-weight:500}
+.sub{color:var(--ink2);margin-top:6px}
+.facts{display:grid;grid-template-columns:auto 1fr;gap:3px 14px;margin:6px 0 10px}
+.facts dt{color:var(--ink2)} .facts dd{margin:0;font-weight:500;font-variant-numeric:tabular-nums}
+#topSites{display:grid;grid-template-columns:1fr;gap:2px;margin-top:8px}
+.more{color:var(--ink3);font-size:12px;padding-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.checks li.more{display:block;border-bottom:0}
+#topSites .ts{display:grid;grid-template-columns:minmax(0,1fr) 44px 60px;white-space:nowrap;gap:8px;align-items:center;padding:2px 0}
+#topSites .tb{height:6px;border-radius:3px;background:#e3e8e5;overflow:hidden}#topSites .tb i{display:block;height:100%}
+#topSites .tt{text-align:right;color:var(--ink2);font-variant-numeric:tabular-nums}
+.ovv{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.ovv div{padding:6px 8px !important;white-space:nowrap}
+.ovv b{font-size:20px !important}
+.ovv div{background:var(--greenSoft);border-radius:12px;padding:10px 12px}
+.ovv div{display:flex;align-items:baseline;justify-content:center;gap:10px}
+.ovv span{color:var(--ink2);font-size:13px;white-space:nowrap}
+.ovv b{font-size:24px;font-weight:600;font-variant-numeric:tabular-nums}
+.angles.angles4{grid-template-columns:repeat(4,1fr);gap:8px 18px;margin-bottom:8px}
+.angles4 b{font-size:18px !important}
+.hero{display:flex;align-items:center;gap:20px}
+.ring{position:relative;width:150px;height:150px;flex:none}
+.ring svg{position:absolute;inset:0}
+.ring .inner{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+#due{font-size:30px;font-weight:600;letter-spacing:-.6px;font-variant-numeric:tabular-nums;line-height:1.1}
+#dueLbl{color:var(--ink2);font-size:13px;margin-top:2px}
+.heroText{min-width:170px}
+#posLabel{font-size:17px;font-weight:600;line-height:1.25;margin:0 0 4px}
+#worst{color:var(--ink2)}
+.story{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.verdictCard{border-radius:var(--r-m);background:var(--raise);padding:14px 16px;position:relative}
+.verdictCard .who{color:var(--ink2);margin-bottom:6px;font-weight:500}
+.verdictCard .who i{display:none}
+.verdictCard .big{font-size:20px;font-weight:600;line-height:1.2}
+.verdictCard .sub{color:var(--ink2);margin-top:4px;min-height:20px}
+.verdictCard .meta{display:flex;gap:16px;margin-top:10px;color:var(--ink2)}
+.verdictCard .meta b{color:var(--ink);font-weight:500;font-variant-numeric:tabular-nums}
+.verdictCard.wrong{box-shadow:inset 0 0 0 1px rgba(168,113,26,.45);background:#fbf6ec}
+.verdictCard.right{box-shadow:inset 0 0 0 1px rgba(194,70,61,.45);background:#fbefee}
+.angles{display:grid;grid-template-columns:1fr 1fr;gap:14px 18px}
+.angles div span{display:block;color:var(--ink2)}
+.angles div b{font-size:20px;font-weight:600;font-variant-numeric:tabular-nums}
+
+/* sites */
+#regBody{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));column-gap:36px}
+.site{display:grid;grid-template-columns:minmax(0,1fr) 88px 78px;align-items:center;gap:12px;min-height:28px}
+.site .d{display:none}
+.site .n{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.site .t{text-align:right;color:var(--ink2);font-variant-numeric:tabular-nums}
+.site.idle{color:var(--ink3)}
+.track{height:6px;border-radius:3px;background:#e3e8e5;overflow:hidden;position:relative}
+.track i{position:absolute;left:0;top:0;bottom:0;border-radius:3px;width:0}
+
+/* sensors + history */
+.two{display:grid;grid-template-columns:1.2fr 1fr;gap:28px}
+.cap{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;font-weight:600;font-size:15px}
+.cap small{font-size:13px;font-weight:400;color:var(--ink2)}
+#spark{width:100%;height:96px;display:block;border-radius:var(--r-m);background:var(--raise)}
+pre#pkt{font:11px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--ink2);background:var(--raise);border-radius:var(--r-m);padding:8px 12px;margin:0;white-space:pre-wrap}
+#tl{width:100%;height:120px;display:block}
+.legend{display:flex;gap:16px;flex-wrap:wrap;color:var(--ink2)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+
+#keyhint{position:fixed;right:24px;bottom:calc(var(--dockH) + 24px);z-index:3;color:var(--ink2);font-size:13px;margin:0;padding:6px 12px;border-radius:999px;background:rgba(255,255,255,.85);box-shadow:inset 0 0 0 1px var(--hair);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);transition:bottom .4s var(--ease)}
+body.dock-closed #keyhint{bottom:calc(var(--dockMin) + 24px)}
+kbd{font:inherit;font-weight:600;padding:1px 6px;border-radius:5px;background:#fff;color:var(--ink);box-shadow:inset 0 -1px 0 #cfd7d2,inset 0 0 0 1px #dfe5e1}
+
+.pane#pRegions{padding-top:6px}
+.vhead{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.vhead label{font-weight:600}
+.vmeta{color:var(--ink2)}
+.vgrid{display:grid;grid-template-columns:1fr 420px;gap:18px}
+.waves{display:flex;flex-direction:column;gap:6px}
+.wrow{display:grid;grid-template-columns:56px 1fr;align-items:center;gap:8px}
+.wl{color:var(--ink2);font-weight:500}
+.wrow canvas{width:100%;height:46px;display:block}
+.vnums{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.vt{display:flex;flex-wrap:wrap;align-items:baseline;column-gap:4px;background:var(--greenSoft);border-radius:12px;padding:6px 10px}
+.vt .vk,.vt .vq{flex-basis:100%}
+.vt .vq{margin-top:0}
+.vk{color:var(--ink2)}
+.vt b{font-size:22px;font-weight:600;line-height:1.1;font-variant-numeric:tabular-nums;color:var(--ink)}
+.vu{color:var(--ink2);font-size:12px}
+.vq{font-size:12px;margin-top:4px;color:var(--greenInk)}
+.vq.warn{color:#a8711a}
+.vsrc{margin-top:6px;color:var(--ink3);font-size:12px}
+@media (max-width:1300px){#regBody{grid-template-columns:repeat(3,minmax(0,1fr));column-gap:20px}.ov{grid-template-columns:auto minmax(0,1fr)}.ov .angles{display:none}.status .k{display:none}}
+@media (max-width:1100px){:root{--drawerW:280px}.views button{padding:0 10px}#keyhint{display:none}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}
+</script>
+</head>
+<body>
+<div id="loading">Loading</div>
+<div id="scene" aria-label="3D view of the patient. Use arrow keys to rotate, plus and minus to zoom, 0 to reset." role="img"></div>
+
+<header id="topbar">
+  <div class="brand glass">
+    <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="none" stroke="#6fbf8e" stroke-width="2"/><circle cx="12" cy="12" r="4" fill="#2f7d55"/></svg>
+    <b>Pressure Injury Monitor</b>
+    <div class="tscale" id="tscale" role="group" aria-label="Time scale: how fast the shift clock runs"><span class="tclock" id="tclock" title="Shift clock">--:--</span></div>
+  </div>
+  <nav class="views glass" id="views" aria-label="Camera view">
+    <button data-v="iso" class="on" aria-pressed="true">Perspective</button><button data-v="side" aria-pressed="false">Side</button><button data-v="foot" aria-pressed="false">Foot</button><button data-v="top" aria-pressed="false">Top</button><button data-v="under" aria-pressed="false">Surface</button>
+  </nav>
+  <div class="status glass" role="status" aria-live="polite">
+    <span><span class="k">To check</span><span class="v num" id="chipChk">0</span></span>
+    <span><span class="k">Position</span><span class="v" id="chipPos">Supine</span></span>
+    <span><span class="k">Last moved</span><span class="v num" id="chipDue">--</span></span>
+    <span class="src" id="chipSrc">Simulation</span>
+  </div>
+</header>
+
+<div id="twistBanner" class="glass" role="alert"><span><b>Torso rotated <span id="twistDeg"></span>, pelvis unchanged.</b> Sacrum is still loaded. A chest-only sensor would log this as a turn.</span></div>
+
+<button id="dockTab" class="glass" aria-label="Show monitor" aria-controls="dock"><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 9l4-4 4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+<button id="drawerTab" class="glass" aria-label="Hide controls" aria-expanded="true" aria-controls="left">
+  <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3 5 8l5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+</button>
+
+<aside id="left" class="glass" aria-label="Controls">
+  <details open>
+    <summary>Patients <span class="meta" id="censusMeta"></span><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="m3 5 4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></summary>
+    <div class="body"><ul id="census" class="census" aria-label="Patients on this unit"></ul></div>
+  </details>
+  <details>
+    <summary>Position <span class="meta" id="posMeta"></span><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="m3 5 4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></summary>
+    <div class="body">
+      <div class="field"><div class="row"><label for="sChest">Chest roll</label><span class="val c-chest" id="vChest">0°</span></div>
+        <input type="range" id="sChest" min="-120" max="120" value="0" aria-describedby="rollHelp"></div>
+      <div class="field"><div class="row"><label for="sPelvis">Pelvis roll</label><span class="val c-pelvis" id="vPelvis">0°</span></div>
+        <input type="range" id="sPelvis" min="-120" max="120" value="0" aria-describedby="rollHelp"></div>
+      <div class="field"><div class="row"><label for="sHob">Head of bed</label><span class="val c-hob" id="vHob">0°</span></div>
+        <input type="range" id="sHob" min="0" max="60" value="0"></div>
+      <p id="rollHelp" class="hint" style="margin:-4px 0 6px">Positive rolls the patient onto their left side.</p>
+      <label class="switch"><span>Move chest and pelvis together</span><input type="checkbox" id="link"></label>
+      <div class="chips" id="presets" role="group" aria-label="Preset positions"></div>
+    </div>
+  </details>
+
+  <details>
+    <summary>Patient risk <span class="meta" id="bTotal"></span><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="m3 5 4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></summary>
+    <div class="body">
+      <div class="row" style="margin:6px 0 8px"><span>Braden score</span><span id="bBand" class="band"></span></div>
+      <div id="bradenRows"></div>
+      <div class="row" style="margin-top:10px"><span class="ink2">Mobility measured by sensors</span><span><span id="mobEst" class="num"></span> <button id="useMob" class="btn" style="min-height:30px;margin-left:6px">Apply</button></span></div>
+      <div class="row" style="margin-top:10px"><label for="wKg">Weight, kg</label><input type="number" id="wKg" value="70" min="25" max="300"></div>
+      <div class="row"><label for="hCm">Height, cm</label><input type="number" id="hCm" value="170" min="100" max="230"></div>
+      <div class="row"><span>BMI</span><span class="num" id="bmi"></span></div>
+    </div>
+  </details>
+
+  <details>
+    <summary>Simulation <span class="meta num" id="clockDay"></span><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="m3 5 4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></summary>
+    <div class="body">
+      <div class="seg" id="source" role="group" aria-label="Data source" style="margin:6px 0 6px"><button data-src="sim" class="on" aria-pressed="true">Simulation</button><button data-src="live" aria-pressed="false">Live sensors</button></div>
+      <p id="liveStatus" class="hint" style="margin:0 0 12px">Simulated sensor data</p>
+      <label class="switch"><span>Replay charted shift</span><input type="checkbox" id="tReplay" checked></label>
+      <p id="achStatus" class="hint" style="margin:2px 0 10px">Checking Achillea</p>
+      <div class="row"><span class="ink2">Time</span><span class="clock" id="clock">00:00</span></div>
+      <div class="seg" id="speeds" role="group" aria-label="Simulation speed" style="margin:8px 0 10px"></div>
+      <div class="chips" style="margin-top:0">
+        <button id="btnZero" title="Removes sensor mounting offsets. Use with the patient supine.">Zero sensors</button>
+        <button id="btnReset">Reset</button>
+      </div>
+    </div>
+  </details>
+
+  <details>
+    <summary>Display<svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true" style="margin-left:auto"><path d="m3 5 4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></summary>
+    <div class="body">
+      <label class="switch"><span>Show sites through body</span><input type="checkbox" id="tXray" checked></label>
+      <label class="switch"><span>Transparent body</span><input type="checkbox" id="tGhost"></label>
+      <label class="switch"><span>Contact areas on mattress</span><input type="checkbox" id="tFoot" checked></label>
+      <label class="switch"><span>Sensor labels</span><input type="checkbox" id="tLabels"></label>
+      <label class="switch"><span>Glow</span><input type="checkbox" id="tBloom"></label>
+      <label class="switch"><span>Rotate view</span><input type="checkbox" id="tRot"></label>
+      <label class="switch"><span>Sensor noise</span><input type="checkbox" id="tNoise" checked></label>
+      <select id="modelSel" hidden aria-hidden="true"><option value="xbot">Patient</option></select>
+    </div>
+  </details>
+</aside>
+
+
+<section id="dock" class="glass" aria-label="Monitor">
+  <div class="tabs" role="tablist" aria-label="Monitor views">
+    <button class="tab" role="tab" id="tab-ov" aria-selected="true" aria-controls="pOverview">Overview</button>
+    <button class="tab" role="tab" id="tab-vi" aria-selected="false" aria-controls="pVitals" tabindex="-1">Vitals</button>
+    <button class="tab" role="tab" id="tab-rg" aria-selected="false" aria-controls="pRegions" tabindex="-1">Pressure sites</button>
+    <button class="tab" role="tab" id="tab-se" aria-selected="false" aria-controls="pSensors" tabindex="-1">Sensors</button>
+    <button class="tab" role="tab" id="tab-hi" aria-selected="false" aria-controls="pHistory" tabindex="-1">History</button>
+    <span class="spacer"></span>
+    <button id="dockToggle" aria-label="Collapse monitor" aria-expanded="true" aria-controls="dock">
+      <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="m3 6 5 5 5-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+  </div>
+
+  <div class="pane" id="pOverview" role="tabpanel" aria-labelledby="tab-ov">
+    <div class="ov2">
+      <section class="oc" aria-labelledby="h-next">
+        <h4 id="h-next">Since last moved</h4>
+        <div class="nextRow">
+          <div class="ring">
+            <svg viewBox="0 0 150 150" aria-hidden="true">
+              <circle cx="75" cy="75" r="66" fill="none" stroke="#e3e8e5" stroke-width="9"/>
+              <circle id="ringArc" cx="75" cy="75" r="66" fill="none" stroke="#2f8f5b" stroke-width="9" stroke-linecap="round" transform="rotate(-90 75 75)" stroke-dasharray="0 415"/>
+            </svg>
+            <div class="inner"><div id="due">--</div><div id="dueLbl">until next turn</div></div>
+          </div>
+        </div>
+      </section>
+      <section class="oc" aria-labelledby="h-chk">
+        <h4 id="h-chk">Needs checking <small id="chkCount"></small></h4>
+        <ul id="checks" class="checks" aria-live="polite"></ul>
+      </section>
+      <section class="oc" aria-labelledby="h-now">
+        <h4 id="h-now">Right now</h4>
+        <div id="posLabel">Supine</div>
+        <div id="topSites" aria-label="Time under load for each site"></div>
+      </section>
+      <section class="oc vcol" aria-labelledby="h-vit">
+        <h4 id="h-vit">Vitals <small id="ovBed"></small></h4>
+        <div class="ovv">
+          <div><span>HR</span><b id="oHR">--</b></div>
+          <div><span>SpO2</span><b id="oSp">--</b></div>
+          <div><span>RR</span><b id="oRR">--</b></div>
+          <div><span>BP</span><b id="oBP">--</b></div>
+          <div><span>Temp</span><b id="oT">--</b></div>
+        </div>
+        <div class="sub" id="oQ"></div>
+      </section>
+    </div>
+  </div>
+
+  <div class="pane" id="pVitals" role="tabpanel" aria-labelledby="tab-vi" hidden>
+    <div class="vhead">
+            <span id="recMeta" class="vmeta"></span>
+    </div>
+    <div class="vgrid">
+      <div class="waves">
+        <div class="wrow"><span class="wl">HR</span><canvas id="wEcg" aria-label="Heart rate trend over the shift"></canvas></div>
+        <div class="wrow"><span class="wl">SpO2</span><canvas id="wPleth" aria-label="SpO2 trend over the shift"></canvas></div>
+        <div class="wrow"><span class="wl">RR</span><canvas id="wResp" aria-label="Breathing rate trend over the shift"></canvas></div>
+      </div>
+      <div class="vnums">
+        <div class="vt"><span class="vk">Heart rate</span><b id="vHR">--</b><span class="vu">bpm</span><span class="vq" id="qHR"></span></div>
+        <div class="vt"><span class="vk">SpO2</span><b id="vSpO2">--</b><span class="vu">%</span><span class="vq" id="qSpO2"></span></div>
+        <div class="vt"><span class="vk">Resp rate</span><b id="vRR">--</b><span class="vu">/min</span><span class="vq" id="qRR"></span></div>
+        <div class="vt"><span class="vk">BP, mmHg</span><b id="vBP">--</b><span class="vq" id="qBP"></span></div>
+        <div class="vt"><span class="vk">Temperature</span><b id="vT">--</b><span class="vu">°F</span><span class="vq" id="qT"></span></div>
+      </div>
+    </div>
+    <div class="vsrc" id="vSrc" hidden></div>
+  </div>
+
+  <div class="pane" id="pRegions" role="tabpanel" aria-labelledby="tab-rg" hidden>
+    <div id="regBody" role="list" aria-label="Pressure sites, most at risk first"></div>
+  </div>
+
+  <div class="pane" id="pSensors" role="tabpanel" aria-labelledby="tab-se" hidden>
+    <div class="angles angles4" aria-label="Measured angles">
+      <div><span>Chest roll</span><b id="eChest" class="c-chest">0°</b></div>
+      <div><span>Pelvis roll</span><b id="ePelvis" class="c-pelvis">0°</b></div>
+      <div><span>Twist</span><b id="eTwist">0°</b></div>
+      <div><span>Head of bed</span><b id="eHob" class="c-hob">0°</b></div>
+    </div>
+    <div class="two">
+      <div><div class="cap">Roll over time <small><span class="c-chest">Chest</span> and <span class="c-pelvis">pelvis</span></small></div><canvas id="spark" aria-label="Chest and pelvis roll over the last few seconds"></canvas></div>
+      <div><div class="cap">Latest packet <small>accelerometer in g, gyroscope in deg/s</small></div><pre id="pkt"></pre></div>
+    </div>
+  </div>
+
+  <div class="pane" id="pHistory" role="tabpanel" aria-labelledby="tab-hi" hidden>
+    <div class="row" style="margin-bottom:8px">
+      <span class="legend"><span><i style="background:#9fb4cf"></i>Supine</span><span><i style="background:#8fd4a8"></i>30° tilt</span><span><i style="background:#e2c48c"></i>Lateral</span><span><i style="background:#c3b3dd"></i>Near prone</span></span>
+      <span class="legend"><span>Upper band: chest and pelvis</span><span>Lower band: chest only</span><span style="color:var(--alert)">Line: highest dose</span></span>
+    </div>
+    <canvas id="tl" aria-label="Position history"></canvas>
+  </div>
+</section>
+
+<script type="application/json" id="mimic-data">{"source":"MIMIC-IV Clinical Database Demo v2.2 (PhysioNet, ODbL). ICU stay 38197705, Trauma SICU. 12-hour window, times in minutes from shift start (negative = before shift).","patient":{"sex":"M","age":43,"unit":"Trauma SICU","stay":"38197705"},"ev":[[-304,"HR","110"],[-304,"RR","27"],[-304,"SpO2","99"],[-303,"SBP","135"],[-303,"DBP","96"],[-244,"SBP","125"],[-244,"RR","25"],[-244,"TempF","100.2"],[-244,"SpO2","98"],[-244,"HR","110"],[-244,"DBP","64"],[-240,"Bed","AtmosAir Mattress"],[-240,"Pos","Left Side"],[-240,"Turn","Side to Side"],[-240,"HOB","45 Degrees"],[-184,"SpO2","90"],[-184,"RR","25"],[-184,"HR","108"],[-179,"DBP","73"],[-179,"SBP","156"],[-124,"DBP","79"],[-124,"HR","120"],[-124,"Turn","Side to Side"],[-124,"HOB","45 Degrees"],[-124,"SBP","160"],[-124,"Pos","Right Side"],[-124,"SpO2","91"],[-124,"Bed","AtmosAir Mattress"],[-124,"RR","35"],[-64,"DBP","55"],[-64,"SBP","109"],[-64,"SpO2","95"],[-64,"HR","110"],[-64,"RR","25"],[-4,"DBP","75"],[-4,"RR","28"],[-4,"Diet","Tube Feeding"],[-4,"SBP","138"],[-4,"TempF","100.7"],[-4,"SpO2","98"],[-4,"HR","113"],[26,"HOB","45 Degrees"],[26,"Pos","Left Side"],[26,"Turn","Left Side"],[44,"Bed","AtmosAir Mattress"],[56,"SpO2","96"],[56,"SBP","114"],[56,"DBP","59"],[56,"RR","20"],[56,"HR","107"],[116,"SpO2","98"],[116,"RR","27"],[116,"DBP","68"],[116,"SBP","142"],[116,"HR","110"],[164,"Turn","Right Side"],[164,"Pos","Right Side"],[164,"Bed","AtmosAir Mattress"],[164,"HOB","45 Degrees"],[176,"RR","22"],[176,"SBP","127"],[176,"DBP","67"],[176,"SpO2","95"],[176,"HR","108"],[236,"DBP","76"],[236,"RR","16"],[236,"SpO2","97"],[236,"TempF","99.8"],[236,"SBP","143"],[236,"HR","111"],[259,"Diet","Tube Feeding"],[260,"bA","Bedfast"],[260,"Skin","Impaired"],[260,"bMo","Very Limited"],[260,"bS","Very Limited"],[260,"bM","Occasionally Moist"],[260,"bN","Adequate"],[260,"bF","Potential Problem"],[262,"Pos","Supine"],[262,"HOB","90 Degrees"],[262,"Bed","AtmosAir Mattress"],[262,"Turn","Back"],[296,"SBP","155"],[296,"DBP","74"],[296,"HOB","45 Degrees"],[296,"Bed","AtmosAir Mattress"],[296,"RR","26"],[296,"Pos","Left Side"],[296,"HR","114"],[296,"SpO2","96"],[296,"Turn","Side to Side"],[356,"SpO2","93"],[356,"DBP","96"],[356,"SBP","125"],[356,"RR","28"],[356,"HR","115"],[356,"Turn","Back"],[407,"HOB","90 Degrees"],[407,"Pos","Supine"],[416,"SpO2","92"],[416,"SBP","141"],[416,"DBP","68"],[416,"RR","29"],[416,"HR","117"],[476,"TempF","101.6"],[476,"Bed","AtmosAir Mattress"],[476,"HR","119"],[476,"SpO2","96"],[476,"RR","32"],[481,"SBP","135"],[481,"DBP","70"],[491,"Pos","Right Side"],[491,"Turn","Side to Side"],[491,"HOB","45 Degrees"],[491,"Turn","Turns by Self"],[536,"SBP","149"],[536,"SpO2","95"],[536,"DBP","70"],[536,"RR","32"],[536,"HR","124"],[543,"Diet","Tube Feeding"],[596,"DBP","47"],[596,"SBP","98"],[596,"SpO2","96"],[596,"HR","110"],[596,"RR","19"],[609,"Turn","Left Side"],[609,"Pos","Left Side"],[609,"HOB","45 Degrees"],[610,"Bed","AtmosAir Mattress"],[656,"DBP","50"],[656,"RR","16"],[656,"HR","105"],[656,"SpO2","99"],[656,"SBP","101"],[716,"bF","Potential Problem"],[716,"DBP","51"],[716,"Diet","Tube Feeding"],[716,"bMo","Very Limited"],[716,"RR","19"],[716,"SBP","104"],[716,"HR","104"],[716,"bS","Very Limited"],[716,"Turn","Side to Side"],[716,"Pos","Right Side"],[716,"HOB","45 Degrees"],[716,"bA","Bedfast"],[716,"Bed","AtmosAir Mattress"],[716,"SpO2","100"],[716,"bN","Adequate"],[716,"Skin","Impaired"],[716,"TempF","98.9"],[716,"bM","Occasionally Moist"]],"inf":[[-934,561,"Fentanyl",100.3,"mcg/hour","sed"],[561,1011,"Fentanyl",100.2,"mcg/hour","sed"],[551,622,"Propofol",30.0,"mcg/kg/min","sed"],[622,859,"Propofol",20.0,"mcg/kg/min","sed"],[-109,796,"Replete with Fiber",70.0,"mL/hour","feed"]]}</script>
+<script type="application/json" id="mimic-census">{"32506122":{"source":"MIMIC-IV Clinical Database Demo v2.2 (PhysioNet, ODbL). ICU stay 32506122, Cardiac Vascular Intensive Care Unit (CVICU). 12-hour window, times in minutes from shift start (negative = before shift).","patient":{"sex":"M","age":48,"unit":"Cardiac Vascular Intensive Care Unit","stay":"32506122","wKg":79.3,"hCm":null,"startHHMM":1140},"ev":[[-345,"SpO2","99"],[-344,"HR","63"],[-344,"RR","21"],[-342,"SBP","123"],[-342,"DBP","71"],[-330,"SpO2","100"],[-330,"RR","15"],[-329,"SBP","125"],[-329,"SpO2","100"],[-329,"HR","65"],[-329,"TempF","98.2"],[-329,"DBP","68"],[-329,"RR","16"],[-315,"SpO2","99"],[-315,"HR","61"],[-315,"RR","17"],[-314,"DBP","72"],[-314,"SBP","126"],[-300,"bM","Bedfast"],[-300,"Diet","2 GM Sodium Heart Healthy"],[-300,"Turn","Turns by Self"],[-300,"bS","No Impairment"],[-300,"RR","16"],[-300,"SpO2","89"],[-300,"Bed","AtmosAir Mattress"],[-300,"bA","No Limitations"],[-300,"HR","67"],[-300,"bMo","Rarely Moist"],[-300,"HOB","30 Degrees"],[-300,"bF","No Apparent Problem"],[-300,"Pos","Supine"],[-300,"Skin","Intact"],[-300,"bN","Adequate"],[-299,"SBP","112"],[-299,"DBP","75"],[-285,"SpO2","98"],[-285,"HR","58"],[-285,"RR","17"],[-284,"DBP","74"],[-284,"SBP","125"],[-240,"SpO2","98"],[-240,"RR","19"],[-240,"HR","69"],[-239,"SBP","121"],[-239,"DBP","74"],[-180,"SpO2","98"],[-180,"RR","18"],[-180,"TempF","98.9"],[-180,"HR","68"],[-179,"DBP","69"],[-179,"SBP","118"],[-166,"Diet","2 GM Sodium Heart Healthy"],[-159,"bA","No Limitations"],[-159,"bM","Bedfast"],[-159,"bF","No Apparent Problem"],[-159,"bN","Excellent"],[-159,"bMo","Rarely Moist"],[-159,"Skin","Intact"],[-159,"bS","No Impairment"],[-158,"Pos","Supine"],[-158,"HOB","30 Degrees"],[-158,"Turn","Turns by Self"],[-120,"HR","72"],[-120,"SpO2","98"],[-120,"RR","16"],[-119,"SBP","122"],[-119,"DBP","61"],[-60,"SpO2","100"],[-60,"RR","12"],[-60,"HR","66"],[-59,"SBP","127"],[-59,"DBP","77"],[0,"SpO2","99"],[0,"RR","23"],[0,"HR","75"],[1,"DBP","80"],[1,"SBP","131"],[60,"HOB","30 Degrees"],[60,"Diet","2 GM Sodium Heart Healthy"],[60,"TempF","98.8"],[60,"Turn","Side to Side"],[60,"HR","80"],[60,"bN","Adequate"],[60,"bM","Walks Occasionally"],[60,"bA","Slight Limitations"],[60,"bMo","Rarely Moist"],[60,"Pos","Left Side"],[60,"bS","No Impairment"],[60,"bF","No Apparent Problem"],[60,"Turn","Left Side"],[60,"Skin","Intact"],[60,"Turn","Turns by Self"],[60,"RR","19"],[61,"SpO2","96"],[61,"DBP","69"],[61,"SBP","112"],[120,"HR","74"],[120,"RR","19"],[120,"SpO2","97"],[121,"SBP","118"],[121,"DBP","71"],[180,"HR","69"],[180,"SpO2","98"],[180,"Bed","AtmosAir Mattress"],[180,"RR","18"],[180,"HOB","30 Degrees"],[180,"Turn","Side to Side"],[180,"Turn","Right Side"],[180,"Pos","Right Side"],[181,"SBP","120"],[181,"DBP","71"],[240,"SpO2","99"],[240,"HR","76"],[240,"RR","27"],[241,"SBP","107"],[241,"DBP","65"],[300,"Pos","Left Side"],[300,"HOB","30 Degrees"],[300,"HR","73"],[300,"RR","19"],[300,"Turn","Left Side"],[300,"Bed","AtmosAir Mattress"],[300,"Turn","Side to Side"],[300,"SBP","105"],[300,"Turn","Turns by Self"],[300,"TempF","99.3"],[300,"SpO2","98"],[300,"DBP","67"],[360,"SpO2","97"],[360,"HR","62"],[360,"RR","18"],[361,"DBP","55"],[361,"SBP","91"],[420,"Turn","Turns by Self"],[420,"SpO2","96"],[420,"HOB","30 Degrees"],[420,"Bed","AtmosAir Mattress"],[420,"RR","19"],[420,"Pos","Right Side"],[420,"Turn","Side to Side"],[420,"Turn","Right Side"],[420,"HR","63"],[421,"DBP","49"],[421,"SBP","88"],[480,"SpO2","100"],[480,"HR","62"],[480,"RR","16"],[481,"DBP","54"],[481,"SBP","91"],[540,"Bed","AtmosAir Mattress"],[540,"Turn","Turns by Self"],[540,"HR","61"],[540,"SpO2","97"],[540,"RR","15"],[540,"Pos","Left Side"],[540,"Turn","Side to Side"],[540,"HOB","30 Degrees"],[540,"TempF","99.1"],[540,"Turn","Left Side"],[541,"SBP","98"],[541,"DBP","65"],[600,"HR","63"],[600,"RR","17"],[600,"SpO2","98"],[601,"SBP","103"],[601,"DBP","65"],[660,"Turn","Side to Side"],[660,"Turn","Turns by Self"],[660,"HOB","30 Degrees"],[660,"SpO2","97"],[660,"Bed","AtmosAir Mattress"],[660,"RR","19"],[660,"Turn","Right Side"],[660,"Pos","Right Side"],[660,"HR","61"],[661,"DBP","72"],[661,"SBP","101"]],"inf":[]},"33987268":{"source":"MIMIC-IV Clinical Database Demo v2.2 (PhysioNet, ODbL). ICU stay 33987268, Medical Intensive Care Unit (MICU). 12-hour window, times in minutes from shift start (negative = before shift).","patient":{"sex":"F","age":80,"unit":"Medical Intensive Care Unit","stay":"33987268","wKg":null,"hCm":150,"startHHMM":325},"ev":[[-325,"RR","31"],[-325,"SBP","95"],[-325,"DBP","35"],[-325,"SpO2","96"],[-325,"HR","117"],[-315,"Diet","NPO"],[-311,"Turn","Right Side"],[-311,"Bed","AtmosAir Mattress"],[-311,"HOB","30 Degrees"],[-311,"Pos","Right Side"],[-265,"DBP","51"],[-265,"HR","112"],[-265,"RR","26"],[-265,"SpO2","99"],[-265,"SBP","96"],[-205,"DBP","48"],[-205,"HR","108"],[-205,"RR","27"],[-205,"SBP","92"],[-205,"SpO2","98"],[-205,"TempF","99.2"],[-145,"RR","22"],[-145,"HR","104"],[-145,"SpO2","100"],[-145,"SBP","91"],[-145,"DBP","54"],[-112,"HOB","30 Degrees"],[-112,"Turn","Left Side"],[-112,"Pos","Left Side"],[-112,"Bed","AtmosAir Mattress"],[-85,"RR","25"],[-85,"SpO2","98"],[-85,"DBP","46"],[-85,"SBP","94"],[-85,"bF","Potential Problem"],[-85,"TempF","99"],[-85,"bN","Probably Inadequate"],[-85,"Skin","Intact"],[-85,"bA","Slight Limitations"],[-85,"HR","102"],[-85,"bMo","Rarely Moist"],[-85,"bM","Bedfast"],[-85,"bS","Slight Impairment"],[-85,"Diet","NPO"],[-25,"HR","106"],[-25,"SpO2","98"],[-25,"DBP","48"],[-25,"RR","28"],[-25,"SBP","99"],[35,"DBP","52"],[35,"SBP","98"],[35,"HR","104"],[35,"SpO2","99"],[35,"TempF","98.7"],[35,"RR","23"],[60,"Turn","Side to Side"],[60,"HOB","30 Degrees"],[60,"Bed","AtmosAir Mattress"],[60,"Pos","Right Side"],[95,"SpO2","98"],[95,"SBP","94"],[95,"HR","104"],[95,"DBP","50"],[95,"RR","23"],[155,"HR","106"],[155,"SpO2","99"],[155,"DBP","52"],[155,"TempF","98.9"],[155,"SBP","95"],[155,"RR","25"],[170,"SBP","96"],[170,"RR","25"],[170,"SpO2","99"],[170,"HR","104"],[170,"DBP","48"],[185,"SBP","95"],[185,"SpO2","100"],[185,"DBP","47"],[185,"HR","102"],[185,"RR","23"],[186,"Diet","NPO"],[200,"RR","23"],[200,"SpO2","100"],[200,"HR","104"],[200,"DBP","56"],[200,"SBP","97"],[215,"DBP","53"],[215,"RR","27"],[215,"SBP","88"],[215,"HR","108"],[215,"SpO2","98"],[230,"SBP","94"],[230,"HR","103"],[230,"SpO2","98"],[230,"RR","24"],[230,"DBP","56"],[245,"RR","23"],[245,"SBP","102"],[245,"DBP","57"],[245,"HR","105"],[246,"SpO2","99"],[260,"RR","23"],[260,"DBP","54"],[260,"HR","106"],[260,"SpO2","98"],[260,"SBP","98"],[275,"SBP","96"],[275,"SpO2","99"],[275,"RR","21"],[275,"HR","103"],[275,"DBP","53"],[290,"DBP","55"],[290,"SBP","99"],[290,"RR","23"],[290,"HR","104"],[290,"SpO2","98"],[305,"DBP","58"],[305,"SBP","100"],[305,"HR","104"],[305,"RR","22"],[306,"SpO2","99"],[335,"RR","23"],[335,"SpO2","98"],[335,"HR","105"],[335,"DBP","57"],[335,"SBP","95"],[395,"Turn","Side to Side"],[395,"SpO2","98"],[395,"bS","Slight Impairment"],[395,"bN","Probably Inadequate"],[395,"bF","Potential Problem"],[395,"Pos","Right Side"],[395,"SBP","95"],[395,"RR","25"],[395,"bM","Bedfast"],[395,"Turn","Back"],[395,"bA","Very Limited"],[395,"Skin","Intact"],[395,"HR","105"],[395,"HOB","30 Degrees"],[395,"bMo","Rarely Moist"],[395,"DBP","57"],[395,"Turn","Right Side"],[395,"TempF","98.6"],[395,"Turn","Left Side"],[410,"RR","23"],[410,"HR","107"],[410,"SpO2","98"],[410,"SBP","104"],[410,"DBP","59"],[425,"SBP","112"],[425,"HR","107"],[425,"DBP","59"],[425,"RR","20"],[426,"SpO2","99"],[437,"Diet","NPO"],[440,"HR","107"],[440,"DBP","58"],[440,"SBP","101"],[440,"RR","22"],[441,"SpO2","99"],[451,"Bed","AtmosAir Mattress"],[455,"SBP","92"],[455,"RR","21"],[455,"DBP","56"],[455,"HR","104"],[455,"SpO2","100"],[470,"SpO2","97"],[470,"DBP","56"],[470,"SBP","90"],[470,"RR","24"],[470,"HR","108"],[485,"SBP","87"],[485,"RR","21"],[485,"DBP","41"],[485,"SpO2","98"],[485,"HR","108"],[500,"HR","104"],[500,"DBP","19"],[500,"SBP","94"],[500,"RR","22"],[501,"SpO2","99"],[515,"DBP","42"],[515,"SBP","96"],[515,"RR","22"],[515,"HR","104"],[516,"SpO2","99"],[528,"Turn","Back"],[528,"HOB","30 Degrees"],[528,"Pos","Left Side"],[528,"Turn","Turns by Self"],[528,"Turn","Side to Side"],[528,"Turn","Right Side"],[528,"Turn","Left Side"],[530,"HR","100"],[530,"SpO2","98"],[530,"DBP","47"],[530,"RR","18"],[530,"SBP","89"],[545,"RR","21"],[545,"SpO2","98"],[545,"DBP","51"],[545,"SBP","95"],[545,"HR","102"],[560,"SBP","99"],[560,"SpO2","99"],[560,"RR","21"],[560,"HR","100"],[560,"DBP","57"],[571,"Bed","AtmosAir Mattress"],[575,"DBP","53"],[575,"HR","103"],[575,"RR","21"],[575,"SpO2","98"],[575,"SBP","89"],[635,"SpO2","98"],[635,"HR","102"],[635,"TempF","98.6"],[635,"SBP","87"],[635,"RR","18"],[635,"DBP","50"],[667,"Diet","NPO"],[668,"bA","Slight Limitations"],[668,"Skin","Intact"],[668,"bN","Probably Inadequate"],[668,"bM","Bedfast"],[668,"bF","Potential Problem"],[668,"bMo","Rarely Moist"],[668,"bS","Very Limited"],[669,"Turn","Right Side"],[669,"Pos","Right Side"],[669,"Turn","Back"],[669,"Turn","Left Side"],[669,"HOB","30 Degrees"],[669,"Turn","Side to Side"],[670,"Bed","AtmosAir Mattress"],[695,"DBP","55"],[695,"RR","20"],[695,"SpO2","98"],[695,"HR","101"],[695,"SBP","104"],[710,"SBP","96"],[710,"HR","98"],[710,"SpO2","100"],[710,"DBP","55"],[710,"RR","16"]],"inf":[]},"36753294":{"source":"MIMIC-IV Clinical Database Demo v2.2 (PhysioNet, ODbL). ICU stay 36753294, Coronary Care Unit (CCU). 12-hour window, times in minutes from shift start (negative = before shift).","patient":{"sex":"M","age":81,"unit":"Coronary Care Unit","stay":"36753294","wKg":64.1,"hCm":170,"startHHMM":403},"ev":[[-343,"HR","95"],[-343,"SpO2","97"],[-343,"RR","20"],[-283,"SpO2","99"],[-283,"HOB","Reverse T-berg"],[-283,"Turn","Side to Side"],[-283,"RR","20"],[-283,"HR","103"],[-283,"Pos","Supine"],[-223,"RR","19"],[-223,"SpO2","97"],[-223,"HR","93"],[-163,"bN","Adequate"],[-163,"bMo","Occasionally Moist"],[-163,"Skin","Intact"],[-163,"Bed","AtmosAir Mattress"],[-163,"RR","17"],[-163,"bM","Bedfast"],[-163,"bF","Potential Problem"],[-163,"HOB","Reverse T-berg"],[-163,"SpO2","99"],[-163,"HR","88"],[-163,"bS","Very Limited"],[-163,"Turn","Side to Side"],[-163,"TempF","98"],[-163,"Pos","Right Side"],[-163,"Diet","Diabetic"],[-163,"bA","Very Limited"],[-133,"SpO2","99"],[-133,"HR","93"],[-133,"RR","19"],[-103,"HR","88"],[-103,"RR","15"],[-103,"SpO2","100"],[-43,"Turn","Side to Side"],[-43,"SpO2","99"],[-43,"HOB","Reverse T-berg"],[-43,"RR","22"],[-43,"HR","93"],[17,"RR","18"],[17,"HR","89"],[17,"SpO2","100"],[59,"Skin","Intact"],[59,"bN","Very Poor"],[59,"bM","Bedfast"],[59,"bF","Potential Problem"],[59,"bS","Completely Limited"],[59,"bA","Completely Immobile"],[59,"Diet","Diabetic"],[59,"bMo","Occasionally Moist"],[60,"Turn","Right Side"],[60,"HOB","Reverse T-berg"],[60,"Turn","Side to Side"],[60,"Turn","Back"],[60,"Pos","Right Side"],[77,"HR","85"],[77,"TempF","97.5"],[77,"RR","17"],[77,"Bed","AtmosAir Mattress"],[77,"SpO2","99"],[137,"HR","99"],[137,"SpO2","93"],[137,"Turn","Back"],[137,"RR","22"],[137,"HOB","Reverse T-berg"],[137,"Pos","Left Side"],[197,"RR","21"],[197,"SpO2","95"],[197,"HR","110"],[249,"HOB","Reverse T-berg"],[249,"Pos","Supine"],[249,"Turn","Back"],[257,"HR","95"],[257,"SpO2","96"],[257,"RR","17"],[317,"SpO2","98"],[317,"Turn","Right Side"],[317,"HR","107"],[317,"HOB","Reverse T-berg"],[317,"Bed","AtmosAir Mattress"],[317,"TempF","98.2"],[317,"RR","22"],[317,"Pos","Right Side"],[347,"HR","106"],[347,"RR","22"],[347,"SpO2","98"],[377,"HR","128"],[377,"RR","23"],[377,"SpO2","94"],[387,"Pos","Supine"],[387,"SpO2","97"],[387,"HR","122"],[387,"Turn","Back"],[387,"RR","24"],[387,"Turn","Side to Side"],[387,"HOB","Reverse T-berg"],[397,"SpO2","98"],[397,"RR","27"],[397,"HR","111"],[407,"SpO2","98"],[407,"HR","109"],[407,"RR","24"],[437,"SpO2","99"],[437,"Pos","Supine"],[437,"HR","101"],[437,"HOB","Reverse T-berg"],[437,"Turn","Back"],[437,"RR","20"],[447,"SBP","141"],[447,"DBP","51"],[467,"RR","23"],[467,"HR","103"],[467,"SpO2","97"],[482,"RR","25"],[482,"SpO2","98"],[482,"HR","105"],[486,"SBP","149"],[486,"DBP","42"],[487,"RR","22"],[487,"SpO2","98"],[487,"HR","106"],[489,"DBP","60"],[489,"SBP","109"],[492,"HR","110"],[492,"RR","25"],[492,"SpO2","96"],[493,"SBP","99"],[493,"DBP","57"],[497,"HOB","Flat in Bed"],[497,"HR","111"],[497,"RR","26"],[497,"Turn","Back"],[497,"Pos","Supine"],[498,"SBP","108"],[498,"DBP","83"],[499,"SpO2","96"],[502,"HR","112"],[502,"RR","24"],[502,"SpO2","97"],[503,"SBP","108"],[503,"DBP","56"],[507,"RR","25"],[507,"HR","114"],[507,"SpO2","97"],[527,"RR","25"],[527,"HR","108"],[527,"SpO2","96"],[528,"SBP","111"],[528,"DBP","65"],[528,"HOB","Reverse T-berg"],[557,"HOB","Reverse T-berg"],[557,"Turn","Side to Side"],[557,"SpO2","95"],[557,"Pos","Supine"],[557,"HR","116"],[557,"Bed","AtmosAir Mattress"],[557,"TempF","98.6"],[557,"RR","23"],[558,"DBP","56"],[558,"SBP","110"],[587,"RR","24"],[587,"HR","107"],[587,"SpO2","96"],[588,"DBP","57"],[588,"SBP","114"],[617,"SpO2","96"],[617,"RR","25"],[617,"HR","113"],[618,"DBP","62"],[618,"SBP","99"],[623,"HOB","Reverse T-berg"],[623,"Turn","Right Side"],[623,"Pos","Right Side"],[623,"Turn","Left Side"],[647,"HR","108"],[647,"SpO2","98"],[647,"RR","22"],[648,"SBP","107"],[648,"DBP","67"],[677,"SpO2","97"],[677,"TempF","97.6"],[677,"RR","24"],[677,"HR","123"],[678,"SBP","126"],[678,"DBP","74"],[682,"SpO2","97"],[682,"RR","23"],[682,"HR","109"],[687,"HR","122"],[687,"RR","35"],[687,"SpO2","96"],[692,"RR","27"],[692,"SpO2","94"],[692,"HR","130"],[696,"DBP","56"],[696,"SBP","102"],[697,"RR","23"],[697,"SpO2","100"],[697,"HR","150"],[702,"HR","132"],[702,"RR","27"],[702,"SpO2","99"],[707,"RR","24"],[707,"HR","146"],[707,"SpO2","98"],[708,"SBP","114"],[708,"DBP","66"]],"inf":[]},"39880770":{"source":"MIMIC-IV Clinical Database Demo v2.2 (PhysioNet, ODbL). ICU stay 39880770, Trauma SICU (TSICU). 12-hour window, times in minutes from shift start (negative = before shift).","patient":{"sex":"F","age":28,"unit":"Trauma SICU","stay":"39880770","wKg":120,"hCm":170,"startHHMM":1268},"ev":[[-341,"HR","81"],[-341,"RR","16"],[-339,"SpO2","100"],[-308,"HR","109"],[-308,"bM","Bedfast"],[-308,"Bed","AtmosAir Mattress"],[-308,"TempF","99.1"],[-308,"SpO2","100"],[-308,"bMo","Occasionally Moist"],[-308,"Pos","Right Side"],[-308,"RR","25"],[-308,"bA","Very Limited"],[-308,"HOB","Reverse T-berg"],[-308,"bS","Very Limited"],[-308,"bN","Probably Inadequate"],[-308,"Diet","Tube Feeding"],[-308,"bF","Potential Problem"],[-308,"Turn","Logroll"],[-308,"Skin","Impaired"],[-248,"RR","17"],[-248,"SpO2","99"],[-248,"HR","97"],[-188,"SpO2","100"],[-188,"Bed","AtmosAir Mattress"],[-188,"RR","21"],[-188,"Pos","Supine"],[-188,"HR","107"],[-188,"HOB","Reverse T-berg"],[-188,"Turn","Logroll"],[-128,"RR","18"],[-128,"HR","100"],[-128,"SpO2","100"],[-68,"HOB","Reverse T-berg"],[-68,"bN","Probably Inadequate"],[-68,"Turn","Logroll"],[-68,"bM","Bedfast"],[-68,"RR","19"],[-68,"TempF","100.1"],[-68,"bF","Potential Problem"],[-68,"bMo","Occasionally Moist"],[-68,"bA","Very Limited"],[-68,"Pos","Right Side"],[-68,"bS","Very Limited"],[-68,"HR","119"],[-62,"SpO2","100"],[-60,"Bed","AtmosAir Mattress"],[-38,"Diet","Tube Feeding"],[-13,"Skin","Impaired"],[-8,"SpO2","100"],[-8,"RR","20"],[-8,"HR","112"],[52,"RR","20"],[52,"TempF","100.9"],[52,"SpO2","100"],[52,"HR","119"],[52,"Bed","AtmosAir Mattress"],[60,"Turn","Left Side"],[60,"Turn","Logroll"],[60,"Pos","Left Side"],[60,"HOB","Reverse T-berg"],[75,"SBP","142"],[75,"DBP","58"],[112,"SpO2","100"],[112,"HR","150"],[112,"RR","24"],[172,"HR","111"],[172,"RR","19"],[172,"SpO2","96"],[172,"TempF","101"],[176,"Diet","NPO"],[177,"Skin","Impaired"],[180,"Bed","AtmosAir Mattress"],[180,"Pos","Supine"],[180,"Turn","Logroll"],[180,"HOB","Reverse T-berg"],[232,"RR","18"],[232,"SpO2","96"],[232,"HR","105"],[235,"DBP","52"],[235,"SBP","124"],[292,"HR","117"],[292,"TempF","100"],[292,"RR","24"],[292,"SpO2","96"],[315,"Pos","Right Side"],[315,"Bed","AtmosAir Mattress"],[315,"Turn","Logroll"],[315,"HOB","Reverse T-berg"],[315,"Turn","Side to Side"],[352,"SpO2","99"],[352,"HR","91"],[352,"RR","14"],[402,"SBP","114"],[402,"DBP","58"],[412,"TempF","98.9"],[412,"SpO2","100"],[412,"HR","79"],[412,"Skin","Impaired"],[412,"RR","15"],[413,"SBP","128"],[413,"DBP","73"],[416,"Diet","NPO"],[457,"Pos","Supine"],[457,"HOB","Reverse T-berg"],[457,"Turn","Back"],[457,"Bed","AtmosAir Mattress"],[472,"RR","17"],[472,"SpO2","100"],[472,"HR","86"],[474,"SBP","119"],[474,"DBP","52"],[532,"SpO2","100"],[532,"HR","119"],[532,"RR","19"],[532,"TempF","100"],[534,"SBP","156"],[534,"DBP","74"],[535,"Pos","Left Side"],[535,"Bed","AtmosAir Mattress"],[535,"HOB","Reverse T-berg"],[535,"Turn","Logroll"],[592,"SpO2","100"],[592,"HR","85"],[592,"TempF","99.3"],[592,"RR","20"],[594,"SBP","127"],[594,"DBP","68"],[652,"bA","Very Limited"],[652,"Turn","Logroll"],[652,"Skin","Impaired"],[652,"bS","Very Limited"],[652,"SpO2","100"],[652,"RR","12"],[652,"bN","Probably Inadequate"],[652,"bM","Bedfast"],[652,"bMo","Occasionally Moist"],[652,"Pos","Supine"],[652,"HOB","Reverse T-berg"],[652,"HR","115"],[652,"bF","Potential Problem"],[652,"Bed","AtmosAir Mattress"],[652,"Diet","NPO"],[652,"Turn","Side to Side"],[653,"DBP","80"],[653,"SBP","148"],[712,"HR","81"],[712,"Turn","Logroll"],[712,"RR","24"],[712,"HOB","Reverse T-berg"],[712,"Turn","Side to Side"],[712,"Pos","Left Side"],[712,"SpO2","99"],[714,"SBP","133"],[714,"DBP","64"]],"inf":[[-234,182,"Vital High Protein (Full)",10,"mL/hour","feed"],[201,262,"Propofol",58.7,"mcg/kg/min","sed"],[-77,-28,"Propofol",48.8,"mcg/kg/min","sed"],[526,623,"Propofol",45.6,"mcg/kg/min","sed"],[-28,70,"Propofol",58.7,"mcg/kg/min","sed"],[687,751,"Propofol",20.7,"mcg/kg/min","sed"],[70,201,"Propofol",58.7,"mcg/kg/min","sed"],[348,526,"Propofol",45.6,"mcg/kg/min","sed"],[338,348,"Propofol",46.2,"mcg/kg/min","sed"],[-245,-77,"Propofol",48.9,"mcg/kg/min","sed"],[262,338,"Propofol",54.7,"mcg/kg/min","sed"],[623,632,"Propofol",35.9,"mcg/kg/min","sed"],[632,687,"Propofol",30.9,"mcg/kg/min","sed"],[-392,-245,"Propofol",48.9,"mcg/kg/min","sed"]]}}</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+document.getElementById('loading').remove();
+if(innerWidth<1000)document.body.classList.add('drawer-closed');
+const D2R = Math.PI/180, R2D = 180/Math.PI;
+const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
+const lerp = (a,b,t)=>a+(b-a)*t;
+const pos = v=>Math.max(0,v);
+const $ = id=>document.getElementById(id);
+
+/* ============================ RENDERER / SCENE ============================ */
+const container = $('scene');
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+container.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xe4e9e6);
+scene.fog = new THREE.Fog(0xe4e9e6, 6, 14);
+
+// Procedural studio environment for soft reflections: dark room + softboxes (no HDR files needed)
+{
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  const env = new THREE.Scene();
+  env.add(new THREE.Mesh(new THREE.BoxGeometry(10,6,10), new THREE.MeshBasicMaterial({color:0x8f9894, side:THREE.BackSide})));
+  const panel=(w,h,col,k,p,r)=>{const m=new THREE.Mesh(new THREE.PlaneGeometry(w,h),new THREE.MeshBasicMaterial({color:new THREE.Color(col).multiplyScalar(k),side:THREE.DoubleSide}));m.position.set(...p);if(r)m.rotation.set(...r);env.add(m);};
+  panel(3.2,1.6,0xfff1e0,0.9,[0,2.9,0],[Math.PI/2,0,0]);      // overhead exam softbox
+  panel(2.2,3.2,0xffffff,0.8,[-4.9,0.8,-1],[0,Math.PI/2,0]);  // window light, left
+  panel(1.6,3.0,0xe9f5ee,0.5,[4.9,0.8,2],[0,-Math.PI/2,0]);   // soft fill, right
+  panel(4,0.4,0xffffff,0.35,[0,1.0,-4.9]);                      // back wall bar
+  scene.environment = pmrem.fromScene(env,0.03).texture;
+  pmrem.dispose();
+}
+
+const camera = new THREE.PerspectiveCamera(36, 1, 0.05, 50);
+camera.position.set(2.75,1.95,1.25);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0,0.08,-0.02);
+controls.enableDamping = true;
+controls.maxPolarAngle = Math.PI*0.495;
+controls.minDistance = 0.9; controls.maxDistance = 6;
+controls.autoRotateSpeed = 0.8;
+
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const bloom = new UnrealBloomPass(new THREE.Vector2(1,1), 0.5, 0.35, 1.6);
+composer.addPass(bloom);
+composer.addPass(new OutputPass());
+
+// keep the patient centred in the space left between the drawer, top bar and dock
+const viewOff={x:0,y:0,tx:0,ty:0};
+function layoutTargets(){
+  const b=document.body.classList;
+  const L=b.contains('drawer-closed')?0:$('left').offsetWidth+20;
+  const D=b.contains('dock-closed')?24:$('dock').offsetHeight+24;
+  viewOff.tx=-L/2; viewOff.ty=(D-72)/2;
+}
+function applyView(){camera.setViewOffset(innerWidth,innerHeight,viewOff.x,viewOff.y,innerWidth,innerHeight);camera.updateProjectionMatrix();}
+function resize(){
+  const w = innerWidth, h = innerHeight;
+  renderer.setSize(w,h); composer.setSize(w,h);
+  camera.aspect = w/h;
+  layoutTargets(); viewOff.x=viewOff.tx; viewOff.y=viewOff.ty; applyView();
+}
+addEventListener('resize', resize);
+
+scene.add(new THREE.HemisphereLight(0xffffff, 0xb9c2bd, 0.7));
+const key = new THREE.DirectionalLight(0xfffaf3, 2.2);
+key.position.set(2.0,4.2,1.4); key.castShadow = true;
+key.shadow.mapSize.set(2048,2048);
+Object.assign(key.shadow.camera,{left:-1.7,right:1.7,top:1.9,bottom:-1.9,near:0.5,far:10});
+key.shadow.bias = -0.0004; key.shadow.normalBias = 0.02;
+scene.add(key);
+const rim = new THREE.DirectionalLight(0xffffff, 0.55); rim.position.set(-3,2,-2.5); scene.add(rim);
+const rim2 = new THREE.DirectionalLight(0xeaf6ef, 0.35); rim2.position.set(-2,1.2,3); scene.add(rim2);
+const examLight = new THREE.SpotLight(0xfffaf2, 2.2, 6, 0.6, 0.8, 1.6);   // overhead pool of light on the bed
+examLight.position.set(0,2.6,0.05); examLight.target.position.set(0,0,0.05); scene.add(examLight, examLight.target);
+
+const FLOOR_Y = -0.72;
+const floor = new THREE.Mesh(new THREE.CircleGeometry(7.5,72), new THREE.MeshStandardMaterial({color:0xd9dfdb, roughness:0.85, metalness:0.0, envMapIntensity:0.3}));
+floor.rotation.x = -Math.PI/2; floor.position.y = FLOOR_Y; floor.receiveShadow = true; scene.add(floor);
+const grid = new THREE.GridHelper(15,60,0xcfd6d2,0xdde2df);
+grid.position.y = FLOOR_Y+0.001; grid.material.transparent = true; grid.material.opacity = 0.7; scene.add(grid);
+const ring = new THREE.Mesh(new THREE.RingGeometry(1.55,1.565,160), new THREE.MeshBasicMaterial({color:0x6fbf8e, transparent:true, opacity:0.55}));
+ring.rotation.x = -Math.PI/2; ring.position.set(0,FLOOR_Y+0.002,0.05); scene.add(ring);
+const ring2 = new THREE.Mesh(new THREE.RingGeometry(1.75,1.755,160), new THREE.MeshBasicMaterial({color:0x6fbf8e, transparent:true, opacity:0.22}));
+ring2.rotation.x = -Math.PI/2; ring2.position.set(0,FLOOR_Y+0.002,0.05); scene.add(ring2);
+// soft contact shadow under the bed
+{
+  const c=document.createElement('canvas');c.width=c.height=128;const g=c.getContext('2d');
+  const gr=g.createRadialGradient(64,64,6,64,64,64);gr.addColorStop(0,'rgba(40,52,46,.4)');gr.addColorStop(0.6,'rgba(40,52,46,.16)');gr.addColorStop(1,'rgba(0,0,0,0)');
+  g.fillStyle=gr;g.fillRect(0,0,128,128);
+  const cs=new THREE.Mesh(new THREE.PlaneGeometry(1.7,3.0),new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(c),transparent:true,depthWrite:false}));
+  cs.rotation.x=-Math.PI/2;cs.position.set(0,FLOOR_Y+0.003,0.05);scene.add(cs);
+}
+// distant curved backdrop with faint light slats, swallowed by fog
+{
+  const wall=new THREE.Mesh(new THREE.CylinderGeometry(7,7,4.5,96,1,true),new THREE.MeshStandardMaterial({color:0xe4e9e6,roughness:0.95,side:THREE.BackSide}));
+  wall.position.y=FLOOR_Y+2.25;scene.add(wall);
+  const slatMat=new THREE.MeshBasicMaterial({color:0xdfe5e1,transparent:true,opacity:0.0,side:THREE.DoubleSide,visible:false});
+  for(let i=0;i<14;i++){const a=Math.PI*0.85+i*(Math.PI*0.8/13);
+    const s=new THREE.Mesh(new THREE.PlaneGeometry(0.025,2.0),slatMat);s.position.set(Math.cos(a)*6.9,FLOOR_Y+1.6,Math.sin(a)*6.9);s.lookAt(0,FLOOR_Y+1.6,0);scene.add(s);}
+}
+
+/* ============================ TEXTURES ============================ */
+const glowTex = (()=>{const c=document.createElement('canvas');c.width=c.height=128;const g=c.getContext('2d');
+  const gr=g.createRadialGradient(64,64,0,64,64,64);
+  gr.addColorStop(0,'rgba(255,255,255,1)');gr.addColorStop(0.22,'rgba(255,255,255,.75)');
+  gr.addColorStop(0.55,'rgba(255,255,255,.18)');gr.addColorStop(1,'rgba(255,255,255,0)');
+  g.fillStyle=gr;g.fillRect(0,0,128,128);const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;return t;})();
+
+function textSprite(txt,color){
+  const c=document.createElement('canvas');c.width=320;c.height=72;const g=c.getContext('2d');
+  g.fillStyle='rgba(255,255,255,.96)';
+  if(g.roundRect){g.beginPath();g.roundRect(4,4,312,64,8);g.fill();}else g.fillRect(4,4,312,64);
+  g.fillStyle=color;g.beginPath();g.arc(34,36,7,0,Math.PI*2);g.fill();
+  g.fillStyle='#1f2a26';g.font='500 26px Figtree, system-ui, sans-serif';g.textAlign='left';g.textBaseline='middle';g.fillText(txt,56,37);
+  const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;
+  const s=new THREE.Sprite(new THREE.SpriteMaterial({map:t,depthTest:false,transparent:true}));
+  s.scale.set(0.25,0.056,1);s.renderOrder=20;return s;
+}
+
+/* ============================ BED ============================ */
+const HINGE_Z=-0.25, FOOT_Z=1.22, HEAD_Z=-1.12, BED_W=0.96, MAT_T=0.15;
+
+// procedural fabric: woven noise for colour + bump
+function fabricTex(hex, rep, amp=9){
+  const N=256,c=document.createElement('canvas');c.width=c.height=N;const g=c.getContext('2d');
+  g.fillStyle=hex;g.fillRect(0,0,N,N);const id=g.getImageData(0,0,N,N),d=id.data;
+  for(let y=0;y<N;y++)for(let x=0;x<N;x++){const i=(y*N+x)*4;const w=(((x>>1)&1)^((y>>1)&1))?amp*0.5:-amp*0.5;const n=(Math.random()-0.5)*amp+w;d[i]+=n;d[i+1]+=n;d[i+2]+=n;}
+  g.putImageData(id,0,0);
+  // a few soft, low-frequency creases
+  g.globalAlpha=0.06;g.strokeStyle='#000';g.lineWidth=10;
+  for(let k=0;k<5;k++){g.beginPath();const y0=Math.random()*N;g.moveTo(0,y0);g.bezierCurveTo(N*0.3,y0+30*(Math.random()-.5),N*0.7,y0+30*(Math.random()-.5),N,y0+20*(Math.random()-.5));g.stroke();}
+  g.globalAlpha=1;
+  const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(...rep);t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=8;return t;
+}
+const sheetTex = fabricTex('#b9c7bf',[2,3]);
+const matMat   = new THREE.MeshStandardMaterial({color:0xffffff, map:sheetTex, bumpMap:sheetTex, bumpScale:1.2, roughness:0.93, envMapIntensity:0.5});
+const frameMat = new THREE.MeshStandardMaterial({color:0x9aa6b4, metalness:0.85, roughness:0.32, envMapIntensity:0.8});
+const darkMat  = new THREE.MeshStandardMaterial({color:0x9aa49f, metalness:0.2, roughness:0.6});
+const shellMat = new THREE.MeshStandardMaterial({color:0xf3f5f4, metalness:0.0, roughness:0.6, envMapIntensity:0.5});
+const panelMat = new THREE.MeshStandardMaterial({color:0xdfe5e2, metalness:0.05, roughness:0.55});
+const edgeMat  = new THREE.MeshBasicMaterial({color:0x6fbf8e, transparent:true, opacity:0.8});
+const glassMat = new THREE.MeshStandardMaterial({color:0xcfe9da, transparent:true, opacity:0.08, roughness:0.2, metalness:0.0, depthWrite:false, side:THREE.DoubleSide, envMapIntensity:0.3});
+const rbox=(w,h,d,r,mat)=>{const m=new THREE.Mesh(new RoundedBoxGeometry(w,h,d,4,r),mat);m.castShadow=m.receiveShadow=true;return m;};
+const cyl=(r1,r2,h,mat,seg=16)=>{const m=new THREE.Mesh(new THREE.CylinderGeometry(r1,r2,h,seg),mat);m.castShadow=true;return m;};
+const tubeAlong=(pts,r,mat,seg=40)=>{const m=new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts.map(p=>new THREE.Vector3(...p))),seg,r,8,false),mat);m.castShadow=true;return m;};
+
+const bed = new THREE.Group(); scene.add(bed);
+const baseLen = FOOT_Z-HINGE_Z;
+// mattress (fitted sheet) — top surface at y = 0
+const baseMesh = rbox(BED_W,MAT_T,baseLen,0.05,matMat);
+baseMesh.position.set(0,-MAT_T/2,(FOOT_Z+HINGE_Z)/2); bed.add(baseMesh);
+// static seat/leg deck under the mattress
+const deck = rbox(BED_W+0.03,0.035,baseLen+0.02,0.012,panelMat);
+deck.position.set(0,-MAT_T-0.02,(FOOT_Z+HINGE_Z)/2); bed.add(deck);
+// chassis: frame rails, lift columns, low base shell with underglow
+for(const x of [-1,1]){
+  const rail=rbox(0.045,0.06,FOOT_Z-HEAD_Z-0.08,0.015,frameMat); rail.position.set(x*(BED_W/2-0.07),-0.25,(FOOT_Z+HEAD_Z)/2); bed.add(rail);
+  const strip=new THREE.Mesh(new THREE.BoxGeometry(0.005,0.005,FOOT_Z-HEAD_Z-0.1),edgeMat); strip.position.set(x*(BED_W/2+0.017),-MAT_T-0.038,(FOOT_Z+HEAD_Z)/2); bed.add(strip);
+}
+for(const z of [HEAD_Z+0.1,(HEAD_Z+FOOT_Z)/2,FOOT_Z-0.1]){const cr=rbox(BED_W-0.12,0.04,0.04,0.012,frameMat);cr.position.set(0,-0.25,z);bed.add(cr);}
+for(const z of [-0.45,0.75]){
+  const col=rbox(0.2,0.36,0.13,0.03,shellMat); col.position.set(0,-0.42,z); bed.add(col);
+  const inner=rbox(0.16,0.12,0.1,0.02,frameMat); inner.position.set(0,-0.2,z); bed.add(inner);
+}
+const baseShell=rbox(BED_W-0.1,0.09,FOOT_Z-HEAD_Z-0.14,0.04,shellMat); baseShell.position.set(0,FLOOR_Y+0.13,(FOOT_Z+HEAD_Z)/2); bed.add(baseShell);
+const under=new THREE.Mesh(new THREE.PlaneGeometry(BED_W-0.05,FOOT_Z-HEAD_Z-0.05),new THREE.MeshBasicMaterial({map:glowTex,color:0x9fb3a8,transparent:true,opacity:0.18,depthWrite:false}));
+under.rotation.x=-Math.PI/2; under.position.set(0,FLOOR_Y+0.004,(FOOT_Z+HEAD_Z)/2); bed.add(under);
+// casters
+for(const x of [-1,1])for(const z of [HEAD_Z+0.06,FOOT_Z-0.06]){
+  const g=new THREE.Group(); g.position.set(x*(BED_W/2-0.07),FLOOR_Y,z); bed.add(g);
+  const stem=cyl(0.013,0.013,0.08,frameMat); stem.position.y=0.14; g.add(stem);
+  const fork=rbox(0.05,0.06,0.07,0.012,darkMat); fork.position.y=0.085; g.add(fork);
+  const wheel=cyl(0.045,0.045,0.035,darkMat,24); wheel.rotation.z=Math.PI/2; wheel.position.y=0.045; g.add(wheel);
+  const hub=cyl(0.018,0.018,0.04,frameMat); hub.rotation.z=Math.PI/2; hub.position.y=0.045; g.add(hub);
+}
+// head & foot boards
+function board(w,h,y,z,face){
+  const g=new THREE.Group(); g.position.set(0,y,z); bed.add(g);
+  const p=rbox(w,h,0.045,0.02,shellMat); g.add(p);
+  const inset=rbox(w-0.12,h-0.12,0.01,0.01,panelMat); inset.position.z=face*0.024; g.add(inset);
+  for(const x of [-1,1]){const post=cyl(0.022,0.022,h+0.06,frameMat); post.position.set(x*(w/2+0.005),0,0); g.add(post);
+    const cap=new THREE.Mesh(new THREE.SphereGeometry(0.026,16,10),darkMat); cap.position.set(x*(w/2+0.005),h/2+0.03,0); g.add(cap);}
+  return g;
+}
+const headboard=board(BED_W+0.06,0.6,-0.02,HEAD_Z-0.055,-1);
+const footboard=board(BED_W+0.06,0.36,-0.14,FOOT_Z+0.055,1);
+// footboard status screen
+{
+  const c=document.createElement('canvas');c.width=512;c.height=160;const g=c.getContext('2d');
+  g.fillStyle='#04121c';g.fillRect(0,0,512,160);
+  g.fillStyle='#4fd1ff';g.font='600 34px "JetBrains Mono",monospace';g.fillText('DUAL-IMU',24,58);
+  g.fillStyle='#8193a8';g.font='24px "JetBrains Mono",monospace';g.fillText('Chest + pelvis',24,100);
+  g.fillStyle='#3ddc97';g.beginPath();g.arc(470,46,10,0,7);g.fill();
+  g.fillStyle='#ff5fa2';g.fillRect(24,122,180,8);g.fillStyle='#4fd1ff';g.fillRect(214,122,120,8);
+  const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;
+  const scr=new THREE.Mesh(new THREE.PlaneGeometry(0.3,0.094),new THREE.MeshBasicMaterial({map:t,toneMapped:false}));
+  scr.position.set(0,0.05,0.03); footboard.add(scr);
+}
+// blanket folded over the footboard
+{
+  const bt=fabricTex('#9cc9ac',[1,2],12);
+  const bm=new THREE.MeshStandardMaterial({map:bt,bumpMap:bt,bumpScale:1.5,roughness:0.95});
+  const top=rbox(BED_W-0.06,0.035,0.11,0.016,bm); top.position.set(0,0.06,FOOT_Z+0.055); bed.add(top);
+  const drape=rbox(BED_W-0.06,0.2,0.03,0.014,bm); drape.position.set(0,-0.04,FOOT_Z+0.1); drape.rotation.x=-0.06; bed.add(drape);
+}
+
+// articulated head section — pivot at hinge, mattress top at local y = 0
+const headPivot = new THREE.Group(); headPivot.position.set(0,0,HINGE_Z); scene.add(headPivot);
+const headLen = HINGE_Z-HEAD_Z;
+const headMesh = rbox(BED_W,MAT_T,headLen,0.05,matMat);
+headMesh.position.set(0,-MAT_T/2,-headLen/2); headPivot.add(headMesh);
+const headDeck = rbox(BED_W+0.03,0.035,headLen-0.01,0.012,panelMat); headDeck.position.set(0,-MAT_T-0.02,-headLen/2); headPivot.add(headDeck);
+const hingeBar = cyl(0.016,0.016,BED_W+0.05,frameMat); hingeBar.rotation.z=Math.PI/2; hingeBar.position.set(0,-MAT_T-0.02,0); headPivot.add(hingeBar);
+const pillowTex = fabricTex('#dfe6ee',[1,1],7);
+const pillow = new THREE.Mesh(new THREE.SphereGeometry(1,48,28), new THREE.MeshStandardMaterial({map:pillowTex,bumpMap:pillowTex,bumpScale:1.0,roughness:0.92}));
+pillow.scale.set(0.25,0.036,0.13); pillow.position.set(0,0.034,-0.9-HINGE_Z); pillow.castShadow = pillow.receiveShadow = true; headPivot.add(pillow);
+
+// lowered split side rails (top bar level with mattress, so they never hide the patient)
+function sideRail(parent,x,z0,z1){
+  const g=new THREE.Group(); parent.add(g);
+  const len=Math.abs(z1-z0), zc=(z0+z1)/2, s=Math.sign(x);
+  const top=cyl(0.013,0.013,len,frameMat); top.rotation.x=Math.PI/2; top.position.set(x,0.005,zc); g.add(top);
+  const bot=cyl(0.011,0.011,len,frameMat); bot.rotation.x=Math.PI/2; bot.position.set(x,-0.12,zc); g.add(bot);
+  for(const z of [z0+0.03*Math.sign(z1-z0),z1-0.03*Math.sign(z1-z0)]){const post=cyl(0.011,0.011,0.125,frameMat); post.position.set(x,-0.058,z); g.add(post);}
+  const glass=new THREE.Mesh(new THREE.PlaneGeometry(len-0.06,0.11),glassMat); glass.rotation.y=Math.PI/2; glass.position.set(x,-0.058,zc); g.add(glass);
+  const led=new THREE.Mesh(new THREE.BoxGeometry(0.004,0.004,len*0.6),edgeMat); led.position.set(x+s*0.012,0.005,zc); g.add(led);
+  const arm=rbox(0.03,0.07,0.03,0.008,darkMat); arm.position.set(x-s*0.02,-0.12,zc); g.add(arm);
+  return g;
+}
+const RX=BED_W/2+0.035;
+for(const x of [-RX,RX]){ sideRail(headPivot,x,-0.12,-0.72); sideRail(bed,x,0.05,0.72); }
+
+// hand control pendant hanging off the right foot rail
+{
+  const cord=tubeAlong([[RX+0.01,-0.12,0.6],[RX+0.03,-0.2,0.58],[RX+0.035,-0.3,0.56]],0.004,darkMat,20); bed.add(cord);
+  const pend=rbox(0.05,0.12,0.025,0.012,shellMat); pend.position.set(RX+0.035,-0.36,0.56); bed.add(pend);
+  for(let i=0;i<3;i++){const b=new THREE.Mesh(new THREE.CylinderGeometry(0.008,0.008,0.004,12),new THREE.MeshBasicMaterial({color:i?0x4fd1ff:0x3ddc97,toneMapped:false}));b.rotation.x=Math.PI/2;b.position.set(RX+0.035,-0.33-i*0.025,0.574);bed.add(b);}
+}
+
+// Raspberry Pi hub clipped to the right foot rail, with sensor leads (cyan = chest, magenta = pelvis)
+{
+  const g=new THREE.Group(); g.position.set(RX+0.05,-0.075,0.25); bed.add(g);
+  const caseMat=new THREE.MeshStandardMaterial({color:0x1a222c,transparent:true,opacity:0.55,roughness:0.15,metalness:0.1,depthWrite:false});
+  const shell=rbox(0.03,0.095,0.12,0.01,caseMat); g.add(shell);
+  const pcb=new THREE.Mesh(new THREE.BoxGeometry(0.004,0.075,0.1),new THREE.MeshStandardMaterial({color:0x1f7a3e,roughness:0.6})); g.add(pcb);
+  const chip=new THREE.Mesh(new THREE.BoxGeometry(0.006,0.022,0.022),new THREE.MeshStandardMaterial({color:0x111,roughness:0.4})); chip.position.set(0.004,0.01,0.0); g.add(chip);
+  const clip=rbox(0.03,0.02,0.04,0.006,darkMat); clip.position.set(-0.025,0.07,0); g.add(clip);
+  const ledMat=new THREE.MeshBasicMaterial({color:0x4fd1ff,toneMapped:false});
+  const led=new THREE.Mesh(new THREE.SphereGeometry(0.005,10,8),ledMat); led.position.set(0.016,0.035,0.045); g.add(led);
+  const led2=new THREE.Mesh(new THREE.SphereGeometry(0.005,10,8),new THREE.MeshBasicMaterial({color:0x3ddc97,toneMapped:false})); led2.position.set(0.016,0.035,0.03); g.add(led2);
+  const halo=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex,color:0x4fd1ff,blending:THREE.AdditiveBlending,transparent:true,depthWrite:false})); halo.scale.set(0.05,0.05,1); halo.position.copy(led.position); g.add(halo);
+  led.onBeforeRender=()=>{halo.material.opacity=0.5+0.5*Math.sin(performance.now()/180);};
+  const cMat=new THREE.MeshStandardMaterial({color:0x4fd1ff,emissive:0x0d4f66,roughness:0.4});
+  const pMat=new THREE.MeshStandardMaterial({color:0xff5fa2,emissive:0x5a1838,roughness:0.4});
+}
+
+// IV pole with bag and line (patient's right, head end)
+{
+  const g=new THREE.Group(); g.position.set(-0.82,FLOOR_Y,-0.95); scene.add(g);
+  for(let i=0;i<5;i++){const a=i/5*Math.PI*2;const leg=rbox(0.22,0.02,0.03,0.008,frameMat);leg.position.set(Math.cos(a)*0.11,0.04,Math.sin(a)*0.11);leg.rotation.y=-a;g.add(leg);
+    const w=new THREE.Mesh(new THREE.SphereGeometry(0.022,12,8),darkMat);w.position.set(Math.cos(a)*0.21,0.022,Math.sin(a)*0.21);g.add(w);}
+  const pole=cyl(0.011,0.011,1.9,frameMat); pole.position.y=0.98; g.add(pole);
+  const bar=cyl(0.008,0.008,0.26,frameMat); bar.rotation.z=Math.PI/2; bar.position.y=1.9; g.add(bar);
+  const bagMat=new THREE.MeshStandardMaterial({color:0xe6f3ff,transparent:true,opacity:0.42,roughness:0.12,depthWrite:false});
+  const bag=rbox(0.12,0.2,0.035,0.03,bagMat); bag.position.set(0.11,1.74,0); g.add(bag);
+  const fluid=rbox(0.1,0.12,0.022,0.02,new THREE.MeshStandardMaterial({color:0xbfe6ff,transparent:true,opacity:0.6,roughness:0.1,emissive:0x0b2a3a}));
+  fluid.position.set(0.11,1.7,0); g.add(fluid);
+  const drip=cyl(0.012,0.012,0.06,bagMat); drip.position.set(0.11,1.6,0); g.add(drip);
+  const lineMat=new THREE.MeshStandardMaterial({color:0xdfefff,transparent:true,opacity:0.35,roughness:0.2});
+}
+
+// vitals monitor on a roll stand (patient's left, head end) — live canvas screen
+{
+  const g=new THREE.Group(); g.position.set(0.86,FLOOR_Y,-1.05); scene.add(g);
+  for(let i=0;i<5;i++){const a=i/5*Math.PI*2;const leg=rbox(0.2,0.02,0.03,0.008,frameMat);leg.position.set(Math.cos(a)*0.1,0.04,Math.sin(a)*0.1);leg.rotation.y=-a;g.add(leg);}
+  const pole=cyl(0.016,0.016,1.15,frameMat); pole.position.y=0.6; g.add(pole);
+  const head=new THREE.Group(); head.position.set(0,1.32,0); head.rotation.y=-0.55; head.rotation.x=-0.08; g.add(head);
+  const body=rbox(0.46,0.33,0.05,0.02,shellMat); head.add(body);
+  const bezel=rbox(0.42,0.27,0.01,0.008,new THREE.MeshStandardMaterial({color:0x05080c,roughness:0.3})); bezel.position.set(-0.01,0.0,0.026); head.add(bezel);
+  const c=document.createElement('canvas');c.width=512;c.height=320;const ctx=c.getContext('2d');
+  const tex=new THREE.CanvasTexture(c);tex.colorSpace=THREE.SRGBColorSpace;
+  const scr=new THREE.Mesh(new THREE.PlaneGeometry(0.4,0.25),new THREE.MeshBasicMaterial({map:tex,color:0xb8b8b8}));
+  scr.position.set(-0.01,0.0,0.032); head.add(scr);
+  const glow=new THREE.PointLight(0x4fd1ff,0.15,1.0,2); glow.position.set(0,0,0.2); head.add(glow);
+  let lastDraw=0;
+  const ecg=t=>{const ph=t%1;let v=0;v+=Math.exp(-(((ph-0.18)/0.03)**2))*0.12;v-=Math.exp(-(((ph-0.3)/0.008)**2))*0.15;v+=Math.exp(-(((ph-0.32)/0.012)**2))*1.0;v-=Math.exp(-(((ph-0.35)/0.01)**2))*0.25;v+=Math.exp(-(((ph-0.55)/0.05)**2))*0.25;return v;};
+  const txt=id=>{const e=document.getElementById(id);return e?e.textContent:'';};
+  scr.onBeforeRender=()=>{
+    const now=performance.now(); if(now-lastDraw<66)return; lastDraw=now;
+    const T=vitT(); const VN=vitNumerics();
+    ctx.fillStyle='#03080d';ctx.fillRect(0,0,512,320);
+    ctx.strokeStyle='rgba(79,209,255,.08)';ctx.lineWidth=1;for(let x=0;x<360;x+=24){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,200);ctx.stroke();}
+    const trace=(y0,amp,col,fn,rate)=>{ctx.strokeStyle=col;ctx.lineWidth=3;ctx.beginPath();for(let x=0;x<350;x++){const v=fn(T*rate-(350-x)/140);const y=y0-v*amp;x?ctx.lineTo(x,y):ctx.moveTo(x,y);}ctx.stroke();};
+    drawTrend(ctx,'HR',8,22,340,80,state.simMin,'#3ddc97',1);
+    drawTrend(ctx,'SpO2',8,120,340,70,state.simMin,'#4fd1ff',1);
+    ctx.fillStyle='#3ddc97';ctx.font='600 52px "JetBrains Mono",monospace';ctx.fillText(VN.hr==null?'--':String(VN.hr),380,70);
+    ctx.font='16px "JetBrains Mono",monospace';ctx.fillText('HR',380,24);
+    ctx.fillStyle='#4fd1ff';ctx.font='600 44px "JetBrains Mono",monospace';ctx.fillText(VN.spo2==null?'--':String(VN.spo2),380,160);
+    ctx.font='16px "JetBrains Mono",monospace';ctx.fillText('SpO2 %',380,112);
+    ctx.fillStyle='rgba(255,255,255,.06)';ctx.fillRect(0,210,512,110);
+    const pos=txt('posLabel')||'—', due=txt('due')||'—', dl=txt('dueLbl');
+    const overdue=/NOW/.test(due);
+    ctx.fillStyle='#8193a8';ctx.font='15px "JetBrains Mono",monospace';ctx.fillText('POSITION',16,236);ctx.fillText((dl||'TURN DUE').toUpperCase(),300,236);
+    ctx.fillStyle='#fff';ctx.font='600 22px Inter, sans-serif';ctx.fillText(pos.length>24?pos.slice(0,23)+'…':pos,16,268);
+    ctx.fillStyle=overdue?(Math.sin(T*8)>0?'#ff4d5e':'#7a1f28'):'#ffb547';ctx.font='600 30px "JetBrains Mono",monospace';ctx.fillText(due,300,272);
+    ctx.fillStyle='#4fd1ff';ctx.fillRect(16,292,8,8);ctx.fillStyle='#ff5fa2';ctx.fillRect(30,292,8,8);
+    ctx.fillStyle='#8193a8';ctx.font='13px "JetBrains Mono",monospace';ctx.fillText('IMU x2 · 50 Hz',46,301);
+    tex.needsUpdate=true;
+  };
+}
+
+/* ============================ BODY ============================ */
+// Rigged Mixamo characters (Xbot / Michelle) loaded from the artifact's own files and driven bone-by-bone.
+// Model space = the GLB's upright frame: +X = patient's left, +Y = head, +Z = face.
+// The lying container maps model +Y -> world -Z (head of bed) and model +Z -> world +Y (up).
+const bodyMats = [];                       // ghost-mode toggles these (filled when a model loads)
+const lowerBody = new THREE.Group(); scene.add(lowerBody);          // unit-scale parents for lower-body hotspot anchors
+const upperBody = new THREE.Group(); headPivot.add(upperBody);      // ...and upper-body anchors (footprints follow head section)
+const charContainer = new THREE.Group(); charContainer.rotation.x = -Math.PI/2; scene.add(charContainer);
+const TARGET_HEIGHT = 1.74;
+
+const AX = { x:new THREE.Vector3(1,0,0), y:new THREE.Vector3(0,1,0), z:new THREE.Vector3(0,0,1) };
+const _q = ()=>new THREE.Quaternion();
+const qa = (axis,ang)=>new THREE.Quaternion().setFromAxisAngle(AX[axis],ang);
+const qmul = (...qs)=>qs.reduce((a,b)=>a.multiply(b),new THREE.Quaternion());
+
+// hotspot anchors: bone + rough model-space offset from the bone joint; snapped to the nearest skin vertex at load
+const ANCHOR_SPEC = {
+  sacrum:[['Hips',[0,-0.02,-0.16]]],
+  hipL:[['LeftUpLeg',[0.13,-0.06,0]]],   hipR:[['RightUpLeg',[-0.13,-0.06,0]]],
+  heelL:[['LeftFoot',[0,-0.07,-0.09]]],  heelR:[['RightFoot',[0,-0.07,-0.09]]],
+  ankL:[['LeftFoot',[0.06,0.0,-0.01]]],  ankR:[['RightFoot',[-0.06,0.0,-0.01]]],
+  kneeL:[['LeftLeg',[0.07,0.0,0]]],      kneeR:[['RightLeg',[-0.07,0.0,0]]],
+  scap:[['Spine2',[0.09,0.0,-0.16]],['Spine2',[-0.09,0.0,-0.16]]],
+  occ:[['Head',[0,0.08,-0.13]]],
+  shL:[['LeftArm',[0.0,0.07,0]]],        shR:[['RightArm',[0.0,0.07,0]]],
+  elb:[['LeftForeArm',[0,0,-0.06]],['RightForeArm',[0,0,-0.06]]],
+};
+const PUCK_SPEC = { chest:['Spine2',[0,0.03,0.16]], pelvis:['Hips',[0,-0.04,0.16]] };
+
+/* ============================ IMU PUCKS ============================ */
+// wearable sensor pod: skin-adhesive patch + rounded two-tone housing + status LED + logo ring
+function puck(color, label){
+  // round wearable patch: breathable adhesive disc, low-profile domed sensor, status ring
+  const g = new THREE.Group(); scene.add(g);
+  const fabric = (()=>{const c=document.createElement('canvas');c.width=c.height=128;const x=c.getContext('2d');x.fillStyle='#f1ede6';x.fillRect(0,0,128,128);
+    for(let k=0;k<900;k++){x.fillStyle=`rgba(${150+Math.random()*60|0},${140+Math.random()*60|0},${130+Math.random()*60|0},.10)`;x.fillRect(Math.random()*128,Math.random()*128,1.5,1.5);}
+    const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;return t;})();
+  const patch = new THREE.Mesh(new THREE.CylinderGeometry(0.046,0.047,0.0025,64), new THREE.MeshPhysicalMaterial({color:0xffffff,map:fabric,roughness:0.95,sheen:0.6,sheenColor:new THREE.Color(0xffffff)}));
+  patch.position.y=-0.0075; patch.receiveShadow=true; g.add(patch);
+  const prof=[[0,-0.006],[0.029,-0.006],[0.0305,-0.0045],[0.0305,0.0005],[0.029,0.0035],[0.024,0.0058],[0.012,0.0072],[0,0.0075]].map(([x,y])=>new THREE.Vector2(x,y));
+  const shell = new THREE.Mesh(new THREE.LatheGeometry(prof,64), new THREE.MeshPhysicalMaterial({color:0xf4f6f8, roughness:0.35, clearcoat:0.8, clearcoatRoughness:0.2}));
+  shell.castShadow=true; g.add(shell);
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.0215,0.0011,10,64), new THREE.MeshBasicMaterial({color}));
+  ring.rotation.x=Math.PI/2; ring.position.y=0.0061; g.add(ring);
+  const led = new THREE.Mesh(new THREE.CircleGeometry(0.0028,24), new THREE.MeshBasicMaterial({color}));
+  led.rotation.x=-Math.PI/2; led.position.y=0.0076; g.add(led);
+  const halo = new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex,color,transparent:true,depthWrite:false,opacity:0.4}));
+  halo.scale.set(0.03,0.03,1); halo.position.copy(led.position); g.add(halo);
+  const lbl = textSprite(label, '#'+new THREE.Color(color).getHexString()); lbl.position.set(0,0.09,0); g.add(lbl);
+  g.visible=false;
+  return {g,led,halo,lbl};
+}
+const chestPuck = puck(0x4a6fa5, 'Chest sensor');
+const pelvisPuck = puck(0xb5577a, 'Pelvis sensor');
+
+/* ---------- character loading / binding ---------- */
+const CHARS = {}; let activeChar = null;
+const MODEL_FILES = { xbot:'./Xbot.glb', michelle:'./Michelle.glb' };
+const MODEL_CDN = { xbot:'https://cdn.jsdelivr.net/gh/mrdoob/three.js@r160/examples/models/gltf/Xbot.glb' };
+
+function styleXbot(root){
+  const surf = new THREE.MeshPhysicalMaterial({color:0xdde2e8, roughness:0.45, metalness:0.0, clearcoat:0.3, clearcoatRoughness:0.4});
+  const joints = new THREE.MeshPhysicalMaterial({color:0x5aa77e, roughness:0.35, metalness:0.25, emissive:0x1d4a33, emissiveIntensity:0.08, clearcoat:0.3});
+  root.traverse(o=>{ if(o.isMesh) o.material = /Joints/i.test(o.name) ? joints : surf; });
+}
+function styleMichelle(root){
+  root.traverse(o=>{ if(o.isMesh){ const m=o.material; if(m){ m.roughness=Math.max(0.68,m.roughness??0.7); if('clearcoat' in m)m.clearcoat=0; if('specularIntensity' in m)m.specularIntensity=0.35; if('sheen' in m){m.sheen=0.25;m.sheenColor=new THREE.Color(0xffd8c8);} m.needsUpdate=true; } } });
+}
+
+function bindCharacter(key, gltf){
+  const root = gltf.scene;
+  (key==='xbot'?styleXbot:styleMichelle)(root);
+  root.position.set(0,0,0); root.rotation.set(0,0,0); root.scale.set(1,1,1);
+  root.updateMatrixWorld(true);                       // root has no parent yet: world == model space (rest pose)
+  const bones = {};
+  root.traverse(o=>{
+    if(o.isBone){ const n=o.name.replace(/^mixamorig[:_]?/,''); bones[n]=o; }
+    if(o.isMesh){ o.frustumCulled=false; o.castShadow=true; o.receiveShadow=true; }
+  });
+  root.traverse(o=>{ o.userData.restM = o.getWorldQuaternion(new THREE.Quaternion()); });
+  // rest-pose skin vertices (model space) for surface snapping and body measurements
+  const verts=[]; const v=new THREE.Vector3();
+  root.traverse(o=>{ if(o.isSkinnedMesh){ const n=o.geometry.attributes.position.count; for(let i=0;i<n;i++){ o.getVertexPosition(i,v); v.applyMatrix4(o.matrixWorld); verts.push(v.x,v.y,v.z); } } });
+  const V=new Float32Array(verts), NV=V.length/3;
+  let ymax=-1e9; for(let i=0;i<NV;i++) ymax=Math.max(ymax,V[i*3+1]);
+  const s = TARGET_HEIGHT/ymax;
+  const bpos = n=>bones[n].getWorldPosition(new THREE.Vector3());
+  const snap = (ref, outward)=>{ let best=-1,bd=1e9; for(let i=0;i<NV;i++){const dx=V[i*3]-ref.x,dy=V[i*3+1]-ref.y,dz=V[i*3+2]-ref.z,d=dx*dx+dy*dy+dz*dz; if(d<bd){bd=d;best=i;}}
+    const p=new THREE.Vector3(V[best*3],V[best*3+1],V[best*3+2]); if(outward) p.addScaledVector(outward,0.006); return p; };
+  const band = (y0,y1,xmax)=>{ let mx=0,mz=1e9; for(let i=0;i<NV;i++){const x=V[i*3],y=V[i*3+1],z=V[i*3+2]; if(y>y0&&y<y1&&Math.abs(x)<xmax){mx=Math.max(mx,Math.abs(x));mz=Math.min(mz,z);}} return {mx,mz}; };
+  const H = bpos('Hips'), S2 = bpos('Spine2');
+  const hb = band(H.y-0.14,H.y+0.06,0.3), cb = band(S2.y-0.07,S2.y+0.05,0.26);
+  const backZ = Math.min(hb.mz, cb.mz);
+  const meas = {
+    H, s, backZ,
+    c: s*(H.z-backZ),                               // hip joint height above mattress when supine
+    aP: s*hb.mx*0.92, bP: s*(H.z-hb.mz),
+    aC: s*(cb.mx+0.05), bC: s*(S2.z-cb.mz),         // +deltoid width once arms are down
+    chestDist: s*(S2.y-H.y)+0.08,
+  };
+  // anchor bindings: bone-local offsets of snapped skin points
+  const bind = {};
+  for(const [id,list] of Object.entries(ANCHOR_SPEC)) bind[id]=list.map(([bn,off])=>{
+    const bone=bones[bn], jp=bpos(bn), ref=jp.clone().add(new THREE.Vector3(...off));
+    const out=new THREE.Vector3(...off).normalize();
+    return {bone, local:bone.worldToLocal(snap(ref,out))};
+  });
+  const puckBind = {};
+  const qPuck = qa('x',Math.PI/2);                  // puck +Y -> model +Z (out of the body)
+  for(const [k,[bn,off]] of Object.entries(PUCK_SPEC)){
+    const bone=bones[bn], ref=bpos(bn).add(new THREE.Vector3(...off));
+    const p=snap(ref,new THREE.Vector3(0,0,1)); p.z+=0.004;
+    puckBind[k]={bone, local:bone.worldToLocal(p), qrel:bone.userData.restM.clone().invert().multiply(qPuck)};
+  }
+  const mats=[]; root.traverse(o=>{ if(o.isMesh){ (Array.isArray(o.material)?o.material:[o.material]).forEach(m=>{ if(!mats.includes(m)) mats.push(m); }); } });
+  root.scale.setScalar(s);
+  return {key, root, bones, meas, bind, puckBind, mats};
+}
+
+function setGhostOn(mats){ const g=typeof state!=='undefined'&&state.flags.ghost; for(const m of mats){m.transparent=g;m.opacity=g?0.3:1;m.depthWrite=!g;m.needsUpdate=true;} }
+function activateChar(key){
+  const C=CHARS[key]; if(!C) return;
+  if(activeChar) charContainer.remove(activeChar.root);
+  activeChar=C; charContainer.add(C.root);
+  bodyMats.length=0; bodyMats.push(...C.mats); setGhostOn(bodyMats);
+  chestPuck.g.visible=pelvisPuck.g.visible=true;
+}
+const modelSel = document.getElementById('modelSel');
+const loadingEl = (()=>{const d=document.createElement('div');d.style.cssText='position:fixed;left:50%;top:64px;transform:translateX(-50%);z-index:3;font:13px Figtree,sans-serif;color:#55615c;background:rgba(255,255,255,.95);box-shadow:0 0 0 1px #dfe5e1;border:0;border-radius:8px;padding:6px 10px';d.textContent='Loading patient model';document.body.appendChild(d);return d;})();
+let GLTFLoaderCls = null;
+async function loadChar(key){
+  if(CHARS[key]) return CHARS[key];
+  if(!GLTFLoaderCls) GLTFLoaderCls = (await import('three/addons/loaders/GLTFLoader.js')).GLTFLoader;
+  // Models are embedded as base64 in the hosted copy (its host can't serve .glb); the Vultr copy loads the files.
+  const emb = document.getElementById('glb-'+key);
+  let gltf;
+  if(emb){
+    const b64 = emb.textContent.trim(), bin = atob(b64), u8 = new Uint8Array(bin.length);
+    for(let i=0;i<bin.length;i++) u8[i]=bin.charCodeAt(i);
+    gltf = await new Promise((res,rej)=>new GLTFLoaderCls().parse(u8.buffer,'',res,rej));
+  } else {
+    // local file first; X Bot falls back to the identical copy in the three.js examples on jsDelivr
+    try{ gltf = await new GLTFLoaderCls().loadAsync(MODEL_FILES[key]); }
+    catch(e){ if(!MODEL_CDN[key])throw e; gltf = await new GLTFLoaderCls().loadAsync(MODEL_CDN[key]); }
+  }
+  return (CHARS[key] = bindCharacter(key, gltf));
+}
+async function switchModel(key){
+  loadingEl.style.display='block'; loadingEl.textContent='Loading patient model';
+  try{ await loadChar(key); activateChar(key); loadingEl.style.display='none'; }
+  catch(e){ console.error(e); loadingEl.textContent='could not load '+MODEL_FILES[key]+' ('+e.message+')'; }
+}
+if(modelSel) modelSel.addEventListener('change',e=>switchModel(e.target.value));
+switchModel('xbot').then(()=>loadChar('michelle').catch(()=>{}));   // preload the second model in the background
+
+/* ============================ REGIONS ============================ */
+// load functions take estimated angles in radians: p = pelvis roll, c = chest roll, h = head-of-bed pitch. + roll = left side down.
+const REGIONS = [
+  {id:'sacrum', name:'Sacrum', vul:1.0,  fn:(p,c,h)=>pos(Math.cos(p))**4*(1+0.6*Math.sin(h)), anchors:[[lowerBody,[0,0,0]]]},
+  {id:'hipL',   name:'Left hip', vul:1.0, fn:(p)=>pos(Math.sin(p))**4,  anchors:[[lowerBody,[0,0,0]]]},
+  {id:'hipR',   name:'Right hip', vul:1.0, fn:(p)=>pos(-Math.sin(p))**4, anchors:[[lowerBody,[0,0,0]]]},
+  {id:'heelL',  name:'Left heel', vul:1.25, fn:(p)=>pos(Math.cos(p))**4, anchors:[[lowerBody,[0,0,0]]]},
+  {id:'heelR',  name:'Right heel', vul:1.25, fn:(p)=>pos(Math.cos(p))**4, anchors:[[lowerBody,[0,0,0]]]},
+  {id:'ankL',   name:'Left ankle', vul:1.1, fn:(p)=>pos(Math.sin(p))**4,  anchors:[[lowerBody,[0,0,0]]]},
+  {id:'ankR',   name:'Right ankle', vul:1.1, fn:(p)=>pos(-Math.sin(p))**4, anchors:[[lowerBody,[0,0,0]]]},
+  {id:'kneeL',  name:'Left knee',  vul:0.8, fn:(p)=>pos(Math.sin(p))**4*0.8,  anchors:[[lowerBody,[0,0,0]]]},
+  {id:'kneeR',  name:'Right knee',  vul:0.8, fn:(p)=>pos(-Math.sin(p))**4*0.8, anchors:[[lowerBody,[0,0,0]]]},
+  {id:'scap',   name:'Shoulder blades', vul:0.6, fn:(p,c,h)=>pos(Math.cos(c))**4*(1-0.25*Math.sin(h)), anchors:[[upperBody,[0,0,0]],[upperBody,[0,0,0]]]},
+  {id:'occ',    name:'Back of head', vul:0.6, fn:(p,c)=>pos(Math.cos(c))**4, anchors:[[upperBody,[0,0,0]]]},
+  {id:'shL',    name:'Left shoulder', vul:0.8, fn:(p,c)=>pos(Math.sin(c))**4,  anchors:[[upperBody,[0,0,0]]]},
+  {id:'shR',    name:'Right shoulder', vul:0.8, fn:(p,c)=>pos(-Math.sin(c))**4, anchors:[[upperBody,[0,0,0]]]},
+  {id:'elb',    name:'Elbows', vul:0.6, fn:(p,c)=>pos(Math.cos(c))**2*0.7, anchors:[[upperBody,[0,0,0]],[upperBody,[0,0,0]]]},
+];
+// anchor positions are driven from character bones each frame (see ANCHOR_SPEC / poseBody)
+
+function isUpper(obj){let o=obj;while(o){if(o===upperBody)return true;o=o.parent;}return false;}
+const footGeo = new THREE.PlaneGeometry(1,1); footGeo.rotateX(-Math.PI/2);
+for(const r of REGIONS){
+  r.dose=0; r.load=0; r.net=0;
+  r.color = new THREE.Color(0x3ddc97);
+  r.spriteMat = new THREE.SpriteMaterial({map:glowTex,color:r.color,transparent:true,depthWrite:false,depthTest:false});
+  r.pts = r.anchors.map(([parent,p])=>{
+    const a = new THREE.Object3D(); a.position.set(...p); parent.add(a);
+    const sp = new THREE.Sprite(r.spriteMat); sp.renderOrder = 15; a.add(sp);
+    const core = new THREE.Mesh(new THREE.SphereGeometry(0.011,12,8), new THREE.MeshBasicMaterial({color:r.color, depthTest:false, transparent:true})); core.renderOrder=16; a.add(core);
+    const fm = new THREE.MeshBasicMaterial({map:glowTex,color:r.color.clone(),transparent:true,depthWrite:false,opacity:0});
+    const fp = new THREE.Mesh(footGeo, fm); fp.renderOrder=5;
+    const fparent = isUpper(parent) ? headPivot : scene; fparent.add(fp);
+    return {a,sp,core,fp,fparent};
+  });
+}
+
+/* ============================ STATE ============================ */
+const state = {
+  target:{chest:0,pelvis:0,hob:0}, actual:{chest:0,pelvis:0,hob:0}, prev:{chest:0,pelvis:0,hob:0},
+  speed:300, simMin:0, source:'sim',
+  mount:{chest:5, pelvis:-4},       // simulated tape-on misalignment (degrees)
+  zero:{chest:0, pelvis:0},
+  imu:{chest:{roll:5,pitch:0}, pelvis:{roll:-4,pitch:0}},
+  est:{chest:0,pelvis:0,hob:0},
+  pkt:null,
+  cls:{dual:'supine', single:'supine'},
+  modes:{dual:{anchor:0,cand:null,last:0,turns:[]}, single:{anchor:0,cand:null,last:0,turns:[]}},
+  moves:[], moveAnchor:{c:0,p:0},
+  hist:[], lastSample:-1,
+  flags:{xray:true,ghost:false,labels:false,foot:true,bloom:false,noise:true,link:false},
+};
+
+/* ============================ UI WIRING ============================ */
+const sl = {chest:$('sChest'), pelvis:$('sPelvis'), hob:$('sHob')};
+function setTarget(k,v,fromUI){
+  state.target[k]=v; sl[k].value=v;
+  if(state.flags.link && fromUI && (k==='chest'||k==='pelvis')){const o=k==='chest'?'pelvis':'chest';state.target[o]=v;sl[o].value=v;}
+  syncVals();
+}
+function syncVals(){
+  const f=v=>(v>0?'+':'')+Math.round(v)+'°';
+  $('vChest').textContent=f(state.target.chest);$('vPelvis').textContent=f(state.target.pelvis);$('vHob').textContent=Math.round(state.target.hob)+'°';
+}
+for(const k of ['chest','pelvis','hob']) sl[k].addEventListener('input',e=>{if(window.__replayOff)window.__replayOff();setTarget(k,+e.target.value,true);});
+$('link').addEventListener('change',e=>{state.flags.link=e.target.checked;if(e.target.checked)setTarget('pelvis',state.target.chest,false);});
+
+const PRESETS = [
+  ['Supine',[0,0,0]],['Head of bed 45°',[0,0,45]],
+  ['30° tilt, left',[30,30,0]],['30° tilt, right',[-30,-30,0]],
+  ['Lateral, left',[90,90,0]],['Lateral, right',[-90,-90,0]],
+  ['Torso rotation only',[40,4,0],'feature'],
+];
+for(const [name,[c,p,h],cls] of PRESETS){
+  const b=document.createElement('button');b.textContent=name;if(cls)b.className=cls;
+  b.onclick=()=>{setTarget('chest',c);setTarget('pelvis',p);setTarget('hob',h);};
+  $('presets').appendChild(b);
+}
+document.querySelectorAll('#source button').forEach(b=>b.onclick=()=>setSource(b.dataset.src));
+/* Time scale: how many simulated seconds pass per real second (0 = paused). Shown in the top bar and the
+   Simulation panel, kept in sync. Initial value: ?speed=N in the URL, else the last choice, else 300x.
+   Data sent to Achillea is always stamped with real time; the scale only changes how fast the shift plays. */
+const SPEEDS=[0,1,10,60,300,600];
+const speedLabel=s=>s===0?'Pause':s+'×';
+const speedAria=s=>s===0?'Pause the shift clock':s===1?'Real time':s+' times real time';
+function setSpeed(s,remember=true){
+  if(!SPEEDS.includes(s))return;
+  if(s>0)state.lastSpeed=s;
+  state.speed=s;
+  for(const host of [$('speeds'),$('tscale')])for(const x of host.querySelectorAll('button[data-s]')){
+    const o=+x.dataset.s===s;x.classList.toggle('on',o);x.setAttribute('aria-pressed',o);}
+  if(remember)try{localStorage.setItem('sim-speed',String(s));}catch(e){}
+}
+for(const host of [$('speeds'),$('tscale')])for(const s of SPEEDS){
+  const b=document.createElement('button');b.textContent=speedLabel(s);b.dataset.s=s;
+  b.setAttribute('aria-label',speedAria(s));b.title=speedAria(s);b.onclick=()=>setSpeed(s);host.appendChild(b);}
+{
+  let initial=+new URLSearchParams(location.search).get('speed');
+  if(!SPEEDS.includes(initial)||!new URLSearchParams(location.search).has('speed')){
+    let saved=null;try{saved=localStorage.getItem('sim-speed');}catch(e){}
+    initial=saved!=null&&SPEEDS.includes(+saved)?+saved:300;
+  }
+  setSpeed(initial,false);
+}
+// "P" toggles pause (ignored while typing in a field)
+document.addEventListener('keydown',e=>{
+  if(e.key!=='p'&&e.key!=='P'||e.ctrlKey||e.metaKey||e.altKey||/INPUT|TEXTAREA|SELECT/.test(e.target.tagName))return;
+  setSpeed(state.speed===0?(state.lastSpeed||300):0);
+});
+
+$('btnZero').onclick=()=>{state.zero.chest=state.imu.chest.roll;state.zero.pelvis=state.imu.pelvis.roll;};
+$('btnReset').onclick=()=>{
+  state.simMin=0;state.lastMoveAt=0;state.hobHighSince=null;if(typeof REPLAY!=='undefined'&&REPLAY.on)replayReset();state.hist=[];state.lastSample=-1;state.moves=[];
+  for(const r of REGIONS)r.dose=0;
+  for(const m of Object.values(state.modes)){m.cand=null;m.last=0;m.turns=[];}
+  state.modes.dual.anchor=state.est.pelvis;state.modes.single.anchor=state.est.chest;
+  state.moveAnchor={c:state.est.chest,p:state.est.pelvis};
+};
+const bind=(id,flag,fn)=>$(id).addEventListener('change',e=>{state.flags[flag]=e.target.checked;fn&&fn();});
+bind('tXray','xray',()=>{for(const r of REGIONS){r.spriteMat.depthTest=!state.flags.xray;r.spriteMat.needsUpdate=true;for(const p of r.pts){p.core.material.depthTest=!state.flags.xray;p.core.material.needsUpdate=true;}}});
+bind('tGhost','ghost',()=>{for(const m of bodyMats){m.transparent=state.flags.ghost;m.opacity=state.flags.ghost?0.3:1;m.depthWrite=!state.flags.ghost;m.needsUpdate=true;}});
+bind('tLabels','labels');bind('tFoot','foot');bind('tBloom','bloom');bind('tNoise','noise');
+$('tRot').addEventListener('change',e=>controls.autoRotate=e.target.checked);
+
+// Braden
+const BRADEN=[['sensory','Sensory perception',4,3],['moisture','Moisture',4,3],['activity','Activity',4,1],['mobility','Mobility',4,2],['nutrition','Nutrition',4,3],['friction','Friction and shear',3,2]];
+const bSel={};
+for(const [k,n,max,def] of BRADEN){
+  const row=document.createElement('div');row.className='row';row.innerHTML=`<label for="br-${k}">${n}</label>`;
+  const s=document.createElement('select');s.id='br-'+k;for(let i=1;i<=max;i++){const o=document.createElement('option');o.value=i;o.textContent=i;s.appendChild(o);}s.value=def;
+  s.onchange=updRisk;bSel[k]=s;row.appendChild(s);$('bradenRows').appendChild(row);
+}
+$('wKg').oninput=updRisk;$('hCm').oninput=updRisk;
+const risk={total:14,kB:1.33,kBMI:1,bmi:24};
+function updRisk(){
+  risk.total=Object.values(bSel).reduce((a,s)=>a+ +s.value,0);
+  const t=risk.total;let band,col;
+  if(t>=19){risk.kB=0.5;band='Not at risk';col='#2f8f5b';}
+  else if(t>=15){risk.kB=0.8;band='Mild risk';col='#5a8a2e';}
+  else if(t>=13){risk.kB=1;band='Moderate risk';col='#a8711a';}
+  else if(t>=10){risk.kB=1.33;band='High risk';col='#b2562a';}
+  else {risk.kB=2;band='Very high risk';col='#c2463d';}
+  const kg=+$('wKg').value||70, m=(+$('hCm').value||170)/100; risk.bmi=kg/(m*m);
+  risk.kBMI = risk.bmi<18.5?1.3 : risk.bmi>=40?1.2 : risk.bmi>=35?1.1 : 1;
+  $('bTotal').textContent=band;
+  const bb=$('bBand');bb.textContent=t+' of 23, '+band.toLowerCase();bb.style.color=col;$('bTotal').style.color=col;
+  $('bmi').textContent=risk.bmi.toFixed(1);
+}
+updRisk();
+let mobEstimate=1;
+$('useMob').onclick=()=>{bSel.mobility.value=mobEstimate;updRisk();};
+
+// pressure sites: one row per site, reordered by risk every update
+for(const r of REGIONS){
+  const tr=document.createElement('div'); tr.className='site'; tr.setAttribute('role','listitem');
+  tr.innerHTML=`<span class="d"></span><span class="n">${r.name}</span><span class="track"><i class="ld"></i><i class="ds"></i></span><span class="t"></span>`;
+  $('regBody').appendChild(tr);
+  r.ui={tr,dot:tr.children[0],load:tr.querySelector('.ld'),dose:tr.querySelector('.ds'),time:tr.children[3],name:tr.children[1]};
+}
+// drawer, dock and tabs
+const relayout=()=>{layoutTargets();};
+$('drawerTab').onclick=()=>{const c=document.body.classList.toggle('drawer-closed');$('drawerTab').setAttribute('aria-expanded',!c);$('drawerTab').setAttribute('aria-label',c?'Show controls':'Hide controls');relayout();};
+$('dockTab').onclick=()=>$('dockToggle').click();
+$('dockToggle').onclick=()=>{const c=document.body.classList.toggle('dock-closed');$('dockToggle').setAttribute('aria-expanded',!c);$('dockToggle').setAttribute('aria-label',c?'Expand monitor':'Collapse monitor');relayout();};
+const tabEls=[...document.querySelectorAll('[role=tab]')];
+function selectTab(t,focus){
+  tabEls.forEach(x=>{const on=x===t;x.setAttribute('aria-selected',on);x.tabIndex=on?0:-1;$(x.getAttribute('aria-controls')).hidden=!on;});
+  if(focus)t.focus();
+  if(document.body.classList.contains('dock-closed'))$('dockToggle').click();
+  updPanels();drawSpark();
+}
+tabEls.forEach((t,i)=>{
+  t.onclick=()=>selectTab(t);
+  t.onkeydown=e=>{let j=null;if(e.key==='ArrowRight')j=(i+1)%tabEls.length;else if(e.key==='ArrowLeft')j=(i-1+tabEls.length)%tabEls.length;else if(e.key==='Home')j=0;else if(e.key==='End')j=tabEls.length-1;
+    if(j!=null){e.preventDefault();e.stopPropagation();selectTab(tabEls[j],true);}};
+});
+
+// camera views
+const VIEWS={iso:[2.75,1.95,1.25],side:[3.1,0.6,0.05],foot:[0.0,1.15,3.3],top:[0.001,3.5,0.05],under:[1.9,-0.05,1.9]};
+let camTween=null;
+for(const b of $('views').children) b.onclick=()=>{
+  [...$('views').children].forEach(x=>{x.classList.toggle('on',x===b);x.setAttribute('aria-pressed',x===b);});
+  camTween={from:camera.position.clone(),to:new THREE.Vector3(...VIEWS[b.dataset.v]),t:0};
+};
+
+/* ============================ SIM CORE ============================ */
+const gauss=()=>{let u=0,v=0;while(!u)u=Math.random();while(!v)v=Math.random();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);};
+
+// Slider truth -> simulated raw IMU -> complementary filter. Hardware will replace only simIMU().
+function simIMU(name, rollDeg, pitchDeg, rollRate, pitchRate, dt){
+  const n = state.flags.noise?1:0;
+  const r=(rollDeg+state.mount[name])*D2R, p=pitchDeg*D2R;
+  const raw={
+    ax:-Math.sin(p)+n*0.012*gauss(),
+    ay: Math.cos(p)*Math.sin(r)+n*0.012*gauss(),
+    az: Math.cos(p)*Math.cos(r)+n*0.012*gauss(),
+    gx: rollRate + n*(0.35*gauss()+0.25),   // deg/s, with bias
+    gy: pitchRate + n*(0.35*gauss()-0.15),
+    gz: n*0.35*gauss(),
+  };
+  filterIMU(name,raw,dt);
+  return raw;
+}
+// Complementary filter: shared by simulation and live hardware packets.
+function filterIMU(name,raw,dt){
+  const f=state.imu[name], A=0.5/(0.5+dt); // time constant 0.5 s, frame-rate independent
+  const rollAcc=Math.atan2(raw.ay,raw.az)*R2D, pitchAcc=Math.atan2(-raw.ax,Math.hypot(raw.ay,raw.az))*R2D;
+  f.roll = A*(f.roll+raw.gx*dt)+(1-A)*rollAcc;
+  f.pitch= A*(f.pitch+raw.gy*dt)+(1-A)*pitchAcc;
+}
+
+/* ---------- LIVE MODE: Raspberry Pi -> Vultr relay -> this page ---------- */
+const live={ws:null,lastT:null,count:0,lastMsg:0,status:'off'};
+function liveURL(){return (location.protocol==='https:'?'wss://':'ws://')+location.host+'/ws/live';}
+function setSource(src){
+  state.source=src;
+  [...document.querySelectorAll('#source button')].forEach(b=>{b.classList.toggle('on',b.dataset.src===src);b.setAttribute('aria-pressed',b.dataset.src===src);});
+  for(const k of ['chest','pelvis','hob'])sl[k].disabled=(src==='live');
+  if(live.ws){try{live.ws.close();}catch(e){} live.ws=null;}
+  if(src!=='live'){live.status='off';updLiveStatus();return;}
+  if(!/^https?:$/.test(location.protocol)||location.hostname.endsWith('claude.ai')||location.hostname.endsWith('claudeusercontent.com')){
+    live.status='Unavailable in this view. Open the dashboard from the Vultr server.';updLiveStatus();return;}
+  live.status='Connecting';updLiveStatus();
+  let ws;try{ws=new WebSocket(liveURL());}catch(e){live.status='blocked: '+e.message;updLiveStatus();return;}
+  live.ws=ws;live.lastT=null;
+  ws.onopen=()=>{live.status='Connected. Waiting for sensor data.';updLiveStatus();};
+  ws.onclose=()=>{if(state.source==='live'){live.status='Disconnected. Retrying.';updLiveStatus();setTimeout(()=>state.source==='live'&&setSource('live'),2000);}};
+  ws.onerror=()=>{live.status='Connection error';updLiveStatus();};
+  ws.onmessage=ev=>{
+    let pk;try{pk=JSON.parse(ev.data);}catch(e){return;}
+    if(!pk.chest||!pk.pelvis)return;
+    const dt=live.lastT==null?0.02:clamp(pk.t-live.lastT,0.001,0.2); live.lastT=pk.t;
+    filterIMU('chest',pk.chest,dt); filterIMU('pelvis',pk.pelvis,dt);
+    state.pkt=pk; live.count++; live.lastMsg=performance.now(); live.status='LIVE';
+  };
+}
+function updLiveStatus(){
+  const el=$('liveStatus'); if(!el)return;
+  const age=(performance.now()-live.lastMsg)/1000;
+  let txt=live.status, col='#55615c';
+  if(live.status==='LIVE'){ if(age>1.5){txt='No data for '+age.toFixed(0)+' s. Check the Raspberry Pi.';col='#a8711a';} else {txt='Receiving data, '+live.count+' packets';col='#2f7d55';} }
+  else if(/Unavailable|error|blocked/.test(live.status))col='#a8711a';
+  el.textContent=state.source==='live'?txt:'Simulated sensor data';el.style.color=state.source==='live'?col:'';
+  const cs=$('chipSrc'); if(cs){const on=state.source==='live'&&live.status==='LIVE'&&age<=1.5;cs.textContent=state.source==='live'?(on?'Live':'Waiting for sensors'):(typeof ACH!=='undefined'&&ACH.on?'Linked to Achillea':'Simulation');cs.classList.toggle('live',on);}
+}
+
+function band(r){const a=Math.abs(r),s=r>=0?'L':'R';if(a<=15)return'supine';if(a<=45)return'tilt'+s;if(a<=110)return'lat'+s;return'prone'+s;}
+function classify(r,prev){const c=band(r);if(c===prev)return c;if(band(r+4)===prev||band(r-4)===prev)return prev;return c;}
+const CLS_LABEL={supine:'Supine',tiltL:'30° tilt, left',tiltR:'30° tilt, right',latL:'Lateral, left',latR:'Lateral, right',proneL:'Near prone, left',proneR:'Near prone, right'};
+const CLS_SHORT={supine:'Supine',tiltL:'Tilt, left',tiltR:'Tilt, right',latL:'Lateral, left',latR:'Lateral, right',proneL:'Prone, left',proneR:'Prone, right'};
+const CLS_COL=c=>c==='supine'?'#9fb4cf':c.startsWith('tilt')?'#8fd4a8':c.startsWith('lat')?'#e2c48c':'#c3b3dd';
+
+function updTurn(m,angle,now){
+  if(Math.abs(angle-m.anchor)>=25){
+    if(m.cand==null)m.cand=now;
+    else if(now-m.cand>=3){m.anchor=angle;m.last=now;m.turns.push(now);m.cand=null;}
+  } else m.cand=null;
+}
+
+const BASE=120; // minutes for a fully loaded sacrum at Braden factor 1
+function step(dt){
+  // animate the patient toward slider targets (max 70°/s)
+  for(const k of ['chest','pelvis','hob']){
+    state.prev[k]=state.actual[k];
+    // turns complete within about 2 sim minutes at any playback speed
+    const d=state.target[k]-state.actual[k], mx=Math.max(70,state.speed*0.5)*dt;
+    state.actual[k]+=clamp(d,-mx,mx);
+  }
+  const A=state.actual, P=state.prev, inv=dt>0?1/dt:0;
+  if(state.source!=='live'){
+    const c=simIMU('chest',A.chest,A.hob,(A.chest-P.chest)*inv,(A.hob-P.hob)*inv,dt);
+    const p=simIMU('pelvis',A.pelvis,0,(A.pelvis-P.pelvis)*inv,0,dt);
+    state.pkt={t:+(state.simMin*60).toFixed(1),chest:c,pelvis:p};
+  }
+  const E=state.est;
+  E.chest=state.imu.chest.roll-state.zero.chest;
+  E.pelvis=state.imu.pelvis.roll-state.zero.pelvis;
+  E.hob=state.imu.chest.pitch;
+  if(state.source==='live'){ // in live mode the 3D patient follows the real sensors
+    A.chest=E.chest; A.pelvis=E.pelvis; A.hob=clamp(E.hob,0,70);
+  }
+
+  let dMin=(state.clockDt??dt)*state.speed/60;
+  if(typeof REPLAY!=='undefined'&&REPLAY.on){dMin=Math.min(dMin,Math.max(0,SHIFT_LEN-state.simMin));}
+  state.simMin+=dMin;
+  if(typeof REPLAY!=='undefined'&&REPLAY.on)replayTo(state.simMin);
+  const now=state.simMin;
+
+  // per-region dose
+  const pr=E.pelvis*D2R, cr=E.chest*D2R, hr=clamp(E.hob,0,90)*D2R;
+  for(const r of REGIONS){
+    r.load=clamp(r.fn(pr,cr,hr),0,1.6);
+    const rate=r.load*r.vul*risk.kB*risk.kBMI/BASE;
+    const rec=r.load<0.15?(1-r.load/0.15)/45:0;
+    r.net=rate-rec;
+    r.dose=clamp(r.dose+r.net*dMin,0,1.5);
+    r.loadedMin=r.load>0.15?(r.loadedMin||0)+dMin:0; // continuous time under load
+  }
+  state.cls.dual=classify(E.pelvis,state.cls.dual);
+  state.cls.single=classify(E.chest,state.cls.single);
+  updTurn(state.modes.dual,E.pelvis,now);
+  updTurn(state.modes.single,E.chest,now);
+
+  // movement events for the Mobility estimate
+  const ma=state.moveAnchor;
+  if(Math.abs(E.chest-ma.c)>=10||Math.abs(E.pelvis-ma.p)>=10){state.moves.push(now);state.lastMoveAt=now;ma.c=E.chest;ma.p=E.pelvis;}
+  while(state.moves.length&&state.moves[0]<now-60)state.moves.shift();
+
+  // history, one sample per sim-minute
+  if(Math.floor(now)>state.lastSample){
+    state.lastSample=Math.floor(now);
+    state.hist.push({t:now,d:state.cls.dual,s:state.cls.single,max:Math.max(...REGIONS.map(r=>r.dose))});
+    if(state.hist.length>3000)state.hist.shift();
+  }
+}
+
+
+/* keep arms out of the mattress and side rails: after posing, swing the upper arm (then forearm)
+   just enough that elbow, wrist and fingertips clear the surface of whichever bed section they are over */
+const _fa={q:new THREE.Quaternion(),q2:new THREE.Quaternion(),hq:new THREE.Quaternion(),m:new THREE.Matrix4()};
+function fixArms(C){
+  const B=C.bones;
+  _fa.m.copy(headPivot.matrixWorld).invert(); headPivot.getWorldQuaternion(_fa.hq);
+  for(const side of ['Left','Right']){
+    const chains=[[side+'Arm',[[side+'ForeArm',0.05],[side+'Hand',0.045],[side+'HandMiddle2',0.025],[side+'HandPinky3',0.022],[side+'HandThumb3',0.022]]],
+                  [side+'ForeArm',[[side+'Hand',0.045],[side+'HandMiddle2',0.025],[side+'HandPinky3',0.022],[side+'HandThumb3',0.022]]],
+                  [side+'Hand',[[side+'HandMiddle2',0.025],[side+'HandPinky3',0.022],[side+'HandThumb3',0.022]]]];
+    for(const [bn,probes] of chains){
+      const bone=B[bn]; if(!bone) continue;
+      for(let it=0;it<8;it++){
+        const piv=bone.getWorldPosition(new THREE.Vector3());
+        let best=null,bestMag=0.002;
+        for(const [pn,r] of probes){
+          const pb=B[pn]; if(!pb) continue;
+          const p=pb.getWorldPosition(new THREE.Vector3());
+          const onHead=p.z<HINGE_Z, l=onHead?p.clone().applyMatrix4(_fa.m):p.clone();
+          const c=new THREE.Vector3();
+          if(Math.abs(l.x)<0.52 && l.y<r) c.y=r-l.y;                                    // below mattress top
+          const lim=0.42; if(Math.abs(l.x)>lim && l.y<0.14) c.x=-(Math.abs(l.x)-lim)*Math.sign(l.x); // over the rail
+          const mag=c.length(); if(mag>bestMag){bestMag=mag; if(onHead)c.applyQuaternion(_fa.hq); best={p,c};}
+        }
+        if(!best) break;
+        const d=best.p.clone().sub(piv), d2=d.clone().add(best.c.multiplyScalar(1.2));
+        _fa.q.setFromUnitVectors(d.normalize(), d2.normalize());
+        bone.getWorldQuaternion(_fa.q2); const wq=_fa.q.clone().multiply(_fa.q2);
+        bone.parent.getWorldQuaternion(_fa.q2); bone.quaternion.copy(_fa.q2.invert().multiply(wq));
+        bone.updateMatrixWorld(true);
+      }
+    }
+  }
+}
+
+/* ============================ POSE ============================ */
+function poseBody(){
+  const {chest,pelvis,hob}=state.actual;
+  headPivot.rotation.x=hob*D2R;
+  const C=activeChar; if(!C) return;
+  const M=C.meas, B=C.bones;
+  const rp=pelvis*D2R, rc=chest*D2R, h=hob*D2R;
+  const liftOf=(a,b,r)=>Math.hypot(a*Math.sin(r),b*Math.cos(r))-b;
+  const liftP=liftOf(M.aP,M.bP,rp), liftC=liftOf(M.aC,M.bC,rc);
+  const fx=Math.atan2(liftC-liftP, M.chestDist);          // lift the chest off the mattress when it rolls further than the pelvis
+  const tw=rc-rp;                                         // twist, spread over the three spine bones
+  const D={};
+  D.Hips=qmul(qa('x',h),qa('y',rp));                       // head-of-bed bend at the hips, then pelvis roll about the long axis
+  D.Spine=qmul(D.Hips,qa('y',tw*0.3),qa('x',fx*0.4));
+  D.Spine1=qmul(D.Spine,qa('y',tw*0.35),qa('x',fx*0.3));
+  D.Spine2=qmul(D.Spine1,qa('y',tw*0.35),qa('x',fx*0.3));
+  D.Neck=qmul(D.Spine2,qa('x',0.24-0.18*Math.sin(h)));     // rest the head on the pillow
+  for(const [P,s] of [['Left',1],['Right',-1]]){
+    const dA=clamp((s*chest-30)/55,0,1), uA=clamp(-s*chest/80,0,1);   // arms only reposition once clearly on the side
+    // down-side arm comes forward with the hand folded up toward the face; top arm drapes forward over the flank
+    D[P+'Arm']=qmul(D.Spine2,qa('x',-(60*dA+35*uA)*D2R),qa('z',-s*(78+10*uA)*D2R));
+    D[P+'ForeArm']=qmul(D[P+'Arm'],qa('y',-s*(0.15+1.6*dA+0.25*uA)));
+    const dL=clamp(s*pelvis/90,0,1), uL=clamp(-s*pelvis/90,0,1);
+    const f=(3+15*dL+40*uL)*D2R, k=(5+25*dL+60*uL)*D2R;
+    D[P+'UpLeg']=qmul(qa('y',rp),qa('x',-f),qa('z',s*(2-2*uL)*D2R));
+    D[P+'Leg']=qmul(D[P+'UpLeg'],qa('x',k));
+    D[P+'Foot']=qmul(D[P+'Leg'],qa('x',0.38));
+  }
+  const ORDER=['Hips','Spine','Spine1','Spine2','Neck','LeftArm','LeftForeArm','RightArm','RightForeArm','LeftUpLeg','LeftLeg','LeftFoot','RightUpLeg','RightLeg','RightFoot'];
+  const nameOf=o=>o.name.replace(/^mixamorig[:_]?/,'');
+  for(const n of ORDER){
+    const bone=B[n]; if(!bone||!D[n]) continue;
+    let p=bone.parent, Dp=null; while(p&&p!==C.root){ if(p.isBone&&D[nameOf(p)]){Dp=D[nameOf(p)];break;} p=p.parent; }
+    const q=bone.parent.userData.restM.clone().invert();
+    if(Dp) q.multiply(Dp.clone().invert());
+    bone.quaternion.copy(q.multiply(D[n]).multiply(bone.userData.restM));
+  }
+  // lay the body on the bed: hips sit on the hinge bisector so the back stays on both mattress sections
+  const tgtZ=HINGE_Z+0.03+M.c*Math.tan(h/2);
+  charContainer.position.set(0,-M.s*M.backZ+liftP,tgtZ+M.s*M.H.y);
+  charContainer.updateMatrixWorld(true); headPivot.updateMatrixWorld(true);
+  fixArms(C);
+  for(const r of REGIONS){ const bs=C.bind[r.id]; if(!bs) continue;
+    r.pts.forEach((p,k)=>{ const b=bs[k]; if(!b) return; const v=b.local.clone(); b.bone.localToWorld(v); p.a.parent.worldToLocal(v); p.a.position.copy(v); }); }
+  const tq=new THREE.Quaternion();
+  for(const [pk,key] of [[chestPuck,'chest'],[pelvisPuck,'pelvis']]){
+    const b=C.puckBind[key]; pk.g.position.copy(b.local); b.bone.localToWorld(pk.g.position);
+    b.bone.getWorldQuaternion(tq); pk.g.quaternion.copy(tq).multiply(b.qrel);
+  }
+}
+
+/* ============================ VISUALS ============================ */
+const tmpV=new THREE.Vector3();
+function doseHue(d){return (1-clamp(d,0,1))*0.33;}
+// dose colour ramp tuned for a light scene: green, amber, red
+const DOSE_STOPS=[new THREE.Color(0x2f9e62),new THREE.Color(0xd9962b),new THREE.Color(0xcf4a3f)];
+function doseColor(d,out){d=clamp(d,0,1);return d<0.6?out.copy(DOSE_STOPS[0]).lerp(DOSE_STOPS[1],d/0.6):out.copy(DOSE_STOPS[1]).lerp(DOSE_STOPS[2],(d-0.6)/0.4);}
+function doseCss(d){const c=doseColor(d,new THREE.Color());return '#'+c.getHexString();}
+function updVisuals(time){
+  for(const r of REGIONS){
+    doseColor(r.dose,r.color);
+    const vis=Math.max(r.dose,r.load*0.35);
+    const pulse=r.dose>=0.8?0.025*(1+Math.sin(time*7)):0;
+    r.spriteMat.color.copy(r.color);
+    r.spriteMat.opacity=0.3+0.6*clamp(vis,0,1);
+    for(const p of r.pts){
+      const s=0.05+0.13*clamp(vis,0,1.2)+pulse; p.sp.scale.set(s,s,1);
+      p.core.material.color.copy(r.color);
+      // contact footprint on the mattress, faded by how far the site is from the surface
+      p.a.getWorldPosition(tmpV); p.fparent.worldToLocal(tmpV);
+      const prox=clamp(1-(tmpV.y-0.03)/0.07,0,1);
+      p.fp.position.set(tmpV.x,0.004,tmpV.z);
+      const fs=0.16+0.12*r.load; p.fp.scale.set(fs,1,fs*1.2);
+      p.fp.material.color.copy(r.color);
+      p.fp.material.opacity=state.flags.foot?clamp(r.load,0,1)*prox*0.6:0;
+    }
+  }
+  const blink=0.6+0.4*Math.sin(time*5);
+  for(const pk of [chestPuck,pelvisPuck]){pk.halo.material.opacity=0.2+0.2*blink;pk.lbl.visible=state.flags.labels;}
+}
+
+/* ============================ PANELS ============================ */
+const fmtClock=m=>{const h=Math.floor(m/60),mm=Math.floor(m%60);return String(h).padStart(2,'0')+':'+String(mm).padStart(2,'0');};
+function fmtDur(m){if(!isFinite(m))return'-';if(m<0)m=0;if(m>=60)return Math.floor(m/60)+'h '+String(Math.round(m%60)).padStart(2,'0')+'m';return Math.floor(m)+'m '+String(Math.floor((m%1)*60)).padStart(2,'0')+'s';}
+const fdeg=v=>(v>=0?'+':'')+v.toFixed(1)+'°';
+
+const STATUS={ok:'#2f8f5b',caution:'#a8711a',alert:'#c2463d'};
+const doseCol=d=>d>=1?STATUS.alert:d>=0.6?STATUS.caution:STATUS.ok;
+function updPanels(){
+  const E=state.est, now=state.simMin;
+  $('clock').textContent=(typeof REPLAY!=='undefined'&&REPLAY.on)?tod(now)+(now>=SHIFT_LEN?' (end of shift)':''):fmtClock(now);
+  const shortClock=(typeof REPLAY!=='undefined'&&REPLAY.on)?tod(now):fmtClock(now);
+  $('clockDay').textContent=state.speed===0?`${shortClock}, paused`:`${shortClock} at ${state.speed}×`;
+  $('tclock').textContent=shortClock;
+  let lbl=CLS_LABEL[state.cls.dual]; if(E.hob>30)lbl+=`, head of bed ${Math.round(E.hob)}°`;
+  $('posLabel').textContent=lbl; $('posMeta').textContent=CLS_SHORT[state.cls.dual];
+
+  // time under load (measured, counts up). Target interval comes from Braden and BMI.
+  const target=BASE/(risk.kB*risk.kBMI);
+  const loaded=REGIONS.filter(r=>r.loadedMin>0).sort((a,b)=>b.loadedMin-a.loadedMin||b.load-a.load);
+  const lead=loaded[0]||null, frac=lead?lead.loadedMin/target:0;
+  const over=lead&&frac>=1?[lead.name]:[];
+  const due=$('due');
+  const still=now-(state.lastMoveAt||0), sfrac=still/target;
+  due.textContent=fmtDur(still); $('dueLbl').textContent='';
+  const ringCol=sfrac>=1?STATUS.alert:sfrac>=0.75?STATUS.caution:STATUS.ok;
+  $('ringArc').setAttribute('stroke-dasharray',`${(clamp(sfrac,0,1)*414.7).toFixed(1)} 415`); $('ringArc').setAttribute('stroke',ringCol);
+  due.style.color=sfrac>=1?STATUS.alert:'';
+  $('chipPos').textContent=CLS_SHORT[state.cls.dual]; $('chipDue').textContent=fmtDur(still)+' ago'; $('chipDue').style.color=sfrac>=0.75?ringCol:'';
+
+  const twist=E.chest-E.pelvis;
+  const twisting=Math.abs(twist)>20&&Math.abs(E.pelvis)<20;
+  $('twistBanner').style.display=twisting?'flex':'none';
+  $('twistDeg').textContent=Math.abs(twist).toFixed(0)+'°';
+
+  const D=state.modes.dual;
+  // time in current position
+  if(state.cls.dual!==state.posCls){state.posCls=state.cls.dual;state.posSince=now;}
+  // movement state (deterministic)
+  const recent=state.moves.length&&now-state.moves[state.moves.length-1]<2;
+  // next action + suggested position (rule: turn toward the side that offloads the most-loaded sites)
+  const c=state.cls.dual;
+  let sug=c.endsWith('L')?'30° tilt, right':c.endsWith('R')?'30° tilt, left':(state.lastTiltSide==='L'?'30° tilt, right':'30° tilt, left');
+  if(c.endsWith('L'))state.lastTiltSide='L'; if(c.endsWith('R'))state.lastTiltSide='R';
+  // top 3 sites
+  const top=loaded;
+  $('topSites').innerHTML=top.map(r=>`<div class="ts"><span>${r.name}</span><span class="tb"><i style="width:${(clamp(r.loadedMin/target,0,1)*100).toFixed(0)}%;background:${r.loadedMin>=target?STATUS.alert:r.loadedMin>=0.75*target?STATUS.caution:STATUS.ok}"></i></span><span class="tt">${fmtDur(r.loadedMin)}</span></div>`).join('')||'<div class="sub">No sites under load</div>';
+  // vitals summary from the recording
+  try{const v=vitNumerics(),p=vitPatient();
+    $('ovBed').textContent=`${p.name}, room ${p.room}`;
+    $('oHR').textContent=v.hr??'--';$('oSp').textContent=v.spo2??'--';$('oRR').textContent=v.rr??'--';
+    $('oBP').textContent=v.sbp!=null?`${v.sbp}/${v.dbp??'--'}`:'--';$('oT').textContent=v.tf??'--';
+    $('oQ').textContent='';}catch(e){}
+  // needs checking
+  try{const C=computeChecks(now,E,still,target,twisting,loaded);state.lastChecks=C;
+    // fit without scrolling: show the five most important, summarise the rest in one line
+    const shown=C, rest=[];
+    $('checks').innerHTML=C.length?shown.map(c=>`<li class="s${c.sev}"><span class="t">${c.text}</span><span class="from">${c.src}</span></li>`).join('')+(rest.length?`<li class="more">Also: ${rest.map(c=>c.text).join(', ')}</li>`:''):'<li><span class="ok">All checks OK</span></li>';
+    const n=C.filter(c=>c.sev>0).length;$('chkCount').textContent=n?`${n} item${n>1?'s':''}`:'';$('chipChk').textContent=n;$('chipChk').style.color=C.some(c=>c.sev===3)?STATUS.alert:n?STATUS.caution:'';}catch(e){console.error(e);}
+
+  $('eChest').textContent=fdeg(E.chest);$('ePelvis').textContent=fdeg(E.pelvis);
+  $('eTwist').textContent=fdeg(twist);$('eTwist').style.color=Math.abs(twist)>20?STATUS.alert:'';
+  $('eHob').textContent=Math.round(E.hob)+'°';
+
+  const ranked=[...REGIONS].sort((a,b)=>(b.loadedMin||0)-(a.loadedMin||0)||b.dose-a.dose);
+  // fill column 1 then column 2 so the list reads top to bottom
+  const nc=matchMedia('(max-width:1300px)').matches?2:3, per=Math.ceil(ranked.length/nc);
+  ranked.forEach((r,i)=>{const col=Math.floor(i/per),row=i%per;r.ui.tr.style.order=row*nc+col;});
+  for(const r of REGIONS){
+    const active=r.load>0.05, c=doseCol(r.dose);
+    r.ui.load.style.width=clamp(r.load,0,1)*100+'%';r.ui.load.style.background='#cfe3d7';
+    r.ui.dose.style.width=clamp(r.dose,0,1)*100+'%';r.ui.dose.style.background=doseCss(r.dose);
+    r.ui.time.textContent=r.loadedMin>0?'Loaded '+fmtDur(r.loadedMin):r.dose>0.005?'Offloaded':'Not loaded';
+    r.ui.time.style.color=r.loadedMin>=target?STATUS.alert:r.loadedMin>=0.75*target?STATUS.caution:'';
+    r.ui.tr.classList.toggle('idle',!(active||r.dose>0.01));
+    r.ui.tr.setAttribute('aria-label',`${r.name}, ${r.ui.time.textContent}`);
+  }
+
+  const nMoves=state.moves.length;
+  mobEstimate=nMoves>=4?4:nMoves>=2?3:nMoves===1?2:1;
+  $('mobEst').textContent=`${mobEstimate}`;
+  $('mobEst').title=`${nMoves} movements in the last hour`;
+
+  const pk=state.pkt; if(pk){
+    const f=o=>`ax ${o.ax.toFixed(3)}  ay ${o.ay.toFixed(3)}  az ${o.az.toFixed(3)}\n        gx ${o.gx.toFixed(2)}  gy ${o.gy.toFixed(2)}  gz ${o.gz.toFixed(2)}`;
+    $('pkt').textContent=`t       ${pk.t}\nchest   ${f(pk.chest)}\npelvis  ${f(pk.pelvis)}`;
+  }
+  drawTimeline();
+}
+
+// sparkline (real-time)
+const spark=$('spark'), sctx=spark.getContext('2d'); const sbuf=[];
+function drawSpark(){
+  const w=spark.width=spark.clientWidth*devicePixelRatio, h=spark.height=spark.clientHeight*devicePixelRatio;
+  sctx.clearRect(0,0,w,h);
+  sctx.strokeStyle='rgba(31,42,38,.08)';sctx.lineWidth=1;
+  for(const v of [-90,-45,0,45,90]){const y=h/2-v/120*h/2*0.95;sctx.beginPath();sctx.moveTo(0,y);sctx.lineTo(w,y);sctx.stroke();}
+  sctx.fillStyle='#6b7671';sctx.font=`${12*devicePixelRatio}px Figtree, sans-serif`;
+  for(const v of [-90,0,90]){sctx.fillText((v>0?'+':'')+v+'°',8*devicePixelRatio,h/2-v/120*h/2*0.95-4*devicePixelRatio);}
+  const line=(k,col)=>{sctx.strokeStyle=col;sctx.lineWidth=2*devicePixelRatio;sctx.lineJoin='round';sctx.beginPath();
+    sbuf.forEach((s,i)=>{const x=i/(240-1)*w,y=h/2-clamp(s[k],-120,120)/120*h/2*0.95;i?sctx.lineTo(x,y):sctx.moveTo(x,y);});sctx.stroke();};
+  line('c','#4a6fa5');line('p','#b5577a');
+}
+
+// timeline
+const tl=$('tl'), tctx=tl.getContext('2d');
+function drawTimeline(){
+  const dpr=devicePixelRatio, w=tl.width=tl.clientWidth*dpr, h=tl.height=tl.clientHeight*dpr;
+  tctx.clearRect(0,0,w,h);
+  const now=state.simMin, span=Math.max(120,Math.min(480,now)), t0=Math.max(0,now-span);
+  const X=t=>(t-t0)/span*w, rowH=h*0.28, y1=h*0.14, y2=y1+rowH+6*dpr;
+  // hour ticks
+  tctx.font=`${12*dpr}px Figtree, sans-serif`;
+  for(let m=Math.ceil(t0/30)*30;m<=t0+span;m+=30){const x=X(m);tctx.fillStyle='rgba(31,42,38,.08)';tctx.fillRect(x,y1,1,h-y1-16*dpr);tctx.fillStyle='#6b7671';tctx.fillText(fmtClock(m),x+4*dpr,h-3*dpr);}
+  const H=state.hist;
+  for(let i=0;i<H.length;i++){
+    const s=H[i]; if(s.t<t0-1)continue;
+    const x=X(s.t-1), x2=X(s.t)+1;
+    tctx.fillStyle=CLS_COL(s.d);tctx.fillRect(x,y1,x2-x,rowH);
+    tctx.globalAlpha=0.6;tctx.fillStyle=CLS_COL(s.s);tctx.fillRect(x,y2,x2-x,rowH*0.6);tctx.globalAlpha=1;
+  }
+  // max dose line
+  tctx.strokeStyle='#c2463d';tctx.lineWidth=2*dpr;tctx.lineJoin='round';tctx.beginPath();let st=false;
+  for(const s of H){if(s.t<t0)continue;const x=X(s.t),y=y1+(rowH*1.6+6*dpr)*(1-clamp(s.max,0,1));st?tctx.lineTo(x,y):(tctx.moveTo(x,y),st=true);}tctx.stroke();
+  const tri=(t,col,fill)=>{const x=X(t);tctx.beginPath();tctx.moveTo(x-4*dpr,1);tctx.lineTo(x+4*dpr,1);tctx.lineTo(x,y1-2*dpr);tctx.closePath();if(fill){tctx.fillStyle=col;tctx.fill();}else{tctx.strokeStyle=col;tctx.lineWidth=1.2*dpr;tctx.stroke();}};
+  for(const t of state.modes.single.turns)if(t>=t0)tri(t,'#6b7671',false);
+  for(const t of state.modes.dual.turns)if(t>=t0)tri(t,'#1f2a26',true);
+  // now marker
+  tctx.fillStyle='#2f7d55';tctx.fillRect(X(now)-1,y1-2*dpr,2*dpr,h-y1-16*dpr);
+}
+
+
+/* keyboard camera: arrow keys orbit, + / - zoom, 0 resets the view */
+const keys=new Set();
+const typing=()=>{const a=document.activeElement;return !!a&&(/^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName)||a.getAttribute('role')==='tab'||a.closest('[role=tablist]')!=null);};
+addEventListener('keydown',e=>{
+  if(typing())return;
+  if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','+','=','-','_'].includes(e.key)){keys.add(e.key);e.preventDefault();camTween=null;}
+  if(e.key==='0'){camTween={from:camera.position.clone(),to:new THREE.Vector3(...VIEWS.iso),t:0};}
+});
+// A / D move between dock panels (opens the dock if it is collapsed)
+addEventListener('keydown',e=>{
+  const a=document.activeElement;
+  if(e.ctrlKey||e.metaKey||e.altKey||(a&&/^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName)))return;
+  const k=e.key.toLowerCase(); if(k!=='a'&&k!=='d')return;
+  e.preventDefault();
+  const i=tabEls.findIndex(x=>x.getAttribute('aria-selected')==='true');
+  const j=(i+(k==='d'?1:-1)+tabEls.length)%tabEls.length;
+  if(document.body.classList.contains('dock-closed'))$('dockToggle').click();
+  selectTab(tabEls[j],a&&a.getAttribute('role')==='tab');
+});
+addEventListener('keyup',e=>keys.delete(e.key));
+addEventListener('blur',()=>keys.clear());
+const _sph=new THREE.Spherical(), _off=new THREE.Vector3();
+function keyOrbit(dt){
+  if(!keys.size)return;
+  _off.copy(camera.position).sub(controls.target); _sph.setFromVector3(_off);
+  const rot=1.6*dt;
+  if(keys.has('ArrowLeft'))_sph.theta-=rot;
+  if(keys.has('ArrowRight'))_sph.theta+=rot;
+  if(keys.has('ArrowUp'))_sph.phi-=rot*0.7;
+  if(keys.has('ArrowDown'))_sph.phi+=rot*0.7;
+  if(keys.has('+')||keys.has('='))_sph.radius*=1-1.2*dt;
+  if(keys.has('-')||keys.has('_'))_sph.radius*=1+1.2*dt;
+  _sph.phi=clamp(_sph.phi,0.08,controls.maxPolarAngle);
+  _sph.radius=clamp(_sph.radius,controls.minDistance,controls.maxDistance);
+  _off.setFromSpherical(_sph); camera.position.copy(controls.target).add(_off);
+}
+
+
+/* ============================ VITALS (charted, same patient) ============================ */
+// All vitals come from the same MIMIC-IV patient as the rest of the chart. MIMIC-IV has no waveforms for this
+// patient, so instead of borrowing another person's ECG the monitor and Vitals tab show his charted values as trends.
+const VIT={t0:performance.now()};
+const vitT=()=>(performance.now()-VIT.t0)/1000;
+function vitPatient(){return PATIENT;}
+function vitNumerics(){const c=REPLAY.chart,n=k=>c[k]!=null?Math.round(+c[k]):null;
+  return {hr:n('HR'),rr:n('RR'),spo2:n('SpO2'),sbp:n('SBP'),dbp:n('DBP'),tf:c.TempF!=null?(+c.TempF).toFixed(1):null};}
+// series of charted values for a vital, up to "now", from 4 h before the shift
+function vitSeries(k,now){return SHIFT.ev.filter(e=>e[1]===k&&e[0]<=now&&e[0]>=-240).map(e=>[e[0],+e[2]]);}
+const VRANGE={HR:[40,150],SpO2:[80,100],RR:[5,40],SBP:[70,190],TempF:[96,104]};
+const VNORM={HR:[50,110],SpO2:[92,100],RR:[10,24],SBP:[90,160],TempF:[96.8,100.4]};
+function drawTrend(g,k,x,y,w,h,now,col,dpr){
+  const [lo,hi]=VRANGE[k],[nl,nh]=VNORM[k],t0=-240,t1=SHIFT_LEN;
+  const X=t=>x+(t-t0)/(t1-t0)*w, Y=v=>y+h-(Math.max(lo,Math.min(hi,v))-lo)/(hi-lo)*h;
+  g.fillStyle='rgba(143,212,168,.16)';g.fillRect(x,Y(nh),w,Y(nl)-Y(nh));
+  g.strokeStyle='rgba(31,42,38,.18)';g.lineWidth=1*dpr;g.beginPath();g.moveTo(X(now),y);g.lineTo(X(now),y+h);g.stroke();
+  const pts=vitSeries(k,now);if(!pts.length)return;
+  g.strokeStyle=col;g.lineWidth=1.8*dpr;g.beginPath();pts.forEach(([t,v],i)=>i?g.lineTo(X(t),Y(v)):g.moveTo(X(t),Y(v)));g.stroke();
+  g.fillStyle=col;for(const [t,v] of pts){const out=v<nl||v>nh;g.beginPath();g.arc(X(t),Y(v),(out?3:2)*dpr,0,Math.PI*2);g.fillStyle=out?'#c2463d':col;g.fill();}
+}
+function setVSrc(){$('vSrc').textContent=`Charted vitals for one patient: MIMIC-IV Clinical Database Demo (PhysioNet), ICU stay ${SHIFT.patient.stay}. Shaded band is the normal range; red points are outside it.`;}
+function updVitals(){
+  const p=vitPatient(),v=vitNumerics(),now=state.simMin;
+  $('recMeta').textContent=`${p.name}, room ${p.room}. Charted vitals from one patient (MIMIC-IV Demo, ICU stay ${SHIFT.patient.stay}). Green band: normal range.`;
+  const ct=k=>REPLAY.chartT[k]!=null?'Charted '+tod(REPLAY.chartT[k]):'';
+  const set=(id,q,val,k)=>{$(id).textContent=val==null?'--':val;const e=$(q);e.textContent=val==null?'No data':ct(k);};
+  set('vHR','qHR',v.hr,'HR');set('vSpO2','qSpO2',v.spo2,'SpO2');set('vRR','qRR',v.rr,'RR');
+  set('vBP','qBP',v.sbp!=null?`${v.sbp}/${v.dbp??'--'}`:null,'SBP');set('vT','qT',v.tf,'TempF');
+  if(!$('pVitals').hidden){
+    for(const [id,k,col] of [['wEcg','HR','#2f7d55'],['wPleth','SpO2','#4a6fa5'],['wResp','RR','#7a68b8']]){
+      const c=$(id),dpr=devicePixelRatio,w=c.width=c.clientWidth*dpr,h=c.height=c.clientHeight*dpr,g=c.getContext('2d');
+      g.clearRect(0,0,w,h);drawTrend(g,k,0,3*dpr,w,h-6*dpr,now,col,dpr);
+    }
+  }
+}
+
+/* ============================ SHIFT REPLAY (MIMIC-IV) ============================ */
+// One real 12-hour ICU shift from the MIMIC-IV Clinical Database Demo drives the chart side of the simulation:
+// vitals, head of bed, charted position and turns, Braden subscales, skin, sedation and tube feeding.
+// Movement sensors and device events that no public dataset contains are simulated and labeled as such.
+const SHIFT=JSON.parse(document.getElementById('mimic-data').textContent);
+const SHIFT_START=8*60+4, SHIFT_LEN=720;
+const tod=m=>fmtClock(((SHIFT_START+Math.floor(m))%1440+1440)%1440);
+// Shown under the Achillea backend's patient record (synthetic-icu-01). Every value streamed for this patient
+// comes from one real de-identified person: MIMIC-IV ICU stay 38197705.
+const PATIENT={name:'Alex Linden',room:'108',age:43,sex:'M',unit:'ICU',achilleaId:'synthetic-icu-01',id:'MIMIC-IV stay '+SHIFT.patient.stay,wKg:158.2,hCm:185};
+// Five-patient census. Each Achillea ICU patient is mapped to a different real MIMIC-IV Demo ICU stay (a different
+// person), so every number shown for a patient comes from that one person. Names, rooms and IDs are the backend's
+// own fictional records; no patients are created. ICU 02 and 03 are skipped because the backend seeds them with a
+// disconnected / delayed monitor scenario.
+const CENSUS=(()=>{const more=JSON.parse(document.getElementById('mimic-census').textContent);
+  const alex={...SHIFT,patient:{...SHIFT.patient,wKg:158.2,hCm:185}};
+  return [
+    {achilleaId:'synthetic-icu-01',name:'Alex Linden',room:'108',shift:alex},
+    {achilleaId:'synthetic-icu-04',name:'Casey Birch',room:'111',shift:more['36753294']},
+    {achilleaId:'synthetic-icu-05',name:'Drew Elm',room:'112',shift:more['33987268']},
+    {achilleaId:'synthetic-icu-06',name:'Jamie Cedar',room:'113',shift:more['39880770']},
+    {achilleaId:'synthetic-icu-07',name:'Taylor Pine',room:'114',shift:more['32506122']}];})();
+let CUR=0;
+const isAlex=()=>PATIENT.achilleaId==='synthetic-icu-01';
+// The scripted sensor scenario and simulated device events belong to Alex Linden's shift only.
+const devEvents=()=>isAlex()?DEVICE_EVENTS:[];
+const BR_MAP={bS:['sensory',{'Completely Limited':1,'Very Limited':2,'Slight Impairment':3,'No Impairment':4}],
+  bM:['moisture',{'Constantly Moist':1,'Very Moist':2,'Often Moist':2,'Occasionally Moist':3,'Rarely Moist':4}],
+  bA:['activity',{'Bedfast':1,'Chairfast':2,'Walks Occasionally':3,'Walks Frequently':4}],
+  bMo:['mobility',{'Completely Immobile':1,'Very Limited':2,'Slight Limitations':3,'No Limitations':4}],
+  bN:['nutrition',{'Very Poor':1,'Probably Inadequate':2,'Adequate':3,'Excellent':4}],
+  bF:['friction',{'Problem':1,'Potential Problem':2,'No Apparent Problem':3}]};
+// Sensor-side scenario: at the turn charted at 16:15 the sensors see only the torso rotate; the full turn happens 18 min later.
+const SCRIPT=[[491,{chest:-35}],[509,{chest:-30,pelvis:-30}]];
+const SKIP_CHART_MOVE=new Set([491]);
+// Simulated device events (no public dataset includes these feeds).
+const DEVICE_EVENTS=[
+  {from:210,to:219,text:'SpO2 probe: no signal',src:'Simulated device',sev:2},
+  {from:330,to:343,text:'Pelvis patch not reporting',src:'Simulated device',sev:2},
+  {from:395,to:412,text:'Bed rail down',src:'Simulated device',sev:1},
+  {from:600,to:605,text:'IV pump alarm: occlusion',src:'Simulated device',sev:2}];
+const REPLAY={on:true,i:0,si:0,chart:{},chartT:{},turnsCharted:[]};
+const hobDeg=v=>/Flat/i.test(v)?0:/T-berg/i.test(v)?10:(m=>m?Math.min(60,+m[1]):null)(/(\d+)/.exec(v));
+const posRoll=v=>/Left/i.test(v)?30:/Right/i.test(v)?-30:/Supine|Back/i.test(v)?0:null;
+function replayTo(now){
+  const ev=SHIFT.ev;
+  while(REPLAY.i<ev.length&&ev[REPLAY.i][0]<=now){const [t,k,v]=ev[REPLAY.i++];
+    REPLAY.chart[k]=v;REPLAY.chartT[k]=t;
+    if(k==='HOB'){const d=hobDeg(v);if(d!=null)setTarget('hob',d);}
+    else if((k==='Pos'||k==='Turn')&&!(isAlex()&&SKIP_CHART_MOVE.has(t))){const r=posRoll(v);if(r!=null){setTarget('chest',r);setTarget('pelvis',r);}}
+    if(k==='Turn'&&t>=0&&!/Self/i.test(v)&&!REPLAY.turnsCharted.includes(t))REPLAY.turnsCharted.push(t);
+    if(BR_MAP[k]){const [key,map]=BR_MAP[k];if(map[v]){bSel[key].value=map[v];updRisk();}}
+  }
+  const S=isAlex()?SCRIPT:[];
+  while(REPLAY.si<S.length&&S[REPLAY.si][0]<=now){const o=S[REPLAY.si++][1];if(o.chest!=null)setTarget('chest',o.chest);if(o.pelvis!=null)setTarget('pelvis',o.pelvis);}
+}
+function replayReset(now=0){
+  Object.assign(REPLAY,{i:0,si:0,chart:{},chartT:{},turnsCharted:[]});
+  // Braden from the first assessment charted this shift, applied as the standing score
+  for(const [t,k,v] of SHIFT.ev){if(BR_MAP[k]&&!REPLAY.chart['_'+k]){const [key,map]=BR_MAP[k];if(map[v])bSel[key].value=map[v];REPLAY.chart['_'+k]=1;}}
+  // charted weight and height for this patient (no weight charted: a BMI-neutral weight is used)
+  const hc=PATIENT.hCm||170;$('hCm').value=hc;$('wKg').value=PATIENT.wKg||Math.round(22*(hc/100)**2);
+  updRisk();
+  replayTo(now);
+  REPLAY.turnsCharted=REPLAY.turnsCharted.filter(t=>t>now); // turns charted before this patient was opened are not re-checked
+  // start the patient already in the charted position (no fake movement at t=0)
+  for(const k of ['chest','pelvis','hob'])state.actual[k]=state.prev[k]=state.target[k];
+  state.imu.chest.roll=state.target.chest+state.mount.chest; state.imu.pelvis.roll=state.target.pelvis+state.mount.pelvis; state.imu.chest.pitch=state.target.hob;
+  state.zero.chest=state.mount.chest; state.zero.pelvis=state.mount.pelvis; // sensors zeroed after application
+  state.modes.dual.anchor=state.modes.single.anchor=state.target.pelvis; state.modes.single.anchor=state.target.chest;
+  state.moveAnchor={c:state.target.chest+state.mount.chest-state.zero.chest,p:state.target.pelvis+state.mount.pelvis-state.zero.pelvis};
+}
+window.__replayOff=()=>{if(REPLAY.on){REPLAY.on=false;$('tReplay').checked=false;}};
+$('tReplay').addEventListener('change',e=>{REPLAY.on=e.target.checked;if(REPLAY.on)$('btnReset').click();});
+
+function computeChecks(now,E,still,target,twisting,loaded){
+  const C=[],add=(sev,text,src)=>C.push({sev,text,src});
+  if(still>=target)add(3,`Not moved for ${fmtDur(still)}`,'Position sensors');
+  if(twisting)add(3,'Torso rotated, pelvis not moved','Position sensors');
+  const long=loaded.filter(r=>r.loadedMin>=target);
+  if(long.length)add(2,`${long.slice(0,2).map(r=>r.name).join(', ')} under load ${fmtDur(long[0].loadedMin)}`,'Position sensors');
+  // Head of bed above 30° adds sacral shear, but tube-fed patients need it raised (AHRQ), so the limit is 45° while feeding runs
+  const feeding=REPLAY.on&&SHIFT.inf.some(x=>x[5]==='feed'&&x[0]<=now&&x[1]>now), hobMax=feeding?46:31;
+  if(E.hob>hobMax){if(state.hobHighSince==null)state.hobHighSince=now;if(now-state.hobHighSince>=30)add(1,`Head of bed ${Math.round(E.hob)}° for ${fmtDur(now-state.hobHighSince)}`+(feeding?' (above 45° while tube feeding)':''),'Bed');}else state.hobHighSince=null;
+  if(REPLAY.on){
+    const c=REPLAY.chart,f=k=>parseFloat(c[k]),at=k=>`Chart, ${tod(REPLAY.chartT[k])}`;
+    if(f('HR')>110||f('HR')<50)add(2,`Heart rate ${c.HR}`,at('HR'));
+    if(f('SpO2')<92)add(3,`SpO2 ${c.SpO2}%`,at('SpO2'));
+    if(f('RR')>24||f('RR')<10)add(2,`Breathing rate ${c.RR}`,at('RR'));
+    if(f('SBP')>160||f('SBP')<90)add(2,`Blood pressure ${c.SBP}/${c.DBP}`,at('SBP'));
+    if(f('TempF')>100.4||f('TempF')<96.8)add(2,`Temperature ${c.TempF}°F`,at('TempF'));
+    for(const d of devEvents())if(now>=d.from&&now<d.to)add(d.sev,d.text,d.src);
+    for(const x of SHIFT.inf)if(x[5]==='sed'&&x[0]<=now&&x[1]>now&&x[1]-now<=30&&x[1]<=SHIFT_LEN)add(1,`${x[2]} infusion ends in ${Math.ceil(x[1]-now)} min`,'IV pump');
+    for(const t of REPLAY.turnsCharted){if(now<t+15||now>t+90)continue;
+      if(!state.modes.dual.turns.some(x=>Math.abs(x-t)<=15))add(3,`Turn charted at ${tod(t)}, no pelvis movement`,'Chart vs sensors');}
+    // only flag a stopped feed for a tube-fed patient whose current diet order is not NPO (feeds held on purpose)
+    const tubeFed=/Tube/i.test(c.Diet||'')||(SHIFT.inf.some(x=>x[5]==='feed')&&!/NPO/i.test(c.Diet||''));
+    if(tubeFed&&!SHIFT.inf.some(x=>x[5]==='feed'&&x[0]<=now&&x[1]>now))add(1,'Tube feeding not running','Feeding pump');
+    if(REPLAY.chartT.Skin==null||now-REPLAY.chartT.Skin>480)add(1,'Skin check due','Chart');
+    const sed=SHIFT.inf.filter(x=>x[5]==='sed'&&x[0]<=now&&x[1]>now).map(x=>x[2]);
+    if(sed.length)add(0,`Sedated (${[...new Set(sed)].join(', ')})`,'IV pump');
+    if(/Impaired/i.test(c.Skin||''))add(0,'Skin charted as impaired',at('Skin'));
+  }
+  if(typeof achChecks==='function')achChecks(add);
+  return C.sort((a,b)=>b.sev-a.sev);
+}
+replayReset();
+
+
+/* ============================ CENSUS (5 patients) ============================ */
+// The selected patient drives the 3D view. The other four replay their own charted shift in the background on the
+// same clock, so the census list and Achillea always show every patient at the same point in the shift.
+const BG=CENSUS.map(c=>({c,i:0,chart:{},chartT:{},pose:null,lastMoveT:0,t:-1e9}));
+function bgAdvance(b,now){
+  if(now<b.t)Object.assign(b,{i:0,chart:{},chartT:{},pose:null,lastMoveT:0});
+  const ev=b.c.shift.ev;
+  while(b.i<ev.length&&ev[b.i][0]<=now){const [t,k,v]=ev[b.i++];b.chart[k]=v;b.chartT[k]=t;
+    if(k==='Pos'){const r=posRoll(v);if(r!=null){if(b.pose==null||Math.abs(r-b.pose)>=10)b.lastMoveT=t;b.pose=r;}}
+    else if(k==='Turn'&&!/Self/i.test(v))b.lastMoveT=t;}  // a charted turn counts as repositioning
+  b.t=now;if(b.pose==null)b.pose=0;
+}
+function bradenOf(chart){let t=0,n=0;for(const k in BR_MAP){const v=BR_MAP[k][1][chart[k]];if(v){t+=v;n++;}}return n===6?t:null;}
+function targetFor(c,chart){ // same rule as the main view: 2 h scaled by Braden band and BMI
+  const t=bradenOf(chart),kB=t==null?1:t>=19?0.5:t>=15?0.8:t>=13?1:t>=10?1.33:2;
+  const p=c.shift.patient,h=(p.hCm||170)/100,bmi=p.wKg?p.wKg/(h*h):22,kBMI=bmi<18.5?1.3:bmi>=40?1.2:bmi>=35?1.1:1;
+  return BASE/(kB*kBMI);
+}
+function bgChecks(b,now){
+  const C=[],add=(sev,text)=>C.push({sev,text}),c=b.chart,f=k=>parseFloat(c[k]);
+  const still=now-b.lastMoveT,target=targetFor(b.c,c);
+  if(still>=target)add(3,`Not moved for ${fmtDur(still)}`);
+  if(f('SpO2')<92)add(3,`SpO2 ${c.SpO2}%`);
+  if(f('HR')>110||f('HR')<50)add(2,`Heart rate ${c.HR}`);
+  if(f('RR')>24||f('RR')<10)add(2,`Breathing rate ${c.RR}`);
+  if(f('SBP')>160||f('SBP')<90)add(2,`Blood pressure ${c.SBP}/${c.DBP}`);
+  if(f('TempF')>100.4||f('TempF')<96.8)add(2,`Temperature ${c.TempF}°F`);
+  if(/Impaired/i.test(c.Skin||''))add(1,'Skin impaired');
+  const w=achWaiting(b.c.achilleaId);if(w)add(1,`${w} turn${w>1?'s':''} awaiting review`);
+  return C.sort((x,y)=>y.sev-x.sev);
+}
+function selectPatient(i){
+  if(i===CUR)return;
+  const old=CENSUS[CUR];CUR=i;const c=CENSUS[i],sp=c.shift.patient;
+  achHandoff(old.achilleaId,c.achilleaId);
+  Object.assign(SHIFT,{ev:c.shift.ev,inf:c.shift.inf,patient:c.shift.patient,source:c.shift.source});
+  Object.assign(PATIENT,{name:c.name,room:c.room,age:sp.age,sex:sp.sex,unit:'ICU',achilleaId:c.achilleaId,id:'MIMIC-IV stay '+sp.stay,wKg:sp.wKg,hCm:sp.hCm});
+  const now=state.simMin;
+  state.hobHighSince=null;state.hist=[];state.lastSample=-1;state.moves=[];
+  for(const m of Object.values(state.modes)){m.cand=null;m.last=0;m.turns=[];}
+  if(REPLAY.on)replayReset(now);
+  // carry the charted history: time since last repositioned, and time under load since then
+  const b=BG[i];bgAdvance(b,now);state.lastMoveAt=b.lastMoveT;
+  for(const r of REGIONS){r.dose=0;r.loadedMin=Math.max(0,now-b.lastMoveT);}
+  state.modes.dual.anchor=state.target.pelvis;state.modes.single.anchor=state.target.chest;
+  state.moveAnchor={c:state.target.chest,p:state.target.pelvis};
+  setVSrc();renderCensus(true);
+}
+let censusAt=0;
+const agoTxt=m=>m<60?`${Math.max(0,Math.floor(m))} min`:`${Math.floor(m/60)}h ${String(Math.floor(m%60)).padStart(2,'0')}m`;
+function renderCensus(force){
+  const nowMs=performance.now();if(!force&&nowMs-censusAt<500)return;censusAt=nowMs;
+  const now=state.simMin,el=$('census');if(!el)return;
+  // rows are built once and updated in place, so a click never lands on a row that was just replaced
+  if(!el.children.length)el.innerHTML=CENSUS.map((c,i)=>`<li><button class="pt" data-i="${i}" aria-pressed="false">
+      <span class="r1"><span class="nm">${c.name}</span><span class="rm">Room ${c.room}</span></span>
+      <span class="r2"><span class="ago"></span><span class="vit"></span></span>
+      <span class="r3"></span></button></li>`).join('');
+  let attention=0;
+  CENSUS.forEach((c,i)=>{const b=BG[i];bgAdvance(b,now);
+    const sel=i===CUR, bt=el.children[i].firstElementChild;
+    const C=sel?(state.lastChecks||[]):bgChecks(b,now), top=C.filter(x=>x.sev>0);
+    if(top.some(x=>x.sev>=2))attention++;
+    const still=sel?now-(state.lastMoveAt||0):now-b.lastMoveT, ch=sel?REPLAY.chart:b.chart;
+    const vit=[ch.HR!=null?`HR ${Math.round(ch.HR)}`:null,ch.SpO2!=null?`SpO2 ${Math.round(ch.SpO2)}%`:null].filter(Boolean).join(' · ');
+    bt.classList.toggle('on',sel);bt.setAttribute('aria-pressed',sel);
+    bt.querySelector('.ago').textContent=`Moved ${agoTxt(still)} ago`;
+    bt.querySelector('.vit').textContent=vit;
+    const r3=bt.querySelector('.r3');r3.className='r3 s'+(top.length?top[0].sev:0);
+    r3.innerHTML=top.length?top[0].text+(top.length>1?` <span class="more">+${top.length-1}</span>`:''):'No flags';
+  });
+  $('censusMeta').textContent=attention?`${attention} need attention`:'All stable';
+}
+document.addEventListener('click',e=>{const bt=e.target.closest('#census .pt');if(bt)selectPatient(+bt.dataset.i);});
+
+/* ============================ ACHILLEA LINK ============================ */
+// Streams every census patient's vitals, posture and finished movements to the Achillea backend (Spring Boot + H2)
+// through its REST API, and reads back the nurse's review of each movement. All requests go to same-origin /api/...,
+// which the simulator's Vite dev server proxies to Achillea (port 18184). The hosted preview cannot reach a backend
+// on your laptop, so there the link stays off.
+// Run Achillea with -Deterministic: its built-in fake monitor would otherwise add synthetic vitals to these patients.
+// No demo scenario endpoints are called: in this backend they also create scripted movements or synthetic vitals.
+const ACH={run:Date.now().toString(36),seq:0,on:false,checked:false,sent:0,errors:0,lastErr:'',
+  pendingMoves:[],inFlight:false,lastSentMin:null,lastSendReal:0,batches:0,rate:0,rateAt:0,rateBatches:0,
+  p:Object.fromEntries(CENSUS.map(c=>[c.achilleaId,{lastVit:0,lastPos:0,lastPoll:0,settled:null,settleAt:0,bgPose:null,movements:[]}]))};
+async function achApi(path,body){
+  const r=await fetch('/api'+path,body===undefined?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  if(!r.ok){let m=r.statusText;try{m=(await r.json()).message||m;}catch(e){} const e=new Error(m);e.status=r.status;throw e;}
+  return r.json();
+}
+const achIso=()=>new Date().toISOString();
+const r1=x=>Math.round(x*10)/10;
+function achWaiting(id){const P=ACH.p[id];return ACH.on&&P?P.movements.filter(m=>m.reviewRequired&&m.verificationStatus==='UNREVIEWED').length:0;}
+function achStatus(){
+  const el=$('achStatus'); if(!el)return;
+  const cadence=state.speed===0?'shift paused; current values repeat every 15 s'
+    :`one update per simulated minute`+(ACH.rate?`, ${ACH.rate>=1?ACH.rate.toFixed(1)+' per second':'every '+Math.round(1/ACH.rate)+' s'}`:'')
+      +(state.speed>=600?'; may merge minutes if the server is busy':'');
+  el.textContent=ACH.on?`Linked to Achillea: ${CENSUS.length} patients streaming (${cadence}). ${ACH.sent} records sent`+(ACH.errors?`, ${ACH.errors} rejected (last: ${ACH.lastErr})`:'')+'.'
+    :ACH.checked?'Not linked to Achillea. Run this page from the simulator dev server to link.':'Checking Achillea';
+}
+async function achConnect(){
+  try{const h=await achApi('/health');ACH.on=h.status==='UP';}catch(e){ACH.on=false;}
+  ACH.checked=true;achStatus();
+}
+// switching the 3D view between patients must not look like a turn to Achillea
+function achHandoff(oldId,newId){
+  const o=ACH.p[oldId],n=ACH.p[newId],ob=BG[CENSUS.findIndex(c=>c.achilleaId===oldId)];
+  if(o){o.settled=null;o.settleAt=0;bgAdvance(ob,state.simMin);o.bgPose=ob.pose;}
+  if(n){n.settled=null;n.settleAt=0;}
+}
+// One batch per simulated minute: every patient's vitals and posture plus any turns that finished, applied by the
+// backend in one transaction (POST /api/integrations/batch), so Achillea's UI updates once per sim minute.
+// A real-time heartbeat (15 s) keeps monitors fresh at 1x or while paused. Only one batch is in flight at a time;
+// if the server cannot keep up at high speed, minutes merge into the next send rather than queueing.
+const ACH_HEARTBEAT_MS=15000;
+function achVitals(out,id,c,spo2Lost,at,n){
+  const add=(metric,val,unit,q)=>{if(val==null||!isFinite(+val))return;
+    out.push({sourceEventId:`sim-${ACH.run}-${n}-${id}-${metric}`,patientId:id,metric,value:r1(+val),unit,observedAt:at,quality:q||'VALID'});};
+  add('HEART_RATE',c.HR,'bpm');
+  add('SPO2',c.SpO2,'%',spo2Lost?'MISSING':'VALID');
+  add('RESPIRATORY_RATE',c.RR,'breaths/min');
+  if(c.TempF!=null)add('TEMPERATURE',(+c.TempF-32)*5/9,'°C');
+}
+function achQueueMove(body){ACH.pendingMoves.push(body);}
+function achFlush(){
+  const t=state.simMin, at=achIso(), n=++ACH.seq, observations=[], postures=[];
+  CENSUS.forEach((c,i)=>{
+    const id=c.achilleaId;
+    if(i===CUR){
+      const E=state.est, active=re=>devEvents().some(d=>re.test(d.text)&&t>=d.from&&t<d.to), disc=active(/Pelvis patch/);
+      achVitals(observations,id,REPLAY.chart,active(/SpO2/),at,n);
+      // no pelvis value while its patch is not reporting (never 0)
+      postures.push({sourceEventId:`sim-${ACH.run}-${n}-${id}`,patientId:id,upperTorsoDegrees:r1(E.chest),pelvisDegrees:disc?null:r1(E.pelvis),capturedAt:at});
+    } else {
+      const b=BG[i];bgAdvance(b,t);
+      achVitals(observations,id,b.chart,false,at,n);
+      postures.push({sourceEventId:`sim-${ACH.run}-${n}-${id}`,patientId:id,upperTorsoDegrees:b.pose,pelvisDegrees:b.pose,capturedAt:at});
+    }
+  });
+  const movements=ACH.pendingMoves.splice(0);
+  ACH.inFlight=true;ACH.lastSendReal=performance.now();ACH.lastSentMin=Math.floor(t);
+  achApi('/integrations/batch',{observations,postures,movements})
+    .then(r=>{ACH.sent+=r.accepted;ACH.batches++;
+      if(r.rejected&&r.rejected.length){ACH.errors+=r.rejected.length;const e=r.rejected[r.rejected.length-1];ACH.lastErr=`${e.status} ${e.message}`;}})
+    .catch(e=>{ACH.errors++;ACH.lastErr=`${e.status||''} ${e.message}`.trim();ACH.pendingMoves.unshift(...movements);console.warn('Achillea batch',e.message);})
+    .finally(()=>{ACH.inFlight=false;});
+}
+function achTick(){
+  if(!ACH.on)return;
+  const now=performance.now(), t=state.simMin;
+  // turn detection runs every frame; finished turns go into the next batch
+  CENSUS.forEach((c,i)=>{
+    const id=c.achilleaId,P=ACH.p[id];
+    if(i===CUR){
+      const E=state.est,A=state.actual,T=state.target;
+      const disc=devEvents().some(d=>/Pelvis patch/.test(d.text)&&t>=d.from&&t<d.to);
+      // one movement when a turn finishes: either region changed 15° or more, body at its target, sensors caught up
+      if(!P.settled)P.settled={t:T.chest,p:T.pelvis,et:E.chest,ep:E.pelvis};
+      const atTarget=Math.abs(A.chest-T.chest)<0.5&&Math.abs(A.pelvis-T.pelvis)<0.5&&Math.abs(E.chest-A.chest)<1&&(disc||Math.abs(E.pelvis-A.pelvis)<1);
+      const changed=Math.abs(T.chest-P.settled.t)>=15||Math.abs(T.pelvis-P.settled.p)>=15;
+      if(atTarget&&changed){
+        if(!P.settleAt)P.settleAt=now;
+        else if(now-P.settleAt>1500){
+          const b=P.settled;P.settled={t:T.chest,p:T.pelvis,et:E.chest,ep:E.pelvis};P.settleAt=0;
+          const body={sourceEventId:`sim-${ACH.run}-turn-${++ACH.seq}`,patientId:id,upperTorsoBefore:r1(b.et),upperTorsoAfter:r1(E.chest),capturedAt:achIso(),confidence:0.9};
+          if(!disc){body.pelvisBefore=r1(b.ep);body.pelvisAfter=r1(E.pelvis);}
+          achQueueMove(body);
+        }
+      } else if(!atTarget)P.settleAt=0;
+    } else {
+      // background patient: charted position drives both sensors together
+      const b=BG[i];bgAdvance(b,t);
+      if(P.bgPose==null)P.bgPose=b.pose;
+      else if(Math.abs(b.pose-P.bgPose)>=15){
+        achQueueMove({sourceEventId:`sim-${ACH.run}-turn-${++ACH.seq}`,patientId:id,upperTorsoBefore:P.bgPose,upperTorsoAfter:b.pose,pelvisBefore:P.bgPose,pelvisAfter:b.pose,capturedAt:achIso(),confidence:0.9});
+        P.bgPose=b.pose;
+      }
+    }
+    // read back this run's movements and the nurse's review
+    const stag=i*400;
+    if(now-P.lastPoll>3000+stag){P.lastPoll=now-stag;
+      achApi(`/patients/${id}/orientation`).then(o=>{P.movements=(o.movements||[]).filter(m=>String(m.id).startsWith(`sim-${ACH.run}`));}).catch(()=>{});}
+  });
+  // send: a new simulated minute, a finished turn, or the real-time heartbeat
+  const minute=Math.floor(t);
+  if(!ACH.inFlight&&(minute!==ACH.lastSentMin||ACH.pendingMoves.length||now-ACH.lastSendReal>ACH_HEARTBEAT_MS))achFlush();
+  // measured update rate for the status line
+  if(now-ACH.rateAt>2000){ACH.rate=(ACH.batches-ACH.rateBatches)/((now-ACH.rateAt)/1000);ACH.rateAt=now;ACH.rateBatches=ACH.batches;}
+  achStatus();
+}
+function achChecks(add){
+  if(!ACH.on)return;
+  const mv=ACH.p[PATIENT.achilleaId].movements, w=achWaiting(PATIENT.achilleaId);
+  if(w)add(1,`${w} movement${w>1?'s':''} awaiting nurse review`,'Achillea');
+  const done=mv.filter(m=>m.verificationStatus&&m.verificationStatus!=='UNREVIEWED').sort((a,b)=>String(b.capturedAt).localeCompare(String(a.capturedAt)))[0];
+  if(done){const lbl={CONFIRMED_CARE:'confirmed as care',NOT_CARE:'marked not care',NEEDS_REVIEW:'flagged for review'}[done.verificationStatus]||done.verificationStatus;
+    add(0,`Nurse ${lbl}: ${String(done.classification).replace(/_/g,' ').toLowerCase()}`,'Achillea');}
+}
+setVSrc();
+achConnect();
+
+/* keep layout in sync with the dock's real height */
+new ResizeObserver(()=>{document.documentElement.style.setProperty('--dockH',$('dock').offsetHeight+'px');layoutTargets();}).observe($('dock'));
+
+/* ============================ LOOP ============================ */
+resize(); syncVals();
+let last=performance.now(), uiAcc=0;
+function frame(t){
+  const realDt=clamp((t-last)/1000,0,0.5), dt=Math.min(realDt,0.05); last=t;
+  state.clockDt=realDt;
+  step(dt); poseBody(); updVisuals(t/1000);
+  sbuf.push({c:state.est.chest,p:state.est.pelvis}); if(sbuf.length>240)sbuf.shift();
+  uiAcc+=dt; if(uiAcc>0.1){uiAcc=0;updPanels();drawSpark();updLiveStatus();}
+  if(camTween){camTween.t=Math.min(1,camTween.t+dt/0.8);const e=1-Math.pow(1-camTween.t,3);camera.position.lerpVectors(camTween.from,camTween.to,e);if(camTween.t>=1)camTween=null;}
+  if(Math.abs(viewOff.x-viewOff.tx)>0.5||Math.abs(viewOff.y-viewOff.ty)>0.5){const k=Math.min(1,dt*7);viewOff.x+=(viewOff.tx-viewOff.x)*k;viewOff.y+=(viewOff.ty-viewOff.y)*k;applyView();}
+  keyOrbit(dt); updVitals(); achTick(); renderCensus();
+  controls.update();
+  if(state.flags.bloom)composer.render(); else renderer.render(scene,camera);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
