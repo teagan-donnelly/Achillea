@@ -12,7 +12,7 @@ npm ci
 npm run dev
 ```
 
-Open `http://127.0.0.1:5173`. Sign in with your configured `APP_ACCESS_PASSWORD`. The local Node listener is only a development adapter for the same function handler Vercel executes in production.
+Open `http://127.0.0.1:5173`. Session login is temporarily disabled by default, so the workspace opens directly. To restore it, set `APP_AUTH_ENABLED=true` and configure `APP_ACCESS_PASSWORD` plus a distinct `APP_SESSION_SECRET`. The local Node listener is only a development adapter for the same function handler Vercel executes in production.
 
 Deploy the **repository root**, not `frontend/`, as a Vercel project. `vercel.json` builds the existing frontend to `frontend/dist`, routes `/api/*` to `api/index.ts`, and retains React deep links. Add server secrets in Vercel settings; see the [deployment guide](docs/VERCEL_TIGER.md).
 

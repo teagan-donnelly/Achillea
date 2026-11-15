@@ -2,6 +2,10 @@ import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { ApiError } from "./errors.js";
 const cookieName = "achillea_session";
 const lifetime = 8 * 60 * 60;
+// Temporarily opt-in: no password or session secret is required while disabled.
+export function authEnabled() {
+  return process.env.APP_AUTH_ENABLED === "true";
+}
 export function equal(a: string, b: string) {
   const x = Buffer.from(a),
     y = Buffer.from(b);

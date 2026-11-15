@@ -5,6 +5,29 @@ afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
 });
+it("opens the workspace without login or sign-out controls when auth is disabled", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi
+      .fn()
+      .mockResolvedValue({
+        ok: true,
+        json: async () => ({ authenticated: true, authEnabled: false }),
+      }),
+  );
+  render(
+    <AuthGate>
+      <h1>Demo workspace</h1>
+    </AuthGate>,
+  );
+  expect(
+    await screen.findByRole("heading", { name: "Demo workspace" }),
+  ).toBeInTheDocument();
+  expect(screen.queryByLabelText("Demo password")).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: "Sign out" }),
+  ).not.toBeInTheDocument();
+});
 it("keeps the workspace hidden until an explicit successful login", async () => {
   const fetcher = vi
     .fn()

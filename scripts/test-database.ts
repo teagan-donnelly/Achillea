@@ -73,6 +73,7 @@ const env = {
   SPRING_DATASOURCE_PASSWORD: "",
   DB_SCHEMA: schema,
   ACHILLEA_TEST_MODE: "isolated",
+  APP_AUTH_ENABLED: "true",
   APP_ACCESS_PASSWORD: "isolated-test-password-123456",
   APP_SESSION_SECRET: "isolated-test-session-secret-12345678901234",
 };

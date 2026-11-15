@@ -3,14 +3,18 @@ import { api } from "./api";
 
 export function AuthGate({ children }: { children: ReactNode }) {
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
+  const [authEnabled, setAuthEnabled] = useState(true);
   const [password, setPassword] = useState(""),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
   useEffect(() => {
     let active = true;
-    api<{ authenticated: boolean }>("/auth/session")
+    api<{ authenticated: boolean; authEnabled?: boolean }>("/auth/session")
       .then((s) => {
-        if (active) setSignedIn(s.authenticated);
+        if (active) {
+          setAuthEnabled(s.authEnabled !== false);
+          setSignedIn(s.authenticated);
+        }
       })
       .catch((e) => {
         if (active) {
@@ -22,6 +26,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
       active = false;
     };
   }, []);
+  if (!authEnabled) return <>{children}</>;
   if (signedIn === null)
     return (
       <main className="login">

@@ -11,8 +11,9 @@ Add these **server-side** environment variables for the intended preview/product
 | `DATABASE_URL` | `postgresql://HOST:PORT/tsdb?sslmode=verify-full` without embedded credentials when using the separate variables below |
 | `SPRING_DATASOURCE_USERNAME` | Existing Tiger role |
 | `SPRING_DATASOURCE_PASSWORD` | Current private Tiger password |
-| `APP_ACCESS_PASSWORD` | A random demo login password, at least 24 characters |
-| `APP_SESSION_SECRET` | A different random secret, at least 32 characters |
+| `APP_AUTH_ENABLED` | Defaults to `false` temporarily; set `true` to restore password sessions |
+| `APP_ACCESS_PASSWORD` | Required only when auth is enabled: random demo password, at least 24 characters |
+| `APP_SESSION_SECRET` | Required only when auth is enabled: a different random secret, at least 32 characters |
 | `DB_SCHEMA` | `achillea`, the already initialized application schema |
 | `DB_POOL_MAX` | Optional; defaults to 3 per warm function instance, maximum 20 |
 | `APP_ORIGIN` | Optional exact HTTPS origin; configure separately for each deployment hostname |
@@ -46,7 +47,7 @@ This is a demo access gate, not per-nurse hospital identity, fine-grained enterp
 
 ## Preserved endpoints
 
-All clinical routes require a session; only `GET /api/health` is public. `GET`, `POST`, and `DELETE /api/auth/session` inspect, create and clear the session respectively. Login takes `{ "password": "..." }` and the `X-Achillea-Request: 1` header.
+Session login is temporarily disabled by default: clinical routes accept requests without a password/cookie, and `/api/auth/session` reports `authenticated:true, authEnabled:false`. The UI shows neither login nor sign-out controls. No login secrets are required in this mode. With `APP_AUTH_ENABLED=true`, clinical routes require a session and only `GET /api/health` is public. `GET`, `POST`, and `DELETE /api/auth/session` then inspect, create and clear the session respectively. Login takes `{ "password": "..." }` and the `X-Achillea-Request: 1` header. Same-origin mutation checks and patient/workflow validation apply in both modes.
 
 | Method | Paths | Behavior |
 |---|---|---|

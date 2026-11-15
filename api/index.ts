@@ -1,6 +1,12 @@
 import type { ApiRequest, ApiResponse } from "../server/http.js";
 import { randomUUID } from "node:crypto";
-import { authenticated, checkMutation, login, logout } from "../server/auth.js";
+import {
+  authenticated,
+  authEnabled,
+  checkMutation,
+  login,
+  logout,
+} from "../server/auth.js";
 import { ApiError, input } from "../server/errors.js";
 import { dispatch } from "../server/routes.js";
 
@@ -43,6 +49,12 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     }
     const data = (body || {}) as Record<string, unknown>;
     if (url.pathname === "/api/auth/session") {
+      if (!authEnabled()) {
+        res.setHeader("Set-Cookie", logout());
+        return res
+          .status(200)
+          .json({ authenticated: true, authEnabled: false });
+      }
       if (method === "GET")
         return res
           .status(200)
@@ -56,7 +68,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         return res.status(200).json({ authenticated: false });
       }
     }
-    if (url.pathname !== "/api/health" || method !== "GET") {
+    if (authEnabled() && (url.pathname !== "/api/health" || method !== "GET")) {
       if (!authenticated(req.headers.cookie))
         throw new ApiError(401, "Sign in with the demo access password");
     }
@@ -98,13 +110,11 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         code: /^[A-Z0-9_]{2,32}$/.test(code || "") ? code : "INTERNAL",
       });
     if (status === 503) res.setHeader("Retry-After", "1");
-    return res
-      .status(status)
-      .json({
-        code: status,
-        message,
-        timestamp: new Date().toISOString(),
-        correlationId,
-      });
+    return res.status(status).json({
+      code: status,
+      message,
+      timestamp: new Date().toISOString(),
+      correlationId,
+    });
   }
 }

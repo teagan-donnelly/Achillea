@@ -1,4 +1,12 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 import { createServer, type Server } from "node:http";
 import type { ApiRequest, ApiResponse } from "../server/http.js";
 import type { PoolClient } from "pg";
@@ -97,7 +105,32 @@ describe.skipIf(!isolated)(
       expect((await request("/patients/test-unassigned")).status).toBe(404);
       expect((await request("/workspace?unit=BAD")).status).toBe(400);
     });
-    it("requires a session for every clinical route and keeps API errors JSON", async () => {
+    it("allows session-free reads and workflow writes when login is disabled", async () => {
+      vi.stubEnv("APP_AUTH_ENABLED", "false");
+      vi.stubEnv("APP_ACCESS_PASSWORD", "");
+      vi.stubEnv("APP_SESSION_SECRET", "");
+      try {
+        expect((await request("/state", undefined, "GET", false)).status).toBe(
+          200,
+        );
+        const status = await request("/auth/session", undefined, "GET", false);
+        expect(await status.json()).toEqual({
+          authenticated: true,
+          authEnabled: false,
+        });
+        const saved = await request(
+          "/chart/drafts",
+          { patientId: patient, text: "Password-free demo draft" },
+          "POST",
+          false,
+        );
+        expect(saved.status).toBe(200);
+        expect(((await saved.json()) as Chart).status).toBe("DRAFT");
+      } finally {
+        vi.unstubAllEnvs();
+      }
+    });
+    it("requires a session for every clinical route when enabled and keeps API errors JSON", async () => {
       expect((await request("/state", undefined, "GET", false)).status).toBe(
         401,
       );

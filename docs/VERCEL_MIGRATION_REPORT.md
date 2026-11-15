@@ -6,6 +6,8 @@ The clean source branch was `feature/tiger-simulation`, local and remote HEAD `6
 
 ## Implementation
 
+Session-password enforcement is now temporarily opt-in via `APP_AUTH_ENABLED=true`. With the default disabled setting, the workspace opens directly and API requests need no password/cookie or session secret. Existing same-origin, assignment, transaction and explicit-care checks remain active. Enabled-session behavior is retained and tested for later restoration.
+
 The existing React/Vite frontend now calls TypeScript Node Vercel Functions in the same repository/deployment. `api/index.ts` dispatches the existing patient, history, device, rounds, activity and nursing command paths. `server/` contains TLS-verified PostgreSQL pooling, assignment-scoped SQL, presentation logic, transactions, workflow validation and demo session authentication. `vercel.json`, a root npm workspace/lockfile and Node-only development adapter provide deployment and local operation without a persistent production Node server, Java, Maven, Spring or Next.js.
 
 Preserved functions include chart drafts, explicit confirmations, linked amendments, task acknowledgment/deferral/priority/reordering/completion, movement review and single-use evidence. Encounter row locks coordinate concurrent workflow requests; existing database unique constraints and chart/evidence guards remain authoritative. Confirmation does not follow from sensor movement automatically. Review only updates nurse-owned review columns, not simulator classification or raw evidence.
@@ -24,8 +26,8 @@ V1/V2 migration files remain at their original paths, byte-for-byte identical to
 
 | Verification | Result |
 |---|---|
-| Node API/security/PostgreSQL tests | 26 passed |
-| Frontend component + actual HTTP integration tests | 44 passed, including 4 live tests |
+| Node API/security/PostgreSQL tests | 27 passed |
+| Frontend component + actual HTTP integration tests | 45 passed, including 4 live tests |
 | Root/API and frontend TypeScript checks | Passed |
 | Frontend ESLint | Passed |
 | React/Vite production build | Passed |
