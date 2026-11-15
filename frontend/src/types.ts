@@ -161,19 +161,3 @@ export interface SensorHistory {
   connectivityEvents: Event[];
   movements: { movement: Movement; charts: Chart[] }[];
 }
-export interface DemoStep {
-  title: string;
-  method: string;
-  path: string;
-  body: Record<string, unknown>;
-  captureAs: string | null;
-}
-export interface DemoPlan {
-  key: string;
-  patientId: string;
-  notice: string;
-  beforeRounds: Round[];
-  state: State;
-  evidenceIds: Record<string, string>;
-  steps: DemoStep[];
-}

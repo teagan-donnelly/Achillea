@@ -1,6 +1,6 @@
 # External simulator: direct Tiger writer handoff
 
-This supersedes `SIMULATOR_HANDOFF.md` for the `feature/vercel-tiger` application only. The preserved Spring branch still has its former HTTP ingestion contract; the Vercel application deliberately does not.
+This is the storage contract for `feature/vercel-tiger`. The preserved `feature/tiger-simulation` branch still has its former HTTP ingestion contract; the Vercel application deliberately does not.
 
 Your simulator independently validates, processes and writes synthetic observations into the **existing** Tiger schema. Achillea reads the persisted results through its Vercel API. No external simulator repository was modified, and a direct-writer implementation has not been tested here.
 

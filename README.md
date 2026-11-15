@@ -2,7 +2,7 @@
 
 Care that moves with you. A React/Vite nursing workflow demo with TypeScript Vercel Functions and an existing Tiger Data PostgreSQL database. Synthetic data only; not for clinical use.
 
-This is the `feature/vercel-tiger` architecture. The complete Spring Boot implementation is preserved on [`feature/tiger-simulation`](https://github.com/teagan-donnelly/Achillea/tree/feature/tiger-simulation) at `697ad60d6e11dc3d6b21ad2f3c22c934d57305a4`. Its source and tests are also archived under `legacy/`; they are not built or deployed here.
+This is the `feature/vercel-tiger` architecture. The complete Spring Boot implementation is preserved on [`feature/tiger-simulation`](https://github.com/teagan-donnelly/Achillea/tree/feature/tiger-simulation) at `697ad60d6e11dc3d6b21ad2f3c22c934d57305a4`. Obsolete backend archives and runbooks have been removed from this branch.
 
 Requires **Node 24** and npm. No Java, Maven, Next.js, Express server or separately hosted application backend is required.
 
@@ -32,6 +32,6 @@ For `test:db`, install PostgreSQL locally and set `PG_BIN` to its bin directory.
 - [Deployment, ownership, endpoints and test instructions](docs/VERCEL_TIGER.md)
 - [Migration report and verification limits](docs/VERCEL_MIGRATION_REPORT.md)
 - [External simulator storage handoff](docs/backend/SIMULATOR_STORAGE_HANDOFF.md)
-- [Historical implementation archive](legacy/README.md)
+- [Product scope](PRODUCT.md)
 
 The shared demo login is a development access gate, not hospital identity management. There is one configured demo nurse with database-backed patient assignments. Production authentication, validated clinical/hardware use, EHR integration, retention planning and sustained capacity testing remain outside this synthetic demo. Typesense is not implemented.

@@ -391,20 +391,6 @@ h2 {
   font-size: 12px;
   margin: 12px 0 0;
 }
-.monitor-demo-controls {
-  font-size: 13px;
-  margin: 10px 0 18px;
-  color: var(--muted);
-}
-.monitor-demo-controls > summary {
-  min-height: 44px;
-  padding: 12px 0;
-  cursor: pointer;
-}
-.monitor-demo-controls button {
-  margin: 4px 8px 0 0;
-  font-size: 13px;
-}
 .schedule-track {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

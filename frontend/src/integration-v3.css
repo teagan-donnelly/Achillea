@@ -16,28 +16,13 @@
 .sensor-evidence small {
   overflow-wrap: anywhere;
 }
-.preset-guide {
-  margin-block: 1.5rem;
-}
-.preset-guide [aria-current="step"] {
-  font-weight: 700;
-}
-.preset-guide form,
 .schedule-review form {
   display: grid;
   gap: 1rem;
 }
-.preset-guide label,
 .schedule-review label {
   display: grid;
   gap: 0.5rem;
-}
-.preset-guide .checkbox {
-  display: flex;
-  align-items: center;
-}
-.preset-guide textarea {
-  min-height: 6rem;
 }
 .evidence-scroll {
   overflow-x: auto;
@@ -64,7 +49,6 @@
   .backend-summary {
     grid-template-columns: minmax(0, 1fr);
   }
-  .preset-guide button,
   .schedule-review button {
     width: 100%;
   }

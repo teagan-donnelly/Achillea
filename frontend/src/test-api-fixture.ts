@@ -48,16 +48,6 @@ export function fixturePayload(
       sourceEventIds: [],
       rawEventIds: [e.id],
     }));
-  if (parsed.pathname.endsWith("/demo/presets"))
-    return {
-      keys: [
-        "routine-shift",
-        "device-event",
-        "repositioning",
-        "bedside-documentation",
-        "adaptive-rounds",
-      ],
-    };
   if (parsed.pathname.endsWith("/sensor-history"))
     return {
       patientId: parsed.pathname.split("/")[3],

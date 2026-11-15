@@ -97,7 +97,6 @@ export default function App() {
     setBusy(true);
     try {
       const result = await api<Chart | State | Task>(path, body, method);
-      if (path === "/demo/reset") feed.current = null;
       await refresh();
       setNotice("Saved to the synthetic demo record");
       return result;

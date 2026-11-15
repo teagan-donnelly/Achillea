@@ -873,23 +873,6 @@ footer {
 .demo-panel li {
   margin: 12px 0;
 }
-.scenario-buttons {
-  display: grid;
-  gap: 10px;
-  margin: 24px 0;
-}
-.scenario-buttons button {
-  justify-content: flex-start;
-  font-size: 13px;
-}
-.reset {
-  background: #8e4141;
-  width: 100%;
-  margin-bottom: 18px;
-}
-.demo-panel > small {
-  display: block;
-}
 @media (min-width: 1500px) {
   main {
     padding-top: 56px;

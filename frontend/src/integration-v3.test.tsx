@@ -11,15 +11,8 @@ import { MemoryRouter } from "react-router-dom";
 import { loadWorkspace } from "./workspace-feed";
 import { fixturePayload } from "./test-api-fixture";
 import { BackendActivity } from "./BackendActivity";
-import { DemoPresets } from "./DemoPresets";
 import App from "./App";
-import type {
-  ActivityItem,
-  DemoPlan,
-  MonitoringUpdates,
-  State,
-  Vital,
-} from "./types";
+import type { ActivityItem, MonitoringUpdates, State, Vital } from "./types";
 
 const stamp = "2026-11-14T14:00:00Z";
 const patient = {
@@ -182,66 +175,33 @@ it("renders backend counts once and preserves original device and documentation 
   ).not.toBeInTheDocument();
 });
 
-it("does not auto-confirm a preset and requires an explicit nurse action and note", async () => {
-  const plan: DemoPlan = {
-    key: "bedside-documentation",
-    patientId: "p1",
-    notice: "Synthetic",
-    beforeRounds: [],
-    state,
-    evidenceIds: {},
-    steps: [
-      {
-        title: "Confirm synthetic care",
-        method: "POST",
-        path: "/api/movements/m1/review",
-        body: {
-          status: "CONFIRMED_CARE",
-          verified: true,
-          text: "Never silently reuse this text",
-        },
-        captureAs: null,
-      },
-    ],
-  };
-  const fetch = vi.fn(async (path: string) =>
-    reply(
-      path.endsWith("/demo/presets")
-        ? { keys: ["bedside-documentation"] }
-        : path.includes("/demo/presets/")
-          ? plan
-          : state,
-    ),
+it("explains external evidence ownership without offering generation or reset", async () => {
+  const fetcher = vi.fn(async (path: string) =>
+    reply(fixturePayload(path, state)),
   );
-  vi.stubGlobal("fetch", fetch);
+  vi.stubGlobal("fetch", fetcher);
   render(
-    <DemoPresets
-      patients={[patient]}
-      busy={false}
-      refresh={async () => {}}
-      onNavigate={() => {}}
-    />,
+    <MemoryRouter>
+      <App />
+    </MemoryRouter>,
   );
-  fireEvent.click(
-    await screen.findByRole("button", { name: "Bedside documentation" }),
-  );
-  const run = await screen.findByRole("button", { name: "Run this step" });
-  expect(run).toBeDisabled();
-  expect(fetch.mock.calls.some(([path]) => path.includes("/review"))).toBe(
-    false,
-  );
-  fireEvent.change(screen.getByLabelText("Synthetic bedside note"), {
-    target: { value: "Personally verified synthetic bedside observation" },
-  });
-  expect(run).toBeDisabled();
-  fireEvent.click(
-    screen.getByLabelText("I explicitly verify this synthetic nursing action."),
-  );
-  fireEvent.click(run);
-  await screen.findByText(/Demonstration complete/);
+  await screen.findByRole("heading", { name: "Activity" });
+  fireEvent.click(screen.getByRole("button", { name: "Demo information" }));
   expect(
-    fetch.mock.calls.some(([path]) => path === "/api/movements/m1/review"),
-  ).toBe(true);
+    screen.getByText(
+      /Observations, orientation and device status come from the external simulator/,
+    ),
+  ).toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", {
+      name: /Reset synthetic|Run this step|New monitor reading/,
+    }),
+  ).not.toBeInTheDocument();
+  expect(
+    fetcher.mock.calls.some(([path]) =>
+      /demo\/(presets|scenarios|reset)/.test(path),
+    ),
+  ).toBe(false);
 });
 
 it("ignores an older L&D response even after switching ICU and back to L&D", async () => {
