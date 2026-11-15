@@ -90,6 +90,7 @@ export function RoundsView({
                     <span className="count-badge">{g.items.length} tasks</span>
                   </div>
                   <TaskList
+                    viewKey={g.title}
                     rounds={g.items}
                     state={state}
                     mutate={mutate}

@@ -23,3 +23,4 @@ import "./final-mobile.css";
 
 import "./responsive-design.css";
 import "./sensor-first.css";
+import "./floating-nav.css";

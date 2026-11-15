@@ -1,0 +1,426 @@
+/* Mobile-first refinement; clinical values, status semantics and workflows are unchanged. */
+.minimal-design {
+  --forest: #174d3c;
+  --forest-dark: #10392c;
+  --ivory: #f8faf7;
+  --sage: #e4eee7;
+  --text: #24352d;
+  --muted: #58695e;
+  --line: #e6ebe7;
+  --shadow-card: 0 4px 18px rgb(23 77 60 / 5%);
+  --floating-nav-height: 78px;
+  --floating-nav-gap: 12px;
+  background: var(--ivory);
+  color: var(--text);
+}
+body:has(.minimal-design) {
+  background: #f8faf7;
+}
+.minimal-design ::selection {
+  color: #fff;
+  background: #174d3c;
+}
+.minimal-design :is(input, textarea) {
+  caret-color: #174d3c;
+}
+.minimal-design :focus-visible {
+  outline: 3px solid #9b6546;
+  outline-offset: 4px;
+}
+.minimal-design a {
+  text-underline-offset: 3px;
+}
+.minimal-design .workspace {
+  min-width: 0;
+  padding-bottom: calc(
+    var(--measured-nav-height, var(--floating-nav-height)) +
+      var(--floating-nav-gap) * 2 + env(safe-area-inset-bottom)
+  );
+}
+.minimal-design main {
+  padding-bottom: 24px;
+}
+.minimal-design .sidebar {
+  position: fixed;
+  z-index: 60;
+  top: auto;
+  bottom: calc(var(--floating-nav-gap) + env(safe-area-inset-bottom));
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%);
+  width: min(380px, calc(100% - 24px));
+  height: auto;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+.minimal-design .sidebar .primary-navigation {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0;
+  width: 100%;
+  height: auto;
+  min-height: var(--floating-nav-height);
+  box-sizing: border-box;
+  margin: 0;
+  padding: 8px 10px;
+  background: #fff;
+  border: 0;
+  border-radius: 999px;
+  box-shadow: 0 8px 30px rgb(16 57 44 / 15%);
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.minimal-design .primary-navigation .primary-link {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 3px;
+  min-width: 0;
+  padding: 0;
+  min-height: 62px;
+  margin: 0;
+  border: 0;
+  border-radius: 18px;
+  background: transparent;
+  color: #58695e;
+  text-decoration: none;
+  text-align: center;
+  flex: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.minimal-design .primary-navigation .primary-link::before {
+  display: none;
+}
+.minimal-design .nav-icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  color: inherit;
+}
+.minimal-design .primary-link[aria-current="page"] .nav-icon {
+  touch-action: none;
+}
+.minimal-design .primary-navigation .nav-icon svg {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  transform: none;
+}
+.minimal-design .nav-label {
+  font-family: "DM Sans", sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.25;
+  color: #58695e;
+}
+.minimal-design .primary-link.is-current .nav-label {
+  color: #174d3c;
+  font-weight: 700;
+}
+.minimal-design .primary-link.is-preview .nav-icon {
+  color: #fff;
+}
+.minimal-design .primary-navigation .primary-link:hover {
+  background: transparent;
+}
+.minimal-design .primary-link:focus-visible {
+  outline: 3px solid #9b6546;
+  outline-offset: 2px;
+}
+.minimal-design .nav-indicator {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 0;
+  border-radius: 50%;
+  background: #174d3c;
+  pointer-events: none;
+  transition: transform 240ms cubic-bezier(0.2, 0.85, 0.25, 1.05);
+  will-change: transform;
+}
+.minimal-design .primary-navigation[data-dragging="true"] .nav-indicator {
+  transition: none;
+}
+.minimal-design .primary-navigation[data-reduced-motion="true"] .nav-indicator {
+  transition: none;
+}
+.minimal-design .page-hero {
+  box-shadow: none;
+  border-radius: 16px;
+  background: #174d3c;
+}
+.minimal-design .page-hero .hero-shape,
+.minimal-design .patient-heading .hero-shape {
+  opacity: 0.25;
+}
+.minimal-design .turn-metrics {
+  gap: 12px;
+  margin-bottom: 22px;
+}
+.minimal-design .turn-metrics > div {
+  padding: 16px;
+  border-radius: 12px;
+}
+.minimal-design .turn-metrics strong {
+  font-size: 1.8rem;
+}
+.minimal-design .turn-context {
+  justify-content: flex-start;
+  gap: 10px 18px;
+  color: var(--muted);
+}
+.minimal-design .turn-context > button {
+  margin-left: auto;
+}
+.minimal-design .turn-context > span:nth-of-type(2) {
+  display: none;
+}
+.minimal-design .turn-card {
+  padding: 22px;
+  box-shadow: 0 4px 18px rgb(23 77 60 / 5%);
+  gap: 8px;
+  border: 0;
+}
+.minimal-design .turn-queue .turn-overdue {
+  background: #fff;
+}
+.minimal-design .turn-queue .turn-overdue:first-child {
+  background: #fff7f2;
+}
+.minimal-design .turn-card small {
+  line-height: 1.5;
+}
+.minimal-design .turn-deadline {
+  font-weight: 600;
+}
+.minimal-design .turn-review-link {
+  border-top: 0;
+  padding-top: 8px;
+  margin-top: 4px;
+}
+.minimal-design .turn-card > small:last-of-type {
+  color: #58695e;
+}
+.minimal-design .coverage-summary {
+  padding: 20px 0 4px;
+  border-color: #e6ebe7;
+}
+.minimal-design .patient-card-v3 {
+  border: 0;
+  box-shadow: 0 4px 18px rgb(23 77 60 / 5%);
+}
+.minimal-design .patient-context {
+  color: #58695e;
+}
+.minimal-design .patient-heading {
+  background: #174d3c;
+  box-shadow: none;
+}
+.minimal-design .patient-vitals {
+  margin: 0 0 22px;
+  box-shadow: none;
+}
+.minimal-design .patient-primary-tabs {
+  background: #e4eee7;
+  padding: 4px;
+}
+.minimal-design .patient-primary-tabs button {
+  font-weight: 500;
+}
+.minimal-design .patient-primary-tabs button.selected {
+  background: #174d3c;
+}
+.minimal-design .position-layout {
+  padding: 8px;
+  box-shadow: none;
+}
+.minimal-design .turn-status-panel {
+  padding: 18px;
+}
+.minimal-design .last-care {
+  padding: 22px 0;
+}
+.minimal-design .care-section {
+  box-shadow: none;
+  border: 0;
+  border-bottom: 1px solid #e6ebe7;
+  border-radius: 0;
+  background: transparent;
+}
+.minimal-design .care-section-toggle {
+  padding: 18px 4px;
+}
+.minimal-design .care-section-content {
+  padding-inline: 4px;
+}
+.minimal-design .patient-care-sections .surface {
+  box-shadow: none;
+  border: 0;
+}
+.minimal-design .sensor-patient {
+  border: 0;
+  box-shadow: 0 4px 18px rgb(23 77 60 / 5%);
+}
+.minimal-design .sensor-patient .turn-card {
+  padding-bottom: 8px;
+  background: transparent;
+}
+.minimal-design .sensor-patient .turn-card .turn-deadline {
+  font-size: 1.5rem;
+}
+.minimal-design .sensor-patient .region-readings {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  padding: 12px 22px 20px;
+}
+.minimal-design .sensor-patient .region-readings > div {
+  grid-template-columns: 18px minmax(0, 1fr);
+  padding: 8px 0;
+  border-bottom: 0;
+  align-content: start;
+  overflow-wrap: anywhere;
+}
+.minimal-design .sensor-patient .turn-card > small {
+  display: none;
+}
+.minimal-design .task {
+  border: 0;
+  box-shadow: 0 4px 18px rgb(23 77 60 / 5%);
+  padding: 20px;
+}
+.minimal-design .task .actions {
+  gap: 8px;
+}
+.minimal-design .task .task-reason {
+  line-height: 1.5;
+  color: #58695e;
+}
+.minimal-design .schedule-track {
+  border: 0;
+  box-shadow: none;
+  background: #e4eee7;
+}
+.minimal-design .schedule-track a {
+  background: transparent;
+}
+.minimal-design .schedule-track strong {
+  font-size: 1.4rem;
+}
+.minimal-design .simulation {
+  color: #58695e;
+  background: transparent;
+}
+@media (max-width: 359px) {
+  .minimal-design .sidebar {
+    width: calc(100% - 20px);
+  }
+  .minimal-design .turn-metrics {
+    gap: 7px;
+  }
+  .minimal-design .turn-metrics > div {
+    padding: 14px 10px;
+  }
+  .minimal-design .turn-card {
+    padding: 18px;
+  }
+  .minimal-design .sensor-patient .region-readings {
+    padding-inline: 16px;
+    gap: 10px;
+  }
+}
+@media (min-width: 768px) and (max-width: 1023px) {
+  .minimal-design .sidebar {
+    width: 380px;
+  }
+  .minimal-design .command-columns {
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  }
+}
+@media (min-width: 1024px) {
+  .minimal-design .sidebar {
+    top: 0;
+    bottom: 0;
+    left: 0;
+    transform: none;
+    width: 210px;
+    height: 100dvh;
+    padding: 24px 18px;
+    background: #10392c;
+    border-radius: 0;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+  }
+  .minimal-design .sidebar .primary-navigation {
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 0;
+    height: auto;
+    background: transparent;
+    box-shadow: none;
+    border-radius: 0;
+    margin-top: 30px;
+  }
+  .minimal-design .primary-navigation .primary-link {
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    min-height: 48px;
+    border-radius: 10px;
+    color: #d7e7dc;
+  }
+  .minimal-design .primary-link .nav-icon {
+    width: 24px;
+    height: 28px;
+    color: inherit;
+  }
+  .minimal-design .primary-link .nav-label {
+    color: inherit;
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+  .minimal-design .primary-navigation .primary-link.is-current {
+    background: #e4eee7;
+    color: #10392c;
+  }
+  .minimal-design .primary-navigation .primary-link:hover {
+    background: #295342;
+    color: #fff;
+  }
+  .minimal-design .primary-navigation .primary-link.is-current:hover {
+    background: #e4eee7;
+    color: #10392c;
+  }
+  .minimal-design .primary-link.is-preview .nav-icon {
+    color: inherit;
+  }
+  .minimal-design .nav-indicator {
+    display: none;
+  }
+  .minimal-design .workspace {
+    padding-bottom: 0;
+  }
+  .minimal-design .command-columns {
+    gap: 30px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .minimal-design .nav-indicator {
+    transition: none;
+  }
+}

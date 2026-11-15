@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { Patient } from "./types";
 import type { Mutate } from "./TaskList";
+import { useViewState } from "./view-state";
 
 export function ScheduleReview({
   patients,
@@ -11,13 +12,19 @@ export function ScheduleReview({
   mutate: Mutate;
   busy: boolean;
 }) {
-  const [patientId, setPatientId] = useState(""),
-    [title, setTitle] = useState(""),
-    [due, setDue] = useState(""),
-    [priority, setPriority] = useState("ROUTINE"),
+  const key = `schedule:${patients[0]?.unit}`;
+  const [open, setOpen] = useViewState(`${key}:open`, false);
+  const [patientId, setPatientId] = useViewState(`${key}:patient`, ""),
+    [title, setTitle] = useViewState(`${key}:title`, ""),
+    [due, setDue] = useViewState(`${key}:due`, ""),
+    [priority, setPriority] = useViewState(`${key}:priority`, "ROUTINE"),
     [error, setError] = useState("");
   return (
-    <details className="schedule-review">
+    <details
+      className="schedule-review"
+      open={open}
+      onToggle={(e) => setOpen(e.currentTarget.open)}
+    >
       <summary>Schedule a synthetic review</summary>
       <form
         onSubmit={(e) => {

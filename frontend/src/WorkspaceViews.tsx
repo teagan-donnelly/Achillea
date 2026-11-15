@@ -4,7 +4,6 @@ import {
   MetricIcon,
   PatientAction,
 } from "./VisualPrimitives";
-import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { patientReturnState } from "./navigation-context";
 import { ArrowRight, CheckCircle, ClipboardList, Radio } from "lucide-react";
@@ -21,6 +20,7 @@ import {
   patientMonitor,
 } from "./Monitoring";
 import { EventTimeline } from "./EventTimeline";
+import { useViewState } from "./view-state";
 import {
   repositioningStatus,
   scheduleLabel,
@@ -183,9 +183,12 @@ export function ActivityHome({
   label: string;
 }) {
   const location = useLocation();
-  const [filter, setFilter] = useState("all"),
-    [patient, setPatient] = useState(""),
-    [allAttention, setAllAttention] = useState(false);
+  const [filter, setFilter] = useViewState(`activity:${label}:filter`, "all"),
+    [patient, setPatient] = useViewState(`activity:${label}:patient`, ""),
+    [allAttention, setAllAttention] = useViewState(
+      `activity:${label}:all`,
+      false,
+    );
   const assigned = (id: string | null) =>
     id !== null && patients.some((p) => p.id === id);
   const drafts = state.charts.filter(

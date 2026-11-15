@@ -3,6 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import { ArrowRight, Radio, Check, Clock, AlertTriangle } from "lucide-react";
 import type { Patient, State } from "./types";
 import type { Mutate } from "./TaskList";
+import { useViewState } from "./view-state";
 import { PageHero, PatientAvatar } from "./VisualPrimitives";
 import { time, words } from "./api";
 import {
@@ -93,6 +94,10 @@ export function RepositioningHome({
   onLoadDemo?: () => void;
   busy?: boolean;
 }) {
+  const [onTrackOpen, setOnTrackOpen] = useViewState(
+    `home:${label}:on-track`,
+    false,
+  );
   const now = useDemoNow(state),
     eligible = patients.filter((p) => p.repositionPlan);
   const queue = [...eligible].sort(
@@ -204,7 +209,11 @@ export function RepositioningHome({
           ))}
         </section>
       )}
-      <details className="turn-ontrack">
+      <details
+        className="turn-ontrack"
+        open={onTrackOpen}
+        onToggle={(e) => setOnTrackOpen(e.currentTarget.open)}
+      >
         <summary>On-track patients ({onTrack.length})</summary>
         {onTrack.map((p) => (
           <TurnCard key={p.id} patient={p} state={state} now={now} />
@@ -232,7 +241,10 @@ export function SensorMonitoring({
   state: State;
   patients: Patient[];
 }) {
-  const [filter, setFilter] = useState("All"),
+  const [filter, setFilter] = useViewState(
+      `sensors:${patients[0]?.unit ?? "none"}:filter`,
+      "All",
+    ),
     now = useDemoNow(state),
     eligible = patients.filter((p) => p.repositionPlan);
   const filters = [
@@ -449,12 +461,15 @@ export function RepositioningDetail({
 }) {
   const now = useDemoNow(state),
     s = repositioningStatus(state, p, now),
-    [review, setReview] = useState(false),
-    [note, setNote] = useState(""),
+    [review, setReview] = useViewState(`review:${p.id}:open`, false),
+    [note, setNote] = useViewState(`review:${p.id}:note`, ""),
     [verified, setVerified] = useState(false),
-    [outcome, setOutcome] = useState("CONFIRMED_CARE"),
+    [outcome, setOutcome] = useViewState(
+      `review:${p.id}:outcome`,
+      "CONFIRMED_CARE",
+    ),
     [error, setError] = useState(""),
-    [movementId, setMovementId] = useState("");
+    [movementId, setMovementId] = useViewState(`review:${p.id}:movement`, "");
   const movements = state.movements
     .filter((m) => m.patientId === p.id)
     .sort((a, b) => Date.parse(b.capturedAt) - Date.parse(a.capturedAt));
@@ -533,7 +548,10 @@ export function RepositioningDetail({
       </div>
       <button
         disabled={!s.latest || !s.plan || busy}
-        onClick={() => setReview(!review)}
+        onClick={() => {
+          if (!movementId) setMovementId(s.latest?.id ?? "");
+          setReview(!review);
+        }}
       >
         Review & document turn <ArrowRight size={18} />
       </button>

@@ -24,6 +24,7 @@ import { CareSection } from "./CareSection";
 import { PatientTimeline } from "./PatientTimeline";
 import { SensorEvidence } from "./SensorEvidence";
 import { RepositioningDetail } from "./RepositioningViews";
+import { useViewState } from "./view-state";
 export function PatientView({
   state,
   rounds,
@@ -56,7 +57,8 @@ export function PatientView({
       c.patientId === id &&
       c.status === "DRAFT",
   );
-  const [tab, setTab] = useState(
+  const [tab, setTab] = useViewState(
+      `patient:${id}:section`,
       params.get("section") === "repositioning"
         ? "Repositioning"
         : params.get("section") === "chart"
@@ -80,12 +82,18 @@ export function PatientView({
     ),
     [task, setTask] = useState(requestedChart?.linkedTaskId ?? ""),
     [amend, setAmend] = useState(""),
-    [review, setReview] = useState(""),
-    [reviewNote, setReviewNote] = useState(""),
+    [review, setReview] = useViewState(`patient:${id}:legacy-review`, ""),
+    [reviewNote, setReviewNote] = useViewState(`patient:${id}:legacy-note`, ""),
     [reviewVerified, setReviewVerified] = useState(false),
-    [trendMetric, setTrendMetric] = useState(""),
-    [showAllMovements, setShowAllMovements] = useState(false),
-    [sensorExpanded, setSensorExpanded] = useState(true);
+    [trendMetric, setTrendMetric] = useViewState(`patient:${id}:metric`, ""),
+    [showAllMovements, setShowAllMovements] = useViewState(
+      `patient:${id}:all-movements`,
+      false,
+    ),
+    [sensorExpanded, setSensorExpanded] = useViewState(
+      `patient:${id}:sensor-expanded`,
+      true,
+    );
   const [dirty, setDirty] = useState(false),
     [needsSave, setNeedsSave] = useState(true),
     [storageError, setStorageError] = useState(false);
@@ -149,7 +157,7 @@ export function PatientView({
       setTab(selected);
       if (selected === "Sensors") setSensorExpanded(true);
     }
-  }, [params]);
+  }, [params, setTab, setSensorExpanded]);
   useEffect(() => {
     const anchor = window.location.hash.slice(1);
     if (anchor && tab === "Care tasks")

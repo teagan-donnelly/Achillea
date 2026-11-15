@@ -6,6 +6,7 @@ import type { Round, State, Chart, Task } from "./types";
 import { time, words } from "./api";
 import { RoundReasons } from "./RoundReasons";
 import { PatientAvatar } from "./VisualPrimitives";
+import { useViewState } from "./view-state";
 export type Mutate = (
   path: string,
   body?: unknown,
@@ -17,18 +18,21 @@ export function TaskList({
   mutate,
   busy,
   compact = false,
+  viewKey = "tasks",
 }: {
   rounds: Round[];
   state: State;
   mutate: Mutate;
   busy: boolean;
   compact?: boolean;
+  viewKey?: string;
 }) {
   const location = useLocation();
-  const [active, setActive] = useState(""),
-    [reason, setReason] = useState(""),
+  const key = `tasks:${state.patients[0]?.unit}:${location.pathname}:${viewKey}`;
+  const [active, setActive] = useViewState(`${key}:active`, ""),
+    [reason, setReason] = useViewState(`${key}:reason`, ""),
     [verified, setVerified] = useState(false),
-    [movementId, setMovementId] = useState("");
+    [movementId, setMovementId] = useViewState(`${key}:movement`, "");
   async function run(id: string, action: string, body: unknown = {}) {
     try {
       await mutate(`/tasks/${id}/${action}`, body);

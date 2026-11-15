@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useViewState } from "./view-state";
 import { Link, useLocation } from "react-router-dom";
 import { patientReturnState } from "./navigation-context";
 import type { ActivityItem, Event, Patient, State } from "./types";
@@ -31,7 +31,10 @@ export function BackendActivity({
   patients: Patient[];
   state: State;
 }) {
-  const [original, setOriginal] = useState(false);
+  const [original, setOriginal] = useViewState(
+    `activity:${patients[0]?.unit}:original`,
+    false,
+  );
   const location = useLocation();
   function renderSummary(item: ActivityItem) {
     const patient = patients.find((p) => p.id === item.patientId);
