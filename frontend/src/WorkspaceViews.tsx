@@ -125,7 +125,7 @@ export function PatientCard({
         </span>
       )}
       <div className="patient-next">
-        <span className="eyebrow">NEXT CARE ACTION</span>
+        <span className="summary-label">Next care action</span>
         <p>
           {next
             ? `${next.task.title} / ${time(next.task.dueAt)}`
@@ -211,8 +211,8 @@ export function ActivityHome({
     <>
       <div className="overview-heading">
         <div>
-          <p className="eyebrow">YOUR SHIFT · {label}</p>
           <h1>Activity</h1>
+          <p>{label} · Your shift</p>
         </div>
         <span className="shift-person">Jordan Ellis, RN</span>
       </div>
@@ -252,11 +252,13 @@ export function ActivityHome({
             <Link
               state={patientReturnState(location)}
               key={r.task.id}
+              className={r.rank === 0 ? "attention-high" : "attention-due"}
               to={`/patients/${r.task.patientId}?section=tasks#task-${r.task.id}`}
             >
               <ClipboardList size={20} />
               <span>
                 <strong>{r.task.title}</strong>
+                {r.rank === 0 && <small>Explicit priority review</small>}
                 <small>
                   {identity(r.task.patientId)} · Due {time(r.task.dueAt)}
                 </small>

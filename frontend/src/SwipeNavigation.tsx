@@ -27,7 +27,7 @@ export function SwipeNavigation({
           !disabled &&
           e.touches.length === 1 &&
           !target.closest(
-            'button,input,textarea,select,summary,[role="slider"],[data-no-swipe],.trend',
+            'button,input,textarea,select,summary,form,[contenteditable="true"],[role="dialog"],[role="slider"],[data-no-swipe],.trend,.evidence-scroll',
           )
             ? { x: e.touches[0].clientX, y: e.touches[0].clientY }
             : null;
@@ -53,6 +53,12 @@ export function SwipeNavigation({
           move(dx < 0 ? 1 : -1);
       }}
       onKeyDown={(e) => {
+        if (
+          (e.target as HTMLElement).closest(
+            'input,textarea,select,form,[contenteditable="true"],[role="dialog"],[data-no-swipe]',
+          )
+        )
+          return;
         if (
           e.ctrlKey &&
           e.altKey &&

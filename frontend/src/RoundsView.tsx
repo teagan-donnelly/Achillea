@@ -55,8 +55,8 @@ export function RoundsView({
     <>
       <div className="overview-heading">
         <div>
-          <p className="eyebrow">CARE SEQUENCE · {label}</p>
           <h1>Rounds</h1>
+          <p>{label} · Care sequence</p>
         </div>
         <span className="count-badge">{rounds.length} open</span>
       </div>
@@ -76,7 +76,7 @@ export function RoundsView({
       <ScheduleReview patients={state.patients} mutate={mutate} busy={busy} />
       {rounds[0] && (
         <section className="next-action">
-          <span className="eyebrow">NEXT SUGGESTED ACTION</span>
+          <span className="summary-label">Next suggested action</span>
           <h2>{rounds[0].task.title}</h2>
           <p>
             {
