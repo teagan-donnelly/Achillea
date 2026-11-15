@@ -71,6 +71,7 @@ public class CareService {
       .orElseGet(() -> save(seeder.create(clock.instant())));
     // Upgrade only additive device metadata for legacy snapshots, never reset notes/tasks.
     monitors.ensureDevices(s, clock.instant());
+    Repositioning.initialize(s, clock.instant());
     MonitorSimulation.freshness(s, clock.instant());
     s.movements.forEach(WorkflowRules::classify);
     s.serverTime = clock.instant();
@@ -78,6 +79,7 @@ public class CareService {
   }
 
   private State save(State s) {
+    Repositioning.initialize(s, clock.instant());
     try {
       Store row = repo.findById("demo").orElse(new Store("demo", ""));
       row.payload = json.writeValueAsString(s);
@@ -101,6 +103,7 @@ public class CareService {
     s.movements.removeIf(m -> !ids.contains(m.patientId));
     s.charts.removeIf(c -> !ids.contains(c.patientId));
     s.devices.removeIf(d -> !ids.contains(d.patientId));
+    s.repositioningPlans.removeIf(p -> !ids.contains(p.patientId));
     s.events.removeIf(
       e -> e.patientId() != null && !ids.contains(e.patientId())
     );
@@ -116,6 +119,153 @@ public class CareService {
 
   public synchronized State read() {
     return assigned(load());
+  }
+
+  public synchronized List<Repositioning.Status> repositioning(String unit) {
+    validateUnit(unit);
+    return Repositioning.queue(read(), clock.instant(), unit);
+  }
+
+  /** One persisted aggregate write: explicit bedside verification, chart, plan, tasks and audit. */
+  public synchronized State confirmTurn(String patientId, Command c) {
+    State s = load();
+    Patient p = patient(s, patientId);
+    require(p.repositionPlan(), "No active repositioning plan");
+    input(
+      Boolean.TRUE.equals(c.verified()) &&
+        c.text() != null &&
+        !c.text().isBlank() &&
+        c.text().length() <= 5000,
+      "Bedside verification and a care observation are required"
+    );
+    input(c.movementId() != null, "Select the movement being reviewed");
+    Movement m = movement(s, c.movementId());
+    require(
+      m.patientId.equals(patientId),
+      "Movement belongs to another patient"
+    );
+    require(
+      !"CONFIRMED_CARE".equals(m.verificationStatus),
+      "Care already confirmed"
+    );
+    Repositioning.Plan plan = s.repositioningPlans
+      .stream()
+      .filter(x -> x.patientId.equals(patientId))
+      .findFirst()
+      .orElseThrow();
+    require(
+      plan.lastConfirmedCareAt == null ||
+        !m.capturedAt.isBefore(plan.lastConfirmedCareAt),
+      "Evidence predates the latest confirmed care"
+    );
+    m.verificationStatus = "CONFIRMED_CARE";
+    m.reviewerId = "nurse-demo";
+    m.reviewedAt = clock.instant().toString();
+    Chart chart = new Chart();
+    chart.id = id();
+    chart.patientId = patientId;
+    chart.type = "CARE_NOTE";
+    chart.text = c.text();
+    chart.status = "CONFIRMED";
+    chart.authoredAt = clock.instant();
+    chart.confirmedAt = clock.instant();
+    chart.linkedMovementId = m.id;
+    chart.provenance =
+      "EXPLICIT_BEDSIDE_VERIFICATION + SIMULATED_SENSOR_EVIDENCE";
+    s.charts.add(chart);
+    plan.lastConfirmedCareAt = clock.instant();
+    plan.confirmedChartId = chart.id;
+    plan.confirmedMovementId = m.id;
+    for (Task t : s.tasks)
+      if (
+        t.patientId.equals(patientId) &&
+        WorkflowRules.active(t) &&
+        (t.type.startsWith("REPOSITION") || m.id.equals(t.relatedMovementId))
+      ) {
+        t.status = "COMPLETED";
+        t.completedAt = clock.instant().toString();
+        t.verifiedBy = "nurse-demo";
+        event(
+          s,
+          patientId,
+          "task.completed",
+          "nurse-demo",
+          t.id + ": explicit turn confirmation"
+        );
+      }
+    Task next = new Task(
+      id(),
+      patientId,
+      "Review and document prescribed repositioning",
+      "REPOSITION_REVIEW",
+      clock.instant().plusSeconds(plan.intervalMinutes * 60L),
+      true,
+      0
+    );
+    next.source = "INDIVIDUAL_REPOSITIONING_PLAN";
+    s.tasks.add(next);
+    event(
+      s,
+      patientId,
+      "movement.reviewed",
+      "nurse-demo",
+      m.id + ": CONFIRMED_CARE"
+    );
+    event(
+      s,
+      patientId,
+      "chart.confirmed",
+      "nurse-demo",
+      chart.id + ": " + c.text()
+    );
+    event(
+      s,
+      patientId,
+      "repositioning.confirmed",
+      "nurse-demo",
+      "Next configured turn deadline: " + next.dueAt
+    );
+    WorkflowRules.apply(s, clock.instant());
+    return assigned(save(s));
+  }
+
+  public synchronized State repositioningDemo() {
+    State s = load();
+    Repositioning.initialize(s, clock.instant());
+    int index = 0;
+    for (Repositioning.Plan plan : s.repositioningPlans) {
+      Patient p = s.patients
+        .stream()
+        .filter(x -> x.id().equals(plan.patientId))
+        .findFirst()
+        .orElseThrow();
+      if (!"nurse-demo".equals(p.nurseId())) continue;
+      // Explicit replay changes schedules only, preserving every chart and confirmation.
+      if (plan.lastConfirmedCareAt == null) {
+        plan.initialDueAt = clock
+          .instant()
+          .plusSeconds(index == 0 ? -2520 : index == 1 ? 900 : 5400);
+        for (Task t : s.tasks)
+          if (
+            t.patientId.equals(plan.patientId) &&
+            t.type.startsWith("REPOSITION") &&
+            WorkflowRules.active(t)
+          ) t.dueAt = plan.initialDueAt;
+      }
+      index++;
+    }
+    monitors.tick(s, clock.instant());
+    MonitorSimulation.freshness(s, clock.instant());
+    WorkflowRules.apply(s, clock.instant());
+    event(
+      s,
+      null,
+      "demo.repositioning",
+      "SIMULATOR",
+      "Repositioning schedules staged; existing confirmed care preserved"
+    );
+    save(s);
+    return assigned(s);
   }
 
   public synchronized List<Patient> census(String unit) {
@@ -1029,6 +1179,18 @@ public class CareService {
         note.linkedMovementId = c.movementId();
         note.provenance = "NURSE_VERIFIED_CARE";
         s.charts.add(note);
+        if (t.type.startsWith("REPOSITION")) {
+          Repositioning.Plan plan = s.repositioningPlans
+            .stream()
+            .filter(x -> x.patientId.equals(t.patientId))
+            .findFirst()
+            .orElse(null);
+          if (plan != null) {
+            plan.lastConfirmedCareAt = clock.instant();
+            plan.confirmedChartId = note.id;
+            plan.confirmedMovementId = c.movementId();
+          }
+        }
         event(
           s,
           t.patientId,

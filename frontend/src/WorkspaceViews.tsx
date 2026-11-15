@@ -21,6 +21,11 @@ import {
   patientMonitor,
 } from "./Monitoring";
 import { EventTimeline } from "./EventTimeline";
+import {
+  repositioningStatus,
+  scheduleLabel,
+  deadlineText,
+} from "./repositioning";
 export function PatientCard({
   patient: p,
   state,
@@ -31,6 +36,11 @@ export function PatientCard({
   rounds: Round[];
 }) {
   const location = useLocation();
+  const turn = repositioningStatus(
+    state,
+    p,
+    Date.parse(state.serverTime ?? new Date().toISOString()),
+  );
   const allReadings = latestReadings(
     state.vitals.filter((v) => v.patientId === p.id),
   );
@@ -77,6 +87,13 @@ export function PatientCard({
         <ArrowRight size={18} />
       </div>
       <p className="patient-context">{p.summary}</p>
+      <span className="patient-turn-status">
+        {scheduleLabel(turn.schedule)} ·{" "}
+        {deadlineText(
+          turn.due,
+          Date.parse(state.serverTime ?? new Date().toISOString()),
+        )}
+      </span>
       <div className="patient-flags">
         <span className={reviews ? "review-flag" : "routine-flag"}>
           <ClipboardList size={14} />

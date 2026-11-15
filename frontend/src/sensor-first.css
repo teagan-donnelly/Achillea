@@ -1,0 +1,345 @@
+.mockup-design .turn-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 16px 0 22px;
+}
+.mockup-design .turn-metrics > div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 18px 12px;
+  border-radius: 14px;
+  background: #fce9e3;
+  color: #843e2d;
+}
+.mockup-design .turn-metrics > div:nth-child(2) {
+  background: #fff0d6;
+  color: #775118;
+}
+.mockup-design .turn-metrics > div:nth-child(3) {
+  background: #e5eee2;
+  color: #22533d;
+}
+.mockup-design .turn-metrics strong {
+  font-size: 2rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+.mockup-design .turn-metrics span {
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+.mockup-design .turn-context {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: space-between;
+  margin-bottom: 26px;
+  font-size: 0.875rem;
+}
+.mockup-design .command-columns {
+  display: grid;
+  gap: 24px;
+}
+.mockup-design .command-columns h2 {
+  margin: 0 0 8px;
+}
+.mockup-design .command-columns section > p {
+  color: #59695e;
+  font-size: 0.875rem;
+  margin-bottom: 16px;
+}
+.mockup-design .turn-queue {
+  display: grid;
+  gap: 12px;
+}
+.mockup-design .turn-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 18px;
+  border-radius: 16px;
+  background: #fff;
+  color: #283a32;
+  text-decoration: none;
+  box-shadow: 0 3px 12px rgb(26 48 34 / 6%);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.mockup-design .turn-card:hover {
+  background: #f5f7f1;
+}
+.mockup-design .turn-card p {
+  margin: 0;
+  font-size: 0.875rem;
+}
+.mockup-design .turn-card small {
+  display: block;
+  color: #59695e;
+  font-size: 0.8rem;
+}
+.mockup-design .turn-identity {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.mockup-design .turn-identity > div {
+  flex: 1;
+  min-width: 0;
+}
+.mockup-design .turn-identity h3 {
+  margin: 0 0 4px;
+  font-size: 1.05rem;
+}
+.mockup-design .turn-deadline {
+  font-size: 1.5rem;
+  font-variant-numeric: tabular-nums;
+  color: #0f3d2e;
+}
+.mockup-design .turn-overdue .turn-deadline {
+  color: #973f2f;
+}
+.mockup-design .turn-due_soon .turn-deadline {
+  color: #775118;
+}
+.mockup-design .coverage-summary {
+  padding: 20px 0;
+  margin-top: 20px;
+  border-top: 1px solid #d8dfd4;
+}
+.mockup-design .coverage-summary > strong {
+  display: block;
+  margin: 8px 0;
+}
+.mockup-design .coverage-summary p {
+  font-size: 0.875rem;
+  color: #59695e;
+}
+.mockup-design .turn-ontrack {
+  margin: 28px 0;
+}
+.mockup-design .turn-ontrack summary {
+  cursor: pointer;
+  padding: 16px 0;
+  font-weight: 600;
+  min-height: 44px;
+}
+.mockup-design .sensor-grid {
+  display: grid;
+  gap: 16px;
+}
+.mockup-design .sensor-patient {
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 3px 12px rgb(26 48 34 / 6%);
+  overflow: hidden;
+}
+.mockup-design .sensor-patient .turn-card {
+  box-shadow: none;
+  border-radius: 0;
+}
+.mockup-design .region-readings {
+  display: grid;
+  gap: 16px;
+  padding: 16px;
+}
+.mockup-design .region-readings > div {
+  display: grid;
+  grid-template-columns: 20px 1fr;
+  gap: 6px 10px;
+  font-size: 0.875rem;
+}
+.mockup-design .region-readings span,
+.mockup-design .region-readings small {
+  grid-column: 2;
+}
+.mockup-design .region-readings small {
+  color: #59695e;
+  font-size: 0.8rem;
+}
+.mockup-design .turn-status-panel {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 20px;
+  border-radius: 16px;
+  background: #e5eee2;
+  margin: 20px 0;
+}
+.mockup-design .turn-status-panel.turn-overdue {
+  background: #fce9e3;
+  color: #843e2d;
+}
+.mockup-design .turn-status-panel h2 {
+  margin: 0 0 8px;
+  font-size: 1.2rem;
+}
+.mockup-design .turn-status-panel strong {
+  font-size: 1.8rem;
+  font-variant-numeric: tabular-nums;
+}
+.mockup-design .turn-status-panel p {
+  font-size: 0.875rem;
+  margin: 8px 0 0;
+}
+.mockup-design .position-layout {
+  background: #fff;
+  border-radius: 16px;
+  display: grid;
+  margin: 20px 0;
+  padding: 12px;
+}
+.mockup-design .body-position {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px;
+}
+.mockup-design .body-position svg {
+  width: 160px;
+  height: 220px;
+  fill: #e5eee2;
+  stroke: #2e6b57;
+  stroke-width: 2;
+}
+.mockup-design .body-position .sensor-dot {
+  fill: #2e6b57;
+  stroke: #fff;
+}
+.mockup-design .body-position small {
+  font-size: 0.8rem;
+  color: #59695e;
+  text-align: center;
+}
+.mockup-design .last-care {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 18px 0;
+}
+.mockup-design .last-care p {
+  margin-top: 6px;
+  color: #59695e;
+}
+.mockup-design .repositioning-detail > button,
+.mockup-design .turn-review > button {
+  width: 100%;
+  min-height: 48px;
+  justify-content: center;
+}
+.mockup-design .turn-review {
+  padding: 20px;
+  background: #fff;
+  border-radius: 16px;
+  margin: 24px 0;
+}
+.mockup-design .turn-review label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 18px 0;
+}
+.mockup-design .turn-review select,
+.mockup-design .turn-review textarea {
+  width: 100%;
+  min-width: 0;
+  font-size: 1rem;
+  padding: 12px;
+}
+.mockup-design .turn-review textarea {
+  min-height: 100px;
+}
+.mockup-design .turn-review .verification {
+  flex-direction: row;
+  align-items: flex-start;
+  line-height: 1.5;
+}
+.mockup-design .verification input {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+}
+.mockup-design .movement-evidence {
+  list-style: none;
+  padding: 0;
+  margin: 20px 0;
+  max-height: 380px;
+  overflow: auto;
+}
+.mockup-design .movement-evidence li {
+  display: grid;
+  grid-template-columns: 20px 1fr;
+  gap: 6px 10px;
+  padding: 16px 0;
+  border-bottom: 1px solid #e2e6dd;
+}
+.mockup-design .movement-evidence li > :not(svg) {
+  grid-column: 2;
+}
+.mockup-design .movement-evidence time {
+  font-size: 0.8rem;
+  color: #59695e;
+}
+.mockup-design .movement-evidence span,
+.mockup-design .movement-evidence small {
+  font-size: 0.875rem;
+}
+.mockup-design .evidence-interpretation {
+  background: #f5f7f1;
+  padding: 16px;
+  border-radius: 10px;
+}
+.mockup-design .sidebar nav {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.mockup-design .filter-pills {
+  flex-wrap: wrap;
+}
+.mockup-design .patient-turn-status {
+  display: block;
+  margin: 10px 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+@media (min-width: 768px) {
+  .mockup-design .sensor-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .mockup-design .position-layout {
+    grid-template-columns: 1fr 1fr;
+    align-items: center;
+  }
+}
+@media (min-width: 1024px) {
+  .mockup-design .command-columns {
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+    gap: 28px;
+  }
+  .mockup-design .sidebar nav {
+    display: flex;
+    flex-direction: column;
+  }
+  .mockup-design .turn-metrics {
+    max-width: 720px;
+  }
+  .mockup-design .repositioning-detail {
+    max-width: 900px;
+  }
+}
+@media (max-width: 359px) {
+  .mockup-design .turn-metrics {
+    gap: 6px;
+  }
+  .mockup-design .turn-metrics > div {
+    padding: 14px 8px;
+  }
+  .mockup-design .turn-card {
+    padding: 14px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mockup-design .turn-card {
+    transition: none;
+  }
+}

@@ -53,6 +53,7 @@ public class ClinicalController {
     s.movements.removeIf(m -> !ids.contains(m.patientId));
     s.charts.removeIf(c -> !ids.contains(c.patientId));
     s.devices.removeIf(d -> !ids.contains(d.patientId));
+    s.repositioningPlans.removeIf(p -> !ids.contains(p.patientId));
     s.events.removeIf(
       e -> e.patientId() != null && !ids.contains(e.patientId())
     );
@@ -65,6 +66,27 @@ public class ClinicalController {
     @RequestParam(required = false) String patientId
   ) {
     return ClinicalViews.activity(scope(unit, patientId));
+  }
+
+  @GetMapping("/repositioning")
+  public Object repositioning(@RequestParam String unit) {
+    enabled();
+    return service.repositioning(unit);
+  }
+
+  @PostMapping("/patients/{id}/repositioning/confirm")
+  public Object confirmTurn(
+    @PathVariable String id,
+    @RequestBody Command command
+  ) {
+    enabled();
+    return service.confirmTurn(id, command);
+  }
+
+  @PostMapping("/demo/repositioning")
+  public Object repositioningDemo() {
+    enabled();
+    return service.repositioningDemo();
   }
 
   /** Lightweight workflow snapshot; observation/audit history comes from the delta API. */

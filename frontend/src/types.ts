@@ -109,6 +109,7 @@ export interface OrientationSample {
   mode: string;
 }
 export interface State {
+  repositioningPlans?: RepositioningPlan[];
   patients: Patient[];
   tasks: Task[];
   vitals: Vital[];
@@ -120,6 +121,15 @@ export interface State {
   demoStartedAt?: string | null;
   serverTime?: string | null;
   monitorTick?: number;
+}
+export interface RepositioningPlan {
+  patientId: string;
+  intervalMinutes: number;
+  warningMinutes: number;
+  initialDueAt: string;
+  lastConfirmedCareAt: string | null;
+  confirmedMovementId?: string | null;
+  confirmedChartId?: string | null;
 }
 export interface Round {
   reasonCodes?: string[];

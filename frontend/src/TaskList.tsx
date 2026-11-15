@@ -64,7 +64,7 @@ export function TaskList({
           <h3>
             <Link
               state={patientReturnState(location)}
-              to={`/patients/${t.patientId}`}
+              to={`/patients/${t.patientId}${t.type.startsWith("REPOSITION") || t.type === "SENSOR_REVIEW" ? "?section=repositioning" : ""}`}
             >
               {t.title}
             </Link>

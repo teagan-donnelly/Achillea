@@ -23,6 +23,7 @@ import { TaskList, type Mutate } from "./TaskList";
 import { CareSection } from "./CareSection";
 import { PatientTimeline } from "./PatientTimeline";
 import { SensorEvidence } from "./SensorEvidence";
+import { RepositioningDetail } from "./RepositioningViews";
 export function PatientView({
   state,
   rounds,
@@ -38,9 +39,13 @@ export function PatientView({
 }) {
   const { id } = useParams();
   const location = useLocation();
-  const returnTo = ["/", "/activity", "/patients", "/rounds"].includes(
-    location.state?.from,
-  )
+  const returnTo = [
+    "/",
+    "/activity",
+    "/patients",
+    "/sensors",
+    "/rounds",
+  ].includes(location.state?.from)
     ? location.state.from
     : "/patients";
   const [params] = useSearchParams();
@@ -52,15 +57,17 @@ export function PatientView({
       c.status === "DRAFT",
   );
   const [tab, setTab] = useState(
-      params.get("section") === "chart"
-        ? "Chart"
-        : params.get("section") === "tasks"
-          ? "Care tasks"
-          : params.get("section") === "vitals"
-            ? "Vitals"
-            : params.get("section") === "sensors"
-              ? "Sensors"
-              : "Overview",
+      params.get("section") === "repositioning"
+        ? "Repositioning"
+        : params.get("section") === "chart"
+          ? "Chart"
+          : params.get("section") === "tasks"
+            ? "Care tasks"
+            : params.get("section") === "vitals"
+              ? "Vitals"
+              : params.get("section") === "sensors"
+                ? "Sensors"
+                : "Overview",
     ),
     [text, setText] = useState(requestedChart?.text ?? ""),
     [type, setType] = useState(requestedChart?.type ?? "OBSERVATION"),
@@ -133,6 +140,7 @@ export function PatientView({
         vitals: "Vitals",
         sensors: "Sensors",
         overview: "Overview",
+        repositioning: "Repositioning",
       } as Record<string, string>
     )[section ?? ""];
     if (selected) {
@@ -375,6 +383,7 @@ export function PatientView({
         </section>
         <div className="tabs" aria-label="Patient sections">
           {[
+            ...(p.repositionPlan ? ["Repositioning"] : []),
             "Overview",
             "Vitals",
             "Care tasks",
@@ -396,6 +405,14 @@ export function PatientView({
           ))}
         </div>
       </div>
+      {tab === "Repositioning" && (
+        <RepositioningDetail
+          state={state}
+          patient={p}
+          mutate={mutate}
+          busy={busy}
+        />
+      )}
       <CareSection
         title="Pending tasks"
         summary={`${patientRounds.length} open tasks - ${patientRounds.filter((r) => r.rank <= 1).length} require review`}

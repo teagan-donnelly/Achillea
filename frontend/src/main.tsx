@@ -22,3 +22,4 @@ import "./integration-v3.css";
 import "./final-mobile.css";
 
 import "./responsive-design.css";
+import "./sensor-first.css";

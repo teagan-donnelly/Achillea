@@ -94,9 +94,13 @@ describe("Mobile navigation", () => {
       "/patients",
     );
     swipe(area, -100);
+    expect(screen.getByLabelText("Current route")).toHaveTextContent("/sensors");
+    swipe(area, -100);
     expect(screen.getByLabelText("Current route")).toHaveTextContent("/rounds");
     swipe(area, -100);
     expect(screen.getByLabelText("Current route")).toHaveTextContent("/rounds");
+    swipe(area, 100);
+    expect(screen.getByLabelText("Current route")).toHaveTextContent("/sensors");
     swipe(area, 100);
     expect(screen.getByLabelText("Current route")).toHaveTextContent(
       "/patients",
@@ -130,7 +134,7 @@ describe("Mobile navigation", () => {
       "/patients/p1",
     );
   });
-  it("lands on Activity and provides exactly three main destinations", async () => {
+  it("lands on the command center and provides four main destinations", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (url: string) => ({
@@ -143,12 +147,12 @@ describe("Mobile navigation", () => {
         <App />
       </MemoryRouter>,
     );
-    await screen.findByRole("heading", { name: "Activity" });
+    await screen.findByRole("heading", { name: "Repositioning Command Center" });
     expect(
       screen
         .getByRole("navigation", { name: "Main navigation" })
         .querySelectorAll("a"),
-    ).toHaveLength(3);
+    ).toHaveLength(4);
     fireEvent.click(screen.getByRole("link", { name: "Rounds" }));
     expect(screen.getByRole("heading", { name: "Now" })).toBeInTheDocument();
     expect(

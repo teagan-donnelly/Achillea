@@ -1,5 +1,7 @@
 # Achillea
 
+Sensor-first preview: see [isolated startup, two-minute demo and verification](docs/SENSOR_FIRST_DEMO.md). Home prioritizes configured repositioning deadlines; movement evidence requires explicit nurse verification and documentation.
+
 **Recovered hackathon demo:** use [the recovery startup, phone tunnel and two-minute walkthrough](docs/HACKATHON_RECOVERY.md). This branch is based directly on verified pre-Tiger V3; the instructions below describe the original V3 setup.
 
 Care that moves with you. Achillea combines assigned-patient monitoring, bedside documentation, sensor review, activity history, and explainable rounds in a mobile-first nurse workflow.

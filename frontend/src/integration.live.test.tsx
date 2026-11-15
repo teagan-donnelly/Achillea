@@ -25,7 +25,7 @@ async function request<T>(path: string, body?: unknown): Promise<T> {
     throw new Error(`${response.status}: ${await response.text()}`);
   return response.json() as Promise<T>;
 }
-function open(path = "/") {
+function open(path = "/activity") {
   render(
     <MemoryRouter initialEntries={[path]}>
       <App />
@@ -389,7 +389,9 @@ describe.skipIf(!base)(
           fireEvent.change(screen.getByLabelText("Demo unit"), {
             target: { value: unit },
           });
-          await screen.findByRole("heading", { name: "Activity" });
+          await screen.findByRole("heading", {
+            name: "Repositioning Command Center",
+          });
         }
         fireEvent.click(screen.getByRole("button", { name: "Demo controls" }));
         const before = await request<State>("/state");

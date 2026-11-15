@@ -1,6 +1,6 @@
 import { useRef, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-const pages = ["/", "/patients", "/rounds"];
+const pages = ["/", "/patients", "/sensors", "/rounds"];
 export function SwipeNavigation({
   children,
   disabled = false,

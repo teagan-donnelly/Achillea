@@ -18,6 +18,7 @@ import {
   Users,
   Wifi,
   WifiOff,
+  Radio,
 } from "lucide-react";
 import type { ActivityItem, Chart, Patient, Round, State, Task } from "./types";
 import { api } from "./api";
@@ -28,6 +29,7 @@ import { SwipeNavigation } from "./SwipeNavigation";
 import { loadWorkspace, type WorkspaceSnapshot } from "./workspace-feed";
 import { PageHero } from "./VisualPrimitives";
 import { DemoPresets } from "./DemoPresets";
+import { RepositioningHome, SensorMonitoring } from "./RepositioningViews";
 export default function App() {
   const [state, setState] = useState<State | null>(null),
     [rounds, setRounds] = useState<Round[]>([]),
@@ -145,8 +147,9 @@ export default function App() {
         </Link>
         <nav aria-label="Main navigation">
           {[
-            ["/", "Activity", Activity],
+            ["/", "Home", Activity],
             ["/patients", "Patients", Users],
+            ["/sensors", "Sensors", Radio],
             ["/rounds", "Rounds", CalendarCheck],
           ].map(([path, title, Icon]) => {
             const Glyph = Icon as typeof Activity;
@@ -248,14 +251,19 @@ export default function App() {
                 <Route
                   path="/"
                   element={
-                    <ActivityHome
+                    <RepositioningHome
+                      onOpenIcu={() => selectUnit("ICU")}
                       key={unit}
                       state={state}
-                      summaries={activity}
                       patients={patients}
-                      rounds={rounds}
                       label={label}
                     />
+                  }
+                />
+                <Route
+                  path="/sensors"
+                  element={
+                    <SensorMonitoring state={state} patients={patients} />
                   }
                 />
                 <Route
@@ -372,6 +380,7 @@ export default function App() {
           </main>
         </SwipeNavigation>
         <footer>
+          <Link to="/activity">Activity history</Link>
           Achillea · A calmer bedside workflow.
           <span>Simulated hardware. Human-confirmed care.</span>
         </footer>
@@ -410,6 +419,28 @@ export default function App() {
             }}
           />
           <ol>
+            <li>
+              <button
+                className="secondary"
+                disabled={busy}
+                onClick={() => {
+                  if (
+                    window.confirm(
+                      "Stage repositioning demo schedules in this synthetic database? Existing confirmations and documentation are preserved.",
+                    )
+                  )
+                    void mutate("/demo/repositioning")
+                      .then(() => {
+                        selectUnit("ICU");
+                        setDemo(false);
+                        navigate("/");
+                      })
+                      .catch(() => {});
+                }}
+              >
+                Stage repositioning demo
+              </button>
+            </li>
             <li>L&D: send a reading, open Maya, save and confirm a note.</li>
             <li>Switch to ICU. Compare partial and coordinated movement.</li>
             <li>Review movement, verify care, then complete the task.</li>

@@ -17,6 +17,7 @@ public class Model {
     public List<Chart> charts = new ArrayList<>();
     public List<Event> events = new ArrayList<>();
     public List<Device> devices = new ArrayList<>();
+    public List<Repositioning.Plan> repositioningPlans = new ArrayList<>();
     public Instant demoStartedAt, serverTime;
     public long monitorTick;
   }

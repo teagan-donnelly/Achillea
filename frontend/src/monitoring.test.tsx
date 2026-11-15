@@ -190,7 +190,7 @@ it("refreshes task state and Activity after an acknowledged API response", async
   await waitFor(() =>
     expect(screen.getByRole("button", { name: "Acknowledge" })).toBeDisabled(),
   );
-  fireEvent.click(screen.getByRole("link", { name: "Activity" }));
+  fireEvent.click(screen.getByRole("link", { name: "Activity history" }));
   expect(
     await screen.findByText("Task acknowledged at bedside"),
   ).toBeInTheDocument();
@@ -222,7 +222,7 @@ it("keeps ICU workflows separate when switching units", async () => {
       <App />
     </MemoryRouter>,
   );
-  await screen.findByRole("heading", { name: "Activity" });
+  await screen.findByRole("heading", { name: "Repositioning Command Center" });
   fireEvent.change(screen.getByLabelText("Demo unit"), {
     target: { value: "ICU" },
   });

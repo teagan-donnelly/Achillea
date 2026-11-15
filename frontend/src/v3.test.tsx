@@ -208,6 +208,7 @@ it("opens monitoring from Activity and switches between actual recorded trends",
       <App />
     </MemoryRouter>,
   );
+  fireEvent.click(await screen.findByRole("link", { name: "Activity history" }));
   fireEvent.click(await screen.findByRole("link", { name: /View patient/ }));
   expect(screen.getByRole("button", { name: "Vitals" })).toHaveAttribute(
     "aria-pressed",
