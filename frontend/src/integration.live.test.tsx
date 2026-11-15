@@ -69,6 +69,63 @@ describe.skipIf(!base)(
       sessionStorage.clear();
     });
 
+    it("opens fresh ICU, explicitly loads the full repositioning demo and confirms documented care", async () => {
+      localStorage.removeItem("achillea-selected-unit");
+      const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+      try {
+        open("/");
+        await screen.findByRole("heading", {
+          name: "Repositioning Command Center",
+        });
+        expect(screen.getByLabelText("Demo unit")).toHaveValue("ICU");
+        fireEvent.click(
+          screen.getByRole("button", { name: "Load repositioning demo" }),
+        );
+        await screen.findByRole("heading", { name: "Needs attention (2)" });
+        expect(
+          screen.getByRole("heading", { name: "Upcoming turns (1)" }),
+        ).toBeInTheDocument();
+        expect(screen.getByText("On-track patients (1)")).toBeInTheDocument();
+        const staged = await request<State>("/state");
+        expect(staged.patients.filter((p) => p.unit === "ICU")).toHaveLength(4);
+        const originalCharts = staged.charts.length;
+        fireEvent.click(screen.getByRole("link", { name: /Alex Linden/ }));
+        await screen.findByRole("heading", { name: "Repositioning overdue" });
+        fireEvent.click(
+          screen.getByRole("button", { name: /Review & document turn/ }),
+        );
+        fireEvent.change(screen.getByLabelText("Bedside observation"), {
+          target: {
+            value:
+              "Personally verified the prescribed synthetic turn and comfort.",
+          },
+        });
+        fireEvent.click(screen.getByRole("checkbox"));
+        fireEvent.click(
+          screen.getByRole("button", { name: "Confirm & document" }),
+        );
+        await waitFor(() =>
+          expect(
+            screen.queryByRole("button", { name: "Confirm & document" }),
+          ).not.toBeInTheDocument(),
+        );
+        const saved = await request<State>("/state");
+        expect(saved.charts).toHaveLength(originalCharts + 1);
+        expect(
+          saved.repositioningPlans?.find(
+            (p) => p.patientId === "synthetic-icu-01",
+          )?.lastConfirmedCareAt,
+        ).toBeTruthy();
+        expect(
+          saved.events.some((e) => e.type === "repositioning.confirmed"),
+        ).toBe(true);
+        fireEvent.click(screen.getByRole("link", { name: "Home" }));
+        await screen.findByRole("heading", { name: "Needs attention (1)" });
+      } finally {
+        confirm.mockRestore();
+      }
+    }, 30000);
+
     it("retrieves expanded assignments and renders backend activity and monitoring history", async () => {
       open();
       await screen.findByRole("heading", { name: "Activity" });
@@ -390,7 +447,7 @@ describe.skipIf(!base)(
             target: { value: unit },
           });
           await screen.findByRole("heading", {
-            name: "Repositioning Command Center",
+            name: /^(Activity|Repositioning Command Center)$/,
           });
         }
         fireEvent.click(screen.getByRole("button", { name: "Demo controls" }));

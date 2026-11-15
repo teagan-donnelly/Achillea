@@ -10,7 +10,9 @@ function CallApi($path,$body=$null) {
 if ((CallApi '/health').status -ne 'UP') { throw 'Backend unavailable' }
 $null=CallApi '/demo/repositioning' @{}
 $queue=CallApi '/repositioning?unit=ICU'
-if ($queue.Count -ne 3) { throw 'ICU assignments missing' }
+if ($queue.Count -lt 4) { throw 'ICU demo assignments missing' }
+if (@($queue | Where-Object scheduleStatus -eq 'OVERDUE').Count -lt 2 -or !($queue | Where-Object scheduleStatus -eq 'DUE_SOON') -or !($queue | Where-Object scheduleStatus -eq 'ON_TRACK')) { throw 'Required demo status distribution missing' }
+if (@($queue | Where-Object reporting -eq $true).Count -lt 4 -or !($queue | Where-Object pendingReviews -gt 0)) { throw 'Sensor history or pending review missing' }
 $patient=$queue | Where-Object scheduleStatus -eq 'OVERDUE' | Select-Object -First 1
 if (!$patient) { throw 'Use a fresh disposable database for a reproducible overdue patient; existing confirmations are intentionally preserved.' }
 $pidValue=$patient.patientId

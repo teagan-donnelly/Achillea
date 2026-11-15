@@ -30,11 +30,12 @@ import { loadWorkspace, type WorkspaceSnapshot } from "./workspace-feed";
 import { PageHero } from "./VisualPrimitives";
 import { DemoPresets } from "./DemoPresets";
 import { RepositioningHome, SensorMonitoring } from "./RepositioningViews";
+import { initialUnit, saveUnit } from "./unit-preference";
 export default function App() {
   const [state, setState] = useState<State | null>(null),
     [rounds, setRounds] = useState<Round[]>([]),
     [activity, setActivity] = useState<ActivityItem[]>([]),
-    [unit, setUnit] = useState("L_AND_D"),
+    [unit, setUnit] = useState(initialUnit),
     [error, setError] = useState(""),
     [notice, setNotice] = useState(""),
     [demo, setDemo] = useState(false),
@@ -117,6 +118,7 @@ export default function App() {
   const label =
     unit === "ICU" ? "ICU · expansion scenario" : "Labor & delivery";
   function selectUnit(next: string, destination = "/") {
+    saveUnit(next);
     if (next === unit) return;
     currentUnit.current = next;
     unitGeneration.current++;
@@ -127,7 +129,30 @@ export default function App() {
     setUnit(next);
     setRounds([]);
     setSearch("");
-    navigate(destination);
+    navigate(
+      destination === "/" &&
+        ["/", "/patients", "/sensors", "/rounds", "/activity"].includes(
+          location.pathname,
+        )
+        ? location.pathname
+        : destination,
+    );
+  }
+  async function loadRepositioningDemo() {
+    if (
+      !window.confirm(
+        "Load synthetic repositioning demo schedules and sensor evidence? This assigns additional fictional ICU patients as needed. Saved care confirmations and documentation are preserved. No records are reset.",
+      )
+    )
+      return;
+    try {
+      await mutate("/demo/repositioning");
+      selectUnit("ICU");
+      setDemo(false);
+      navigate("/");
+    } catch {
+      /* App displays the server error without clearing existing records. */
+    }
   }
   function patientCard(p: Patient) {
     return (
@@ -252,6 +277,8 @@ export default function App() {
                   path="/"
                   element={
                     <RepositioningHome
+                      onLoadDemo={() => void loadRepositioningDemo()}
+                      busy={busy}
                       onOpenIcu={() => selectUnit("ICU")}
                       key={unit}
                       state={state}
@@ -423,22 +450,9 @@ export default function App() {
               <button
                 className="secondary"
                 disabled={busy}
-                onClick={() => {
-                  if (
-                    window.confirm(
-                      "Stage repositioning demo schedules in this synthetic database? Existing confirmations and documentation are preserved.",
-                    )
-                  )
-                    void mutate("/demo/repositioning")
-                      .then(() => {
-                        selectUnit("ICU");
-                        setDemo(false);
-                        navigate("/");
-                      })
-                      .catch(() => {});
-                }}
+                onClick={() => void loadRepositioningDemo()}
               >
-                Stage repositioning demo
+                Load repositioning demo
               </button>
             </li>
             <li>L&D: send a reading, open Maya, save and confirm a note.</li>

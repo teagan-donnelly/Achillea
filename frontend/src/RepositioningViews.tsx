@@ -80,11 +80,15 @@ export function RepositioningHome({
   patients,
   label,
   onOpenIcu,
+  onLoadDemo,
+  busy = false,
 }: {
   state: State;
   patients: Patient[];
   label: string;
   onOpenIcu?: () => void;
+  onLoadDemo?: () => void;
+  busy?: boolean;
 }) {
   const now = useDemoNow(state),
     eligible = patients.filter((p) => p.repositionPlan);
@@ -128,6 +132,11 @@ export function RepositioningHome({
         ))}
       </div>
       <div className="turn-context">
+        {onLoadDemo && (
+          <button className="secondary" disabled={busy} onClick={onLoadDemo}>
+            Load repositioning demo
+          </button>
+        )}
         <span>{label} · Individual care-plan deadlines</span>
         <Link to="/activity">Activity & history</Link>
       </div>

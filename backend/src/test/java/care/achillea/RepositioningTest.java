@@ -158,9 +158,31 @@ class RepositioningTest {
   void queueUnitScopeAndApiValidation() throws Exception {
     service.repositioningDemo();
     var queue = service.repositioning("ICU");
-    assertEquals(3, queue.size());
+    assertEquals(4, queue.size());
     assertEquals("OVERDUE", queue.getFirst().scheduleStatus());
-    assertEquals("DUE_SOON", queue.get(1).scheduleStatus());
+    assertEquals("OVERDUE", queue.get(1).scheduleStatus());
+    assertEquals("DUE_SOON", queue.get(2).scheduleStatus());
+    assertTrue(queue.stream().allMatch(Repositioning.Status::reporting));
+    assertTrue(queue.stream().anyMatch(p -> p.pendingReviews() > 0));
+    State persisted = service.read();
+    assertEquals(
+      4,
+      persisted.patients
+        .stream()
+        .filter(p -> p.unit().equals("ICU"))
+        .count()
+    );
+    for (var item : queue)
+      for (String region : java.util.List.of("UPPER_TORSO", "PELVIS"))
+        assertTrue(
+          persisted.samples
+            .stream()
+            .anyMatch(
+              sample ->
+                sample.patientId().equals(item.patientId()) &&
+                sample.bodyRegion().equals(region)
+            )
+        );
     assertEquals("ON_TRACK", queue.getLast().scheduleStatus());
     assertTrue(
       service

@@ -220,19 +220,65 @@ public class CareService {
   public synchronized State repositioningDemo() {
     State s = load();
     Repositioning.initialize(s, clock.instant());
+    List<Repositioning.Plan> candidates = s.repositioningPlans
+      .stream()
+      .filter(
+        plan ->
+          plan.lastConfirmedCareAt == null &&
+          s.patients
+            .stream()
+            .anyMatch(
+              p ->
+                p.id().equals(plan.patientId) &&
+                "ICU".equals(p.unit()) &&
+                p.repositionPlan()
+            )
+      )
+      .sorted(Comparator.comparing(plan -> plan.patientId))
+      .limit(4)
+      .toList();
+    require(
+      candidates.size() == 4,
+      "Four unconfirmed synthetic ICU care plans are required to stage all demo statuses. Confirmed care is preserved; use a fresh disposable demo database to replay."
+    );
     int index = 0;
-    for (Repositioning.Plan plan : s.repositioningPlans) {
+    for (Repositioning.Plan plan : candidates) {
       Patient p = s.patients
         .stream()
         .filter(x -> x.id().equals(plan.patientId))
         .findFirst()
         .orElseThrow();
-      if (!"nurse-demo".equals(p.nurseId())) continue;
-      // Explicit replay changes schedules only, preserving every chart and confirmation.
+      if (!"nurse-demo".equals(p.nurseId())) {
+        int patientIndex = s.patients.indexOf(p);
+        s.patients.set(
+          patientIndex,
+          new Patient(
+            p.id(),
+            p.name(),
+            p.room(),
+            p.unit(),
+            p.summary(),
+            "nurse-demo",
+            p.repositionPlan(),
+            p.carePhase(),
+            p.scenario()
+          )
+        );
+        event(
+          s,
+          p.id(),
+          "patient.assigned",
+          "SIMULATOR",
+          "Synthetic repositioning demo assignment to demo nurse"
+        );
+      }
+      // Explicit loading preserves every chart and confirmed-care schedule.
       if (plan.lastConfirmedCareAt == null) {
         plan.initialDueAt = clock
           .instant()
-          .plusSeconds(index == 0 ? -2520 : index == 1 ? 900 : 5400);
+          .plusSeconds(
+            index == 0 ? -2520 : index == 1 ? -1200 : index == 2 ? 900 : 5400
+          );
         for (Task t : s.tasks)
           if (
             t.patientId.equals(plan.patientId) &&
@@ -240,6 +286,12 @@ public class CareService {
             WorkflowRules.active(t)
           ) t.dueAt = plan.initialDueAt;
       }
+      for (Device device : s.devices)
+        if (
+          device.patientId.equals(plan.patientId) &&
+          !"BEDSIDE_MONITOR".equals(device.bodyRegion) &&
+          !"CONNECTED".equals(device.connectionState)
+        ) monitors.transition(s, device, "CONNECTED", clock.instant());
       index++;
     }
     monitors.tick(s, clock.instant());
@@ -253,7 +305,7 @@ public class CareService {
       "Repositioning schedules staged; existing confirmed care preserved"
     );
     save(s);
-    return assigned(s);
+    return scenario("coordinated", candidates.getFirst().patientId);
   }
 
   public synchronized List<Patient> census(String unit) {
@@ -908,10 +960,14 @@ public class CareService {
   static final double MOVEMENT_THRESHOLD_DEGREES = 15;
 
   /** Streams one region's roll angle. Idempotent per sourceEventId (used as the sample ID). */
-  public synchronized OrientationSample ingestOrientation(OrientationReading in) {
+  public synchronized OrientationSample ingestOrientation(
+    OrientationReading in
+  ) {
     validSensorEvent(in.sourceEventId(), in.capturedAt());
     input(
-      Set.of("UPPER_TORSO", "PELVIS").contains(Objects.toString(in.bodyRegion(), "")),
+      Set.of("UPPER_TORSO", "PELVIS").contains(
+        Objects.toString(in.bodyRegion(), "")
+      ),
       "bodyRegion must be UPPER_TORSO or PELVIS"
     );
     input(in.rollDegrees() != null, "rollDegrees required");
@@ -958,7 +1014,10 @@ public class CareService {
     State s = load();
     patient(s, in.patientId());
     Map<String, Double> regions = new LinkedHashMap<>();
-    if (in.upperTorsoDegrees() != null) regions.put("UPPER_TORSO", in.upperTorsoDegrees());
+    if (in.upperTorsoDegrees() != null) regions.put(
+      "UPPER_TORSO",
+      in.upperTorsoDegrees()
+    );
     if (in.pelvisDegrees() != null) regions.put("PELVIS", in.pelvisDegrees());
     List<OrientationSample> existing = regions
       .keySet()
@@ -982,7 +1041,9 @@ public class CareService {
       return existing;
     }
     Map<String, Device> sensors = new LinkedHashMap<>();
-    regions.keySet().forEach(r -> sensors.put(r, connectedSensor(s, in.patientId(), r)));
+    regions
+      .keySet()
+      .forEach(r -> sensors.put(r, connectedSensor(s, in.patientId(), r)));
     List<OrientationSample> added = new ArrayList<>();
     regions.forEach((r, roll) ->
       added.add(
@@ -1045,38 +1106,60 @@ public class CareService {
     m.pelvisSensorId = pelvis.id;
     m.capturedAt = in.capturedAt();
     m.receivedAt = clock.instant();
-    m.chestBefore = in.upperTorsoBefore() != null
-      ? in.upperTorsoBefore()
-      : baseline(s, in.patientId(), chest.id, true);
-    m.pelvisBefore = in.pelvisBefore() != null
-      ? in.pelvisBefore()
-      : baseline(s, in.patientId(), pelvis.id, false);
+    m.chestBefore =
+      in.upperTorsoBefore() != null
+        ? in.upperTorsoBefore()
+        : baseline(s, in.patientId(), chest.id, true);
+    m.pelvisBefore =
+      in.pelvisBefore() != null
+        ? in.pelvisBefore()
+        : baseline(s, in.patientId(), pelvis.id, false);
     m.chestAfter = in.upperTorsoAfter();
     m.pelvisAfter = pelvisMissing ? m.pelvisBefore : in.pelvisAfter();
     boolean chestMoved =
-      Math.abs(angleChange(m.chestBefore, m.chestAfter)) >= MOVEMENT_THRESHOLD_DEGREES;
+      Math.abs(angleChange(m.chestBefore, m.chestAfter)) >=
+      MOVEMENT_THRESHOLD_DEGREES;
     boolean pelvisMoved =
       !pelvisMissing &&
-      Math.abs(angleChange(m.pelvisBefore, m.pelvisAfter)) >= MOVEMENT_THRESHOLD_DEGREES;
+      Math.abs(angleChange(m.pelvisBefore, m.pelvisAfter)) >=
+        MOVEMENT_THRESHOLD_DEGREES;
     m.classification = pelvisMissing
       ? "UNKNOWN"
       : chestMoved && pelvisMoved
         ? "COORDINATED_TURN_CANDIDATE"
         : chestMoved
           ? "PARTIAL_TORSO_MOVEMENT"
-          : pelvisMoved ? "PARTIAL_PELVIC_MOVEMENT" : "SMALL_ADJUSTMENT";
+          : pelvisMoved
+            ? "PARTIAL_PELVIC_MOVEMENT"
+            : "SMALL_ADJUSTMENT";
     m.quality = pelvisMissing ? "PELVIS_DISCONNECTED" : quality;
     m.confidence = pelvisMissing
       ? null
       : in.confidence() != null
         ? in.confidence()
-        : quality.equals("SIMULATED_GOOD") ? .85 : .35;
+        : quality.equals("SIMULATED_GOOD")
+          ? .85
+          : .35;
     m.sampleIds = new ArrayList<>();
     m.sampleIds.add(
-      addSample(s, m.id + "-chest", chest, m.chestAfter, m.capturedAt, m.quality).id()
+      addSample(
+        s,
+        m.id + "-chest",
+        chest,
+        m.chestAfter,
+        m.capturedAt,
+        m.quality
+      ).id()
     );
     if (!pelvisMissing) m.sampleIds.add(
-      addSample(s, m.id + "-pelvis", pelvis, m.pelvisAfter, m.capturedAt, m.quality).id()
+      addSample(
+        s,
+        m.id + "-pelvis",
+        pelvis,
+        m.pelvisAfter,
+        m.capturedAt,
+        m.quality
+      ).id()
     );
     WorkflowRules.classify(m);
     s.movements.add(m);
@@ -1133,7 +1216,10 @@ public class CareService {
   }
 
   private static Optional<OrientationSample> sample(State s, String id) {
-    return s.samples.stream().filter(x -> x.id().equals(id)).findFirst();
+    return s.samples
+      .stream()
+      .filter(x -> x.id().equals(id))
+      .findFirst();
   }
 
   private Device regionSensor(State s, String patientId, String region) {
@@ -1159,12 +1245,19 @@ public class CareService {
   }
 
   /** Settled position: last movement's "after" angle, else the latest sample, else 0. */
-  private static double baseline(State s, String patientId, String sensorId, boolean chest) {
+  private static double baseline(
+    State s,
+    String patientId,
+    String sensorId,
+    boolean chest
+  ) {
     Optional<Movement> last = s.movements
       .stream()
       .filter(m -> m.patientId.equals(patientId))
       .max(Comparator.comparing(m -> m.capturedAt));
-    if (last.isPresent()) return chest ? last.get().chestAfter : last.get().pelvisAfter;
+    if (last.isPresent()) return chest
+      ? last.get().chestAfter
+      : last.get().pelvisAfter;
     return s.samples
       .stream()
       .filter(x -> x.sensorId().equals(sensorId))
@@ -1195,8 +1288,9 @@ public class CareService {
     );
     s.samples.add(o);
     d.lastSeenAt = now;
-    if (d.lastSampledAt == null || capturedAt.isAfter(d.lastSampledAt)) d.lastSampledAt =
-      capturedAt;
+    if (
+      d.lastSampledAt == null || capturedAt.isAfter(d.lastSampledAt)
+    ) d.lastSampledAt = capturedAt;
     return o;
   }
 
