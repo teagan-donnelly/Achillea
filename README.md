@@ -1,6 +1,6 @@
 # Achillea
 
-Care that moves with you. A React/TypeScript nursing workflow demo running on Vercel with an existing Tiger Data PostgreSQL database. Synthetic data only; not for clinical use.
+Care that moves with you. A standard React/TypeScript/Vite application with an existing Tiger Data PostgreSQL API. Synthetic data only; not for clinical use.
 
 This is the `feature/vercel-tiger` architecture. The complete Spring Boot implementation is preserved on [`feature/tiger-simulation`](https://github.com/teagan-donnelly/Achillea/tree/feature/tiger-simulation) at `697ad60d6e11dc3d6b21ad2f3c22c934d57305a4`. Obsolete backend archives and runbooks have been removed from this branch.
 
@@ -9,12 +9,12 @@ Requires **Node 24** and npm. No Java, Maven, Next.js, Express server or separat
 ```sh
 npm ci
 # Keep your existing root .env.local database settings.
-npm start
+npm run dev
 ```
 
-Open `http://localhost:3000`. `npm start` runs **Vercel CLI**, serving the React app and API functions together; `npm run dev` is an alias. The alias avoids Vercel's prohibition on a `dev` script directly invoking `vercel dev`. No Vite application server runs. Vercel CLI may request a one-time account login/project link if this computer has not already been linked. Session login is temporarily disabled by default. Existing database environment variable names and values are unchanged.
+Open the localhost URL printed by Vite (normally `http://localhost:5173`). No Vercel CLI, account login or separate backend command is needed for local development. Existing root `.env.local` names and values are unchanged. Session-password enforcement remains disabled by default.
 
-The project has a conventional root layout: `src/index.tsx` and React components, `public/index.html`, `api/` functions, `server/` workflow logic, and one `package.json`. There is no nested frontend workspace. `vercel.json` declares the generic React/static build, Vercel development command, root `dist/` output, and API/SPA routing. The React assets are compiled with esbuild; Vite is not used to build or serve the application. Existing Vercel database secrets still need to be configured in the hosting account; local `.env.local` is never uploaded as credentials. See the [deployment guide](docs/VERCEL_TIGER.md).
+The project uses root `index.html`, `src/`, `vite.config.ts` and one package/lockfile. React and API source files are unchanged. The small dev-only API adapter in `vite.config.ts` serves the existing `/api` handler during development and preview. `api/` and `server/` remain necessary for patient data and nursing actions; they are deployed as Vercel functions, not a separate server. The minimal `vercel.json` retains only the framework and API/SPA routing. See the [deployment guide](docs/VERCEL_TIGER.md).
 
 The runtime does **not** migrate, seed, reset or alter Tiger. Historical V1/V2 SQL files remain byte-for-byte unchanged under `backend/src/main/resources/db/migration/`. The external simulator owns raw observations, orientation, classifications, stream state and device status. Achillea reads that evidence and writes only nursing workflow records and review fields. Movement never automatically confirms care.
 
@@ -22,6 +22,7 @@ The runtime does **not** migrate, seed, reset or alter Tiger. Historical V1/V2 S
 npm run typecheck
 npm run lint
 npm run build
+npm run preview
 npm test                 # security + component tests; database/live tests skip without isolation
 npm run test:db          # full suite on disposable native local PostgreSQL
 npm audit
@@ -30,7 +31,6 @@ npm audit
 For `test:db`, install PostgreSQL locally and set `PG_BIN` to its bin directory. The runner can also discover the existing Windows test binary cache. It creates a fresh loopback database, applies the historical schema only there, runs API/HTTP/React checks, and stops it. It overrides all hosted database credentials. No Docker or Java is required. Test seeding and cleanup explicitly refuse hosted targets.
 
 - [Deployment, ownership, endpoints and test instructions](docs/VERCEL_TIGER.md)
-- [Migration report and verification limits](docs/VERCEL_MIGRATION_REPORT.md)
 - [External simulator storage handoff](docs/backend/SIMULATOR_STORAGE_HANDOFF.md)
 - [Product scope](PRODUCT.md)
 

@@ -2,7 +2,7 @@
 ## Platform
 Mobile-first web application.
 ## Stack
-React, TypeScript, Vercel CLI/functions, an esbuild asset bundle and the existing Tiger Data PostgreSQL schema. Source and configuration live at the repository root.
+React, TypeScript, standard Vite tooling, Vercel API functions and the existing Tiger Data PostgreSQL schema. Source and configuration live at the repository root.
 ## Users and purpose
 Demo nurses review assigned synthetic L&D patients, document bedside care, and switch to a separate ICU expansion scenario for dual-region movement review.
 ## Constraints
