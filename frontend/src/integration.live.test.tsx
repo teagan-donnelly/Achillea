@@ -275,6 +275,7 @@ describe.skipIf(!base)(
         name: "Alex Linden",
       });
       fireEvent.click(heading.closest("a")!);
+      fireEvent.click(screen.getByRole("button", { name: /Sensor monitoring/ }));
       await screen.findByRole("heading", { name: "Repositioning monitoring" });
       expect(screen.getByText("Source: torso-sim-01")).toBeInTheDocument();
       await demo("Chest-only movement");
@@ -319,7 +320,7 @@ describe.skipIf(!base)(
           within(article).queryByRole("button", { name: "Review candidate" }),
         ).not.toBeInTheDocument(),
       );
-      fireEvent.click(screen.getByRole("button", { name: "Care tasks" }));
+      fireEvent.click(screen.getByRole("button", { name: "Care" }));
       const task = document.getElementById("task-task-3")!;
       fireEvent.click(within(task).getByRole("button", { name: "Complete" }));
       fireEvent.change(
@@ -343,6 +344,8 @@ describe.skipIf(!base)(
         ).toBe("COMPLETED"),
       );
       await demo("Disconnect pelvis sensor");
+      fireEvent.click(screen.getByRole("button", { name: "Repositioning" }));
+      fireEvent.click(screen.getByRole("button", { name: /Sensor monitoring/ }));
       expect(
         await screen.findByText("Unknown / disconnected"),
       ).toBeInTheDocument();

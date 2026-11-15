@@ -187,6 +187,7 @@ describe("Bedside mobile redesign", () => {
   });
   it("opens care sections without saving or confirming care automatically", () => {
     const mutate = patient();
+    fireEvent.click(screen.getByRole("button", { name: "Care" }));
     const doc = screen.getByRole("button", { name: /Care & documentation/ });
     expect(doc).toHaveAttribute("aria-expanded", "false");
     fireEvent.click(doc);
@@ -211,9 +212,10 @@ describe("Bedside mobile redesign", () => {
   });
   it("exposes pending-task summaries and existing task actions", () => {
     patient({ ...state, tasks: [round.task] }, [round]);
+    fireEvent.click(screen.getByRole("button", { name: "Care" }));
     const tasks = screen.getByRole("button", { name: /Pending tasks/ });
     expect(tasks).toHaveTextContent("1 open tasks - 1 require review");
-    fireEvent.click(tasks);
+    expect(tasks).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByRole("button", { name: "Acknowledge" })).toBeVisible();
     expect(screen.getByRole("button", { name: "Complete" })).toBeVisible();
     expect(screen.getByRole("button", { name: "Defer" })).toBeVisible();
@@ -240,8 +242,11 @@ describe("Bedside mobile redesign", () => {
     expect(
       screen.getByRole("button", { name: /Sensor monitoring/ }),
     ).toHaveTextContent("simulated chest & pelvis");
+    fireEvent.click(screen.getByRole("button", { name: /Sensor monitoring/ }));
     expect(screen.getByText("Upper torso")).toBeVisible();
-    expect(screen.getByText("Pelvis")).toBeVisible();
+    expect(
+      screen.getAllByText("Pelvis").some((el) => el.textContent === "Pelvis"),
+    ).toBe(true);
     expect(
       screen.getByText(/Orientation observations do not confirm/),
     ).toBeVisible();
@@ -250,6 +255,10 @@ describe("Bedside mobile redesign", () => {
     expect(
       screen.getByRole("button", { name: /Sensor monitoring/ }),
     ).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(screen.getByRole("button", { name: "Care" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /Original event history/ }),
+    );
     expect(
       screen.getByRole("region", { name: "24-hour patient activity" }),
     ).toBeVisible();

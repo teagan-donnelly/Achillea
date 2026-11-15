@@ -173,7 +173,7 @@ it("opens a focused task from Rounds and returns to that schedule", async () => 
   expect(
     screen.getByRole("heading", { name: "Synthetic Patient" }),
   ).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Care tasks" })).toHaveAttribute(
+  expect(screen.getByRole("button", { name: "Care" })).toHaveAttribute(
     "aria-pressed",
     "true",
   );

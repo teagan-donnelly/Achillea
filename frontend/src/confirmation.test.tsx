@@ -224,7 +224,8 @@ it("shows disconnected pelvic sensor and keeps movement review explicit", async 
     },
     mutate,
   );
-  fireEvent.click(screen.getByRole("button", { name: "Overview" }));
+  fireEvent.click(screen.getByRole("button", { name: "Repositioning" }));
+  fireEvent.click(screen.getByRole("button", { name: /^Sensor monitoring/ }));
   expect(screen.getByText("Unknown / disconnected")).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "Review candidate" }));
   expect(

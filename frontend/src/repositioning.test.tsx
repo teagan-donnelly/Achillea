@@ -7,7 +7,8 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { PatientView } from "./PatientView";
 import {
   RepositioningDetail,
   RepositioningHome,
@@ -77,6 +78,99 @@ function fixture(): State {
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
+});
+
+it("groups existing patient workflows into three primary sections without losing documentation or history", () => {
+  const s = fixture();
+  render(
+    <MemoryRouter initialEntries={["/patients/icu?section=repositioning"]}>
+      <Routes>
+        <Route
+          path="/patients/:id"
+          element={
+            <PatientView
+              state={s}
+              rounds={[]}
+              unit="ICU"
+              mutate={vi.fn()}
+              busy={false}
+            />
+          }
+        />
+      </Routes>
+    </MemoryRouter>,
+  );
+  expect(
+    document.querySelectorAll(".patient-primary-tabs button"),
+  ).toHaveLength(3);
+  fireEvent.click(screen.getByRole("button", { name: "Care" }));
+  expect(screen.getByRole("button", { name: /Pending tasks/ })).toHaveAttribute(
+    "aria-expanded",
+    "true",
+  );
+  fireEvent.click(screen.getByRole("button", { name: /Care & documentation/ }));
+  expect(
+    screen.getByPlaceholderText("Enter your synthetic bedside observation"),
+  ).toBeVisible();
+  fireEvent.click(
+    screen.getByRole("button", { name: /Original event history/ }),
+  );
+  expect(
+    screen.getByRole("heading", { name: "Patient history" }),
+  ).toBeVisible();
+  fireEvent.click(screen.getByRole("button", { name: "Vitals" }));
+  expect(screen.getByRole("button", { name: "Vitals" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+});
+it("plots timestamped sensor points with explicit uncertainty and keeps disconnected evidence distinct", () => {
+  const s = fixture();
+  s.samples = [
+    {
+      id: "sample-a",
+      patientId: "icu",
+      sensorId: "UPPER_TORSO",
+      bodyRegion: "UPPER_TORSO",
+      rollDegrees: 35,
+      capturedAt: stamp,
+      receivedAt: stamp,
+      quality: "SIMULATED_GOOD",
+      mode: "SIMULATED",
+    },
+    {
+      id: "sample-b",
+      patientId: "icu",
+      sensorId: "PELVIS",
+      bodyRegion: "PELVIS",
+      rollDegrees: 12,
+      capturedAt: stamp,
+      receivedAt: stamp,
+      quality: "UNCERTAIN",
+      mode: "SIMULATED",
+    },
+  ];
+  s.devices![1].connectionState = "DISCONNECTED";
+  render(
+    <MemoryRouter>
+      <RepositioningDetail
+        state={s}
+        patient={s.patients[0]}
+        mutate={vi.fn()}
+        busy={false}
+      />
+    </MemoryRouter>,
+  );
+  fireEvent.click(
+    screen.getByRole("button", { name: /Review & document turn/ }),
+  );
+  expect(
+    screen.getByRole("img", { name: /2 discrete sensor samples/ }),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByText(/faded points have uncertain quality/),
+  ).toBeInTheDocument();
+  expect(document.querySelector(".region-unavailable")).not.toBeNull();
 });
 it("keeps care deadlines separate from connection and movement evidence", () => {
   const s = fixture(),

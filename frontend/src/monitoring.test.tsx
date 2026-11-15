@@ -234,6 +234,7 @@ it("keeps ICU workflows separate when switching units", async () => {
     screen.queryByRole("heading", { name: "Test Patient" }),
   ).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole("link", { name: /Open patient overview/ }));
+  fireEvent.click(screen.getByRole("button", { name: /Sensor monitoring/ }));
   expect(
     screen.getByRole("heading", { name: "Repositioning monitoring" }),
   ).toBeInTheDocument();

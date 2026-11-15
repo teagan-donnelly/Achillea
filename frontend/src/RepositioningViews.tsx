@@ -72,6 +72,9 @@ function TurnCard({
           min since nurse confirmation
         </small>
       )}
+      <span className="turn-review-link">
+        Review patient <ArrowRight size={16} aria-hidden="true" />
+      </span>
     </Link>
   );
 }
@@ -132,6 +135,7 @@ export function RepositioningHome({
         ))}
       </div>
       <div className="turn-context">
+        <span>{eligible.length} patients with active repositioning plans</span>
         {onLoadDemo && (
           <button className="secondary" disabled={busy} onClick={onLoadDemo}>
             Load repositioning demo
@@ -160,6 +164,10 @@ export function RepositioningHome({
         </section>
         <section>
           <h2>Upcoming turns ({soon.length})</h2>
+          <p>
+            Within each patient's configured warning window. Later deadlines are
+            under On-track patients.
+          </p>
           <div className="turn-queue">
             {soon.map((p) => (
               <TurnCard key={p.id} patient={p} state={state} now={now} />
@@ -290,6 +298,90 @@ export function SensorMonitoring({
     </>
   );
 }
+function SensorSamplePlot({
+  state,
+  patientId,
+}: {
+  state: State;
+  patientId: string;
+}) {
+  const samples = (state.samples ?? [])
+    .filter(
+      (s) =>
+        s.patientId === patientId &&
+        ["UPPER_TORSO", "PELVIS"].includes(s.bodyRegion) &&
+        Number.isFinite(s.rollDegrees) &&
+        Number.isFinite(Date.parse(s.capturedAt)),
+    )
+    .sort((a, b) => Date.parse(a.capturedAt) - Date.parse(b.capturedAt))
+    .slice(-80);
+  if (!samples.length)
+    return (
+      <p className="empty">
+        No timestamped sensor samples available. Movement events remain
+        available below.
+      </p>
+    );
+  const start = Date.parse(samples[0].capturedAt),
+    end = Date.parse(samples.at(-1)!.capturedAt);
+  return (
+    <figure className="sensor-sample-plot">
+      <figcaption>
+        <strong>Recorded movement evidence</strong>
+        <span>Chest and pelvis · Simulated roll angles</span>
+      </figcaption>
+      <svg
+        viewBox="0 0 340 145"
+        role="img"
+        aria-label={`${samples.length} discrete sensor samples from ${time(samples[0].capturedAt)} to ${time(samples.at(-1)!.capturedAt)}. No continuous waveform inferred.`}
+      >
+        {[-180, 0, 180].map((angle) => (
+          <g key={angle}>
+            <line x1="38" x2="325" y1={65 - angle / 4} y2={65 - angle / 4} />
+            <text x="3" y={69 - angle / 4}>
+              {angle}°
+            </text>
+          </g>
+        ))}
+        {samples.map((s) => (
+          <circle
+            key={s.id}
+            cx={
+              38 +
+              ((Date.parse(s.capturedAt) - start) / Math.max(1, end - start)) *
+                287
+            }
+            cy={65 - Math.max(-180, Math.min(180, s.rollDegrees)) / 4}
+            r="3.5"
+            className={
+              s.bodyRegion === "PELVIS" ? "sample-pelvis" : "sample-chest"
+            }
+            fillOpacity={s.quality === "SIMULATED_GOOD" ? 1 : 0.3}
+          >
+            <title>
+              {s.bodyRegion === "PELVIS" ? "Pelvis" : "Chest"}: {s.rollDegrees}
+              °, {time(s.capturedAt)}, {words(s.quality)}
+            </title>
+          </circle>
+        ))}
+        <text x="38" y="135">
+          {time(samples[0].capturedAt)}
+        </text>
+        <text x="325" y="135" textAnchor="end">
+          {time(samples.at(-1)!.capturedAt)}
+        </text>
+      </svg>
+      <p className="sample-legend">
+        <span>Chest</span>
+        <span>Pelvis</span>
+      </p>
+      <small>
+        {samples.length} recorded points; faded points have uncertain quality.
+        Angles do not establish anatomical position or completed care.
+      </small>
+    </figure>
+  );
+}
 function SensorReadings({
   state,
   patient,
@@ -309,7 +401,17 @@ function SensorReadings({
             )
             .at(-1);
         return (
-          <div key={region}>
+          <div
+            key={region}
+            className={
+              !d ||
+              d.connectionState !== "CONNECTED" ||
+              d.freshness !== "FRESH" ||
+              !sample
+                ? "region-unavailable"
+                : "region-reporting"
+            }
+          >
             <Radio size={18} />
             <strong>
               {region === "PELVIS" ? "Pelvis" : "Chest / upper torso"}
@@ -317,12 +419,12 @@ function SensorReadings({
             <span>
               {d
                 ? `${words(d.connectionState)} · ${words(d.freshness)}`
-                : "No device history"}
+                : "Unknown · no device history"}
             </span>
             <span>
               {sample
                 ? `Last recorded roll ${sample.rollDegrees}° · ${time(sample.capturedAt)}`
-                : "No orientation sample"}
+                : "Orientation unknown"}
             </span>
             <small>
               Last signal: {d?.lastSeenAt ? time(d.lastSeenAt) : "Unknown"} ·
@@ -407,6 +509,12 @@ export function RepositioningDetail({
             <path d="M63 63 L38 136 M117 63 L142 136" fill="none" />
             <circle className="sensor-dot" cx="90" cy="92" r="11" />
             <circle className="sensor-dot" cx="90" cy="143" r="11" />
+            <text x="108" y="96" className="sensor-label">
+              Chest
+            </text>
+            <text x="108" y="147" className="sensor-label">
+              Pelvis
+            </text>
           </svg>
           <small>Sensor placement · Synthetic evidence</small>
         </div>
@@ -436,6 +544,7 @@ export function RepositioningDetail({
           aria-label="Repositioning Review"
         >
           <h2>Repositioning Review</h2>
+          <SensorSamplePlot state={state} patientId={p.id} />
           <p>
             {p.name} · Room {p.room} · {p.unit === "ICU" ? "ICU" : "L&D"}
           </p>

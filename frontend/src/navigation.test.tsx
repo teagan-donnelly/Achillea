@@ -237,7 +237,7 @@ describe("Clinical information hierarchy", () => {
       </MemoryRouter>,
     );
     await screen.findByRole("heading", { name: "Maya Rowan" });
-    fireEvent.click(screen.getByRole("button", { name: "Chart" }));
+    fireEvent.click(screen.getByRole("button", { name: "Document care" }));
     fireEvent.change(
       screen.getByPlaceholderText("Enter your synthetic bedside observation"),
       { target: { value: "Unconfirmed bedside note" } },
@@ -251,7 +251,7 @@ describe("Clinical information hierarchy", () => {
     fireEvent.click(
       screen.getByRole("link", { name: /Open patient overview/ }),
     );
-    fireEvent.click(screen.getByRole("button", { name: "Chart" }));
+    fireEvent.click(screen.getByRole("button", { name: "Document care" }));
     expect(
       screen.getByPlaceholderText("Enter your synthetic bedside observation"),
     ).toHaveValue("Unconfirmed bedside note");

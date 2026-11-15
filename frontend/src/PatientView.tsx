@@ -67,7 +67,9 @@ export function PatientView({
               ? "Vitals"
               : params.get("section") === "sensors"
                 ? "Sensors"
-                : "Overview",
+                : p?.repositionPlan
+                  ? "Repositioning"
+                  : "Vitals",
     ),
     [text, setText] = useState(requestedChart?.text ?? ""),
     [type, setType] = useState(requestedChart?.type ?? "OBSERVATION"),
@@ -201,6 +203,11 @@ export function PatientView({
       /* App feedback. */
     }
   }
+  const primarySection = ["Repositioning", "Sensors"].includes(tab)
+    ? "Repositioning"
+    : ["Vitals", "Overview"].includes(tab)
+      ? "Vitals"
+      : "Care";
   return (
     <div className="patient-bedside" data-no-swipe>
       {storageError && (
@@ -230,6 +237,18 @@ export function PatientView({
           <small>Synthetic ID: {p.id}</small>
         </div>
         <button onClick={() => setTab("Chart")}>Document care</button>
+      </div>
+      <div className="tabs patient-primary-tabs" aria-label="Patient sections">
+        {["Repositioning", "Vitals", "Care"].map((section) => (
+          <button
+            key={section}
+            aria-pressed={primarySection === section}
+            className={primarySection === section ? "selected" : ""}
+            onClick={() => setTab(section === "Care" ? "Care tasks" : section)}
+          >
+            {section}
+          </button>
+        ))}
       </div>
       {(tab === "Overview" || tab === "Vitals") && (
         <>
@@ -359,7 +378,7 @@ export function PatientView({
           </details>
         </>
       )}
-      <div className="patient-quick-actions">
+      <div className="patient-quick-actions" hidden={primarySection !== "Care"}>
         {" "}
         <section
           className="patient-work-summary"
@@ -381,31 +400,8 @@ export function PatientView({
             Review care
           </button>
         </section>
-        <div className="tabs" aria-label="Patient sections">
-          {[
-            ...(p.repositionPlan ? ["Repositioning"] : []),
-            "Overview",
-            "Vitals",
-            "Care tasks",
-            "Chart",
-            ...(p.repositionPlan ? ["Sensors"] : []),
-            "History",
-          ].map((t) => (
-            <button
-              aria-pressed={tab === t}
-              className={tab === t ? "selected" : ""}
-              key={t}
-              onClick={() => {
-                setTab(t);
-                if (t === "Sensors") setSensorExpanded(true);
-              }}
-            >
-              {t}
-            </button>
-          ))}
-        </div>
       </div>
-      {tab === "Repositioning" && (
+      {primarySection === "Repositioning" && (
         <RepositioningDetail
           state={state}
           patient={p}
@@ -413,520 +409,520 @@ export function PatientView({
           busy={busy}
         />
       )}
-      <CareSection
-        title="Pending tasks"
-        summary={`${patientRounds.length} open tasks - ${patientRounds.filter((r) => r.rank <= 1).length} require review`}
-        open={tab === "Care tasks"}
-        onToggle={() =>
-          setTab(tab === "Care tasks" ? "Overview" : "Care tasks")
-        }
-      >
-        {tab === "Care tasks" && (
-          <section>
-            <h2>Care tasks</h2>
-            <TaskList
-              rounds={rounds.filter((r) => r.task.patientId === id)}
-              state={state}
-              mutate={mutate}
-              busy={busy}
-            />
-            {state.tasks
-              .filter((t) => t.patientId === id && t.status === "COMPLETED")
-              .map((t) => (
-                <p key={t.id}>
-                  Completed: {t.title} · {t.verifiedBy} ·{" "}
-                  {t.completedAt && time(t.completedAt)}
-                </p>
-              ))}
+      <div hidden={primarySection !== "Care"} className="patient-care-sections">
+        <CareSection
+          title="Pending tasks"
+          summary={`${patientRounds.length} open tasks - ${patientRounds.filter((r) => r.rank <= 1).length} require review`}
+          open={tab === "Care tasks"}
+          onToggle={() => setTab(tab === "Care tasks" ? "Care" : "Care tasks")}
+        >
+          {tab === "Care tasks" && (
+            <section>
+              <h2>Care tasks</h2>
+              <TaskList
+                rounds={rounds.filter((r) => r.task.patientId === id)}
+                state={state}
+                mutate={mutate}
+                busy={busy}
+              />
+              {state.tasks
+                .filter((t) => t.patientId === id && t.status === "COMPLETED")
+                .map((t) => (
+                  <p key={t.id}>
+                    Completed: {t.title} · {t.verifiedBy} ·{" "}
+                    {t.completedAt && time(t.completedAt)}
+                  </p>
+                ))}
+            </section>
+          )}
+        </CareSection>
+        {primarySection === "Care" && (
+          <section className="plan">
+            <h2>Care plan</h2>
+            <p>
+              {p.summary}.{" "}
+              {p.repositionPlan
+                ? "Positioning review is prescribed in this synthetic patient’s plan."
+                : "No repositioning-review protocol is assigned to this L&D patient."}
+            </p>
           </section>
         )}
-      </CareSection>
-      {tab === "Overview" && (
-        <section className="plan">
-          <h2>Care plan</h2>
-          <p>
-            {p.summary}.{" "}
-            {p.repositionPlan
-              ? "Positioning review is prescribed in this synthetic patient’s plan."
-              : "No repositioning-review protocol is assigned to this L&D patient."}
-          </p>
-        </section>
-      )}
-      {p.repositionPlan && (
+      </div>
+      {p.repositionPlan && primarySection === "Repositioning" && (
         <CareSection
           title="Sensor monitoring"
           summary={`${movements.filter((m) => m.reviewRequired !== false && !["CONFIRMED_CARE", "NOT_CARE"].includes(m.verificationStatus)).length} movements awaiting review - simulated chest & pelvis`}
-          open={
-            sensorExpanded &&
-            ["Overview", "Care tasks", "Sensors"].includes(tab)
-          }
+          open={sensorExpanded && tab === "Sensors"}
           onToggle={() => {
-            if (["Overview", "Care tasks", "Sensors"].includes(tab))
-              setSensorExpanded(!sensorExpanded);
+            if (tab === "Sensors") setSensorExpanded(!sensorExpanded);
             else {
               setSensorExpanded(true);
               setTab("Sensors");
             }
           }}
         >
-          {p.repositionPlan &&
-            sensorExpanded &&
-            (tab === "Overview" ||
-              tab === "Care tasks" ||
-              tab === "Sensors") && (
-              <section className="sensor-panel">
-                <div className="section-heading">
-                  <h2>Repositioning monitoring</h2>
-                  <span>Prototype heuristic</span>
-                </div>
-                <p>
-                  Orientation observations do not confirm repositioning or
-                  pressure relief.
-                </p>
-                <div className="sensor-regions">
-                  <SensorRegion
-                    state={state}
-                    patientId={p.id}
-                    region="UPPER_TORSO"
-                    latest={latest}
-                  />
-                  <SensorRegion
-                    state={state}
-                    patientId={p.id}
-                    region="PELVIS"
-                    latest={latest}
-                  />
-                </div>
-                <p>
-                  Last detected movement:{" "}
-                  <strong>
-                    {latest ? time(latest.capturedAt) : "No observations"}
-                  </strong>
-                </p>
-                <p>
-                  Last nurse-confirmed movement review:{" "}
-                  <strong>
-                    {lastConfirmed?.reviewedAt
-                      ? time(lastConfirmed.reviewedAt)
-                      : "None in this demo"}
-                  </strong>
-                </p>
-                <p>
-                  Last documented care completion:{" "}
-                  <strong>
-                    {charts
-                      .filter(
-                        (c) =>
-                          c.type === "TASK_COMPLETION" &&
-                          c.status === "CONFIRMED" &&
-                          c.linkedMovementId,
+          {p.repositionPlan && sensorExpanded && tab === "Sensors" && (
+            <section className="sensor-panel">
+              <div className="section-heading">
+                <h2>Repositioning monitoring</h2>
+                <span>Prototype heuristic</span>
+              </div>
+              <p>
+                Orientation observations do not confirm repositioning or
+                pressure relief.
+              </p>
+              <div className="sensor-regions">
+                <SensorRegion
+                  state={state}
+                  patientId={p.id}
+                  region="UPPER_TORSO"
+                  latest={latest}
+                />
+                <SensorRegion
+                  state={state}
+                  patientId={p.id}
+                  region="PELVIS"
+                  latest={latest}
+                />
+              </div>
+              <p>
+                Last detected movement:{" "}
+                <strong>
+                  {latest ? time(latest.capturedAt) : "No observations"}
+                </strong>
+              </p>
+              <p>
+                Last nurse-confirmed movement review:{" "}
+                <strong>
+                  {lastConfirmed?.reviewedAt
+                    ? time(lastConfirmed.reviewedAt)
+                    : "None in this demo"}
+                </strong>
+              </p>
+              <p>
+                Last documented care completion:{" "}
+                <strong>
+                  {charts
+                    .filter(
+                      (c) =>
+                        c.type === "TASK_COMPLETION" &&
+                        c.status === "CONFIRMED" &&
+                        c.linkedMovementId,
+                    )
+                    .at(-1)?.confirmedAt
+                    ? time(
+                        charts
+                          .filter(
+                            (c) =>
+                              c.type === "TASK_COMPLETION" &&
+                              c.status === "CONFIRMED" &&
+                              c.linkedMovementId,
+                          )
+                          .at(-1)!.confirmedAt!,
                       )
-                      .at(-1)?.confirmedAt
-                      ? time(
-                          charts
-                            .filter(
-                              (c) =>
-                                c.type === "TASK_COMPLETION" &&
-                                c.status === "CONFIRMED" &&
-                                c.linkedMovementId,
-                            )
-                            .at(-1)!.confirmedAt!,
-                        )
-                      : "None in this demo"}
-                  </strong>
+                    : "None in this demo"}
+                </strong>
+              </p>
+              <SensorEvidence patientId={p.id} revision={state.serverTime} />
+              {movements.length > 4 && (
+                <button
+                  className="secondary"
+                  onClick={() => setShowAllMovements(!showAllMovements)}
+                >
+                  {showAllMovements
+                    ? "Show latest four movements"
+                    : `Show all ${movements.length} movements`}
+                </button>
+              )}
+              {!movements.length && (
+                <p>
+                  No movement candidates yet. Use Demo controls to generate
+                  independent region observations.
                 </p>
-                <SensorEvidence patientId={p.id} revision={state.serverTime} />
-                {movements.length > 4 && (
-                  <button
-                    className="secondary"
-                    onClick={() => setShowAllMovements(!showAllMovements)}
-                  >
-                    {showAllMovements
-                      ? "Show latest four movements"
-                      : `Show all ${movements.length} movements`}
-                  </button>
-                )}
-                {!movements.length && (
-                  <p>
-                    No movement candidates yet. Use Demo controls to generate
-                    independent region observations.
-                  </p>
-                )}
-                {movements
-                  .slice(showAllMovements ? 0 : -4)
-                  .reverse()
-                  .map((m) => (
-                    <article className="movement" key={m.id}>
-                      <strong>{words(m.classification)}</strong>
-                      {m.reviewRequired && (
-                        <p>
-                          Review required:{" "}
-                          {m.reviewReasonCodes?.map(words).join(" / ")}
-                        </p>
-                      )}
+              )}
+              {movements
+                .slice(showAllMovements ? 0 : -4)
+                .reverse()
+                .map((m) => (
+                  <article className="movement" key={m.id}>
+                    <strong>{words(m.classification)}</strong>
+                    {m.reviewRequired && (
                       <p>
-                        {words(m.quality)} · {time(m.capturedAt)} ·{" "}
-                        {words(m.verificationStatus)}
+                        Review required:{" "}
+                        {m.reviewReasonCodes?.map(words).join(" / ")}
                       </p>
-                      <details>
-                        <summary>Sensor observation details</summary>
-                        <small>
-                          Chest {m.chestBefore}° → {m.chestAfter}° · Pelvis{" "}
-                          {m.pelvisBefore}° → {m.pelvisAfter}° · Source samples:{" "}
-                          {m.sampleIds.length}
-                          <br />
-                          Torso source: {m.chestSensorId ?? "Unavailable"} ·
-                          Pelvis source: {m.pelvisSensorId ?? "Unavailable"}
-                          <br />
-                          Heuristic confidence:{" "}
-                          {m.confidence == null
-                            ? "Unavailable"
-                            : `${Math.round(m.confidence * 100)}% (simulation only)`}
-                        </small>
-                      </details>
-                      {m.verificationStatus !== "CONFIRMED_CARE" && (
-                        <div className="actions">
-                          <button
-                            className="secondary"
-                            onClick={() => {
-                              setReview(m.id);
-                              setReviewNote("");
-                              setReviewVerified(false);
-                            }}
-                          >
-                            Review candidate
-                          </button>
-                          <button
-                            className="secondary"
-                            disabled={busy}
-                            onClick={() =>
-                              void mutate(`/movements/${m.id}/review`, {
-                                status: "NOT_CARE",
-                              }).catch(() => {})
-                            }
-                          >
-                            Not care
-                          </button>
-                          <button
-                            className="secondary"
-                            disabled={busy}
-                            onClick={() =>
-                              void mutate(`/movements/${m.id}/review`, {
-                                status: "NEEDS_REVIEW",
-                              }).catch(() => {})
-                            }
-                          >
-                            Needs review
-                          </button>
-                        </div>
-                      )}
-                      {review === m.id && (
-                        <form
-                          onSubmit={(e) => {
-                            e.preventDefault();
-                            void mutate(`/movements/${m.id}/review`, {
-                              status: "CONFIRMED_CARE",
-                              verified: reviewVerified,
-                              text: reviewNote,
-                            })
-                              .then(() => setReview(""))
-                              .catch(() => {});
+                    )}
+                    <p>
+                      {words(m.quality)} · {time(m.capturedAt)} ·{" "}
+                      {words(m.verificationStatus)}
+                    </p>
+                    <details>
+                      <summary>Sensor observation details</summary>
+                      <small>
+                        Chest {m.chestBefore}° → {m.chestAfter}° · Pelvis{" "}
+                        {m.pelvisBefore}° → {m.pelvisAfter}° · Source samples:{" "}
+                        {m.sampleIds.length}
+                        <br />
+                        Torso source: {m.chestSensorId ?? "Unavailable"} ·
+                        Pelvis source: {m.pelvisSensorId ?? "Unavailable"}
+                        <br />
+                        Heuristic confidence:{" "}
+                        {m.confidence == null
+                          ? "Unavailable"
+                          : `${Math.round(m.confidence * 100)}% (simulation only)`}
+                      </small>
+                    </details>
+                    {m.verificationStatus !== "CONFIRMED_CARE" && (
+                      <div className="actions">
+                        <button
+                          className="secondary"
+                          onClick={() => {
+                            setReview(m.id);
+                            setReviewNote("");
+                            setReviewVerified(false);
                           }}
                         >
-                          <div className="sensor-review-header">
-                            <PatientAvatar />
-                            <div>
-                              <h3>Sensor Review</h3>
-                              <p>
-                                {p.name} · Room {p.room}
-                              </p>
-                            </div>
+                          Review candidate
+                        </button>
+                        <button
+                          className="secondary"
+                          disabled={busy}
+                          onClick={() =>
+                            void mutate(`/movements/${m.id}/review`, {
+                              status: "NOT_CARE",
+                            }).catch(() => {})
+                          }
+                        >
+                          Not care
+                        </button>
+                        <button
+                          className="secondary"
+                          disabled={busy}
+                          onClick={() =>
+                            void mutate(`/movements/${m.id}/review`, {
+                              status: "NEEDS_REVIEW",
+                            }).catch(() => {})
+                          }
+                        >
+                          Needs review
+                        </button>
+                      </div>
+                    )}
+                    {review === m.id && (
+                      <form
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          void mutate(`/movements/${m.id}/review`, {
+                            status: "CONFIRMED_CARE",
+                            verified: reviewVerified,
+                            text: reviewNote,
+                          })
+                            .then(() => setReview(""))
+                            .catch(() => {});
+                        }}
+                      >
+                        <div className="sensor-review-header">
+                          <PatientAvatar />
+                          <div>
+                            <h3>Sensor Review</h3>
+                            <p>
+                              {p.name} · Room {p.room}
+                            </p>
                           </div>
-                          <p className="sensor-review-disclosure">
-                            Simulated evidence recorded {time(m.capturedAt)}.
-                            Nurse review and documented care completion are
-                            separate actions.
-                          </p>
-                          <label>
-                            Bedside verification note
-                            <textarea
-                              required
-                              value={reviewNote}
-                              onChange={(e) => setReviewNote(e.target.value)}
-                              placeholder="Describe the care you personally verified"
-                            />
-                          </label>
-                          <label className="checkbox">
-                            <input
-                              type="checkbox"
-                              checked={reviewVerified}
-                              required
-                              onChange={(e) =>
-                                setReviewVerified(e.target.checked)
-                              }
-                            />
-                            I verified actual care, beyond the sensor
-                            observation.
-                          </label>
-                          <button
-                            disabled={
-                              busy || !reviewVerified || !reviewNote.trim()
+                        </div>
+                        <p className="sensor-review-disclosure">
+                          Simulated evidence recorded {time(m.capturedAt)}.
+                          Nurse review and documented care completion are
+                          separate actions.
+                        </p>
+                        <label>
+                          Bedside verification note
+                          <textarea
+                            required
+                            value={reviewNote}
+                            onChange={(e) => setReviewNote(e.target.value)}
+                            placeholder="Describe the care you personally verified"
+                          />
+                        </label>
+                        <label className="checkbox">
+                          <input
+                            type="checkbox"
+                            checked={reviewVerified}
+                            required
+                            onChange={(e) =>
+                              setReviewVerified(e.target.checked)
                             }
-                          >
-                            Confirm care observation
-                          </button>
-                          <p>
-                            Then explicitly complete the prescribed task below
-                            to create its confirmed chart entry.
-                          </p>
-                        </form>
-                      )}
-                    </article>
-                  ))}
-              </section>
-            )}
-        </CareSection>
-      )}
-      <CareSection
-        title="Original event history"
-        summary="Inspect the complete recorded patient timeline"
-        open={tab === "History"}
-        onToggle={() => setTab(tab === "History" ? "Overview" : "History")}
-      >
-        {tab === "History" && (
-          <section className="activity-timeline">
-            <h2>Patient history</h2>
-            <EventTimeline
-              events={state.events.filter((e) => e.patientId === id)}
-              patients={[p]}
-            />
-          </section>
-        )}
-      </CareSection>
-      <CareSection
-        title="Care & documentation"
-        summary={`${charts.length} entries - ${charts.filter((c) => c.status === "DRAFT").length} drafts to confirm`}
-        open={tab === "Chart"}
-        onToggle={() => setTab(tab === "Chart" ? "Overview" : "Chart")}
-      >
-        {tab === "Chart" && (
-          <div className="chart-layout">
-            <section className="surface chart-form">
-              <span className="status">
-                {dirty
-                  ? "Working draft - retained on this device"
-                  : "Nurse-entered documentation"}
-              </span>
-              <h2>
-                {amend
-                  ? "Append correction"
-                  : draft
-                    ? "Edit bedside draft"
-                    : "Document at the bedside"}
-              </h2>
-              <p>
-                Unconfirmed work is retained in this browser tab. Save a draft
-                to store it in the demo record.
-              </p>
-              <p>
-                For {p.name} · Room {p.room}. Review patient identity and source
-                data before confirming.
-              </p>
-              <label>
-                Entry type
-                <select
-                  value={type}
-                  onChange={(e) => {
-                    setType(e.target.value);
-                    setDirty(true);
-                    setNeedsSave(true);
-                    setVerified(false);
-                  }}
-                >
-                  <option value="OBSERVATION">Nursing observation</option>
-                  <option value="ASSESSMENT">Bedside assessment</option>
-                  <option value="CARE_NOTE">Care note</option>
-                </select>
-              </label>
-              <label>
-                Link a care task
-                <select
-                  value={task}
-                  onChange={(e) => {
-                    setTask(e.target.value);
-                    setDirty(true);
-                    setNeedsSave(true);
-                    setVerified(false);
-                  }}
-                >
-                  <option value="">No task linked</option>
-                  {state.tasks
-                    .filter((t) => t.patientId === id)
-                    .map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.title}
-                      </option>
-                    ))}
-                </select>
-              </label>
-              <label>
-                Observation / nurse narrative
-                <textarea
-                  maxLength={5000}
-                  value={text}
-                  onChange={(e) => {
-                    setText(e.target.value);
-                    setDirty(true);
-                    setNeedsSave(true);
-                    setVerified(false);
-                  }}
-                  placeholder="Enter your synthetic bedside observation"
-                />
-              </label>
-              <label className="checkbox">
-                <input
-                  type="checkbox"
-                  checked={linkVitals}
-                  onChange={(e) => {
-                    setLinkVitals(e.target.checked);
-                    setDirty(true);
-                    setNeedsSave(true);
-                    setVerified(false);
-                  }}
-                />
-                Include latest simulated observations in saved draft
-              </label>
-              {linkVitals && (
-                <div className="provenance">
-                  {current.map((v) => (
-                    <p key={v.id}>
-                      {metricName(v.metric)}: {v.value} {v.unit} ·{" "}
-                      {time(v.observedAt)} · {v.source}
-                    </p>
-                  ))}
-                </div>
-              )}
-              <button
-                disabled={busy || !text.trim()}
-                onClick={() => void save()}
-              >
-                Save draft
-              </button>
-              {draft && (
-                <div className="confirm-box">
-                  {needsSave && (
-                    <p role="status">
-                      Save your changes before confirming this entry.
-                    </p>
-                  )}
-                  <h3>Review saved draft</h3>
-                  <p>{state.charts.find((c) => c.id === draft)?.text}</p>
-                  <small>
-                    {state.charts.find((c) => c.id === draft)?.provenance}
-                  </small>
-                  <label className="checkbox">
-                    <input
-                      type="checkbox"
-                      checked={verified}
-                      onChange={(e) => setVerified(e.target.checked)}
-                    />
-                    I reviewed the saved entry, patient identity, and
-                    provenance.
-                  </label>
-                  <button
-                    disabled={
-                      busy ||
-                      needsSave ||
-                      !verified ||
-                      state.charts.find((c) => c.id === draft)?.text !== text ||
-                      state.charts.find((c) => c.id === draft)?.type !== type ||
-                      (state.charts.find((c) => c.id === draft)?.linkedTaskId ??
-                        "") !== task
-                    }
-                    onClick={() =>
-                      void mutate(`/chart/drafts/${draft}/confirm`, {
-                        verified,
-                      })
-                        .then(() => {
-                          setDraft("");
-                          setText("");
-                          setDirty(false);
-                          sessionStorage.removeItem(`achillea-note-${id}`);
-                          setVerified(false);
-                        })
-                        .catch(() => {})
-                    }
-                  >
-                    Confirm entry
-                  </button>
-                </div>
-              )}
-            </section>
-            <section>
-              <h2>Chart history</h2>
-              {!charts.length && (
-                <p className="empty">No entries yet. Save a draft to begin.</p>
-              )}
-              {charts
-                .slice()
-                .reverse()
-                .map((c) => (
-                  <article className="chart-entry" key={c.id}>
-                    <span className="status">{words(c.status)}</span>
-                    <h3>{words(c.type)}</h3>
-                    <p className="narrative">{c.text}</p>
-                    <small>
-                      {time(c.confirmedAt ?? c.authoredAt)} · {c.nurseId}
-                      <br />
-                      {c.provenance}
-                      {c.amendmentOfId && (
-                        <>
-                          <br />
-                          Amends entry {c.amendmentOfId}
-                        </>
-                      )}
-                    </small>
-                    <div className="linked-readings">
-                      {c.linkedVitalIds.map((vid) => {
-                        const v = state.vitals.find((v) => v.id === vid);
-                        return v ? (
-                          <p key={vid}>
-                            {metricName(v.metric)} {v.value} {v.unit} ·{" "}
-                            {time(v.observedAt)} · {v.source}
-                          </p>
-                        ) : null;
-                      })}
-                    </div>
-                    <button
-                      className="secondary"
-                      onClick={() => {
-                        if (
-                          dirty &&
-                          text.trim() &&
-                          !window.confirm(
-                            "Replace the current working note with this entry? Save your draft first to keep it in the demo record.",
-                          )
-                        )
-                          return;
-                        setNeedsSave(c.status !== "DRAFT");
-                        setDirty(true);
-                        setText(c.status === "DRAFT" ? c.text : "");
-                        setDraft(c.status === "DRAFT" ? c.id : "");
-                        setAmend(c.status === "DRAFT" ? "" : c.id);
-                        setType(c.type);
-                        setTask(c.linkedTaskId ?? "");
-                        setLinkVitals(c.linkedVitalIds.length > 0);
-                        setVerified(false);
-                      }}
-                    >
-                      {c.status === "DRAFT" ? "Edit draft" : "Append amendment"}
-                    </button>
+                          />
+                          I verified actual care, beyond the sensor observation.
+                        </label>
+                        <button
+                          disabled={
+                            busy || !reviewVerified || !reviewNote.trim()
+                          }
+                        >
+                          Confirm care observation
+                        </button>
+                        <p>
+                          Then explicitly complete the prescribed task below to
+                          create its confirmed chart entry.
+                        </p>
+                      </form>
+                    )}
                   </article>
                 ))}
             </section>
-          </div>
-        )}
-      </CareSection>
+          )}
+        </CareSection>
+      )}
+      <div hidden={primarySection !== "Care"} className="patient-care-sections">
+        <CareSection
+          title="Original event history"
+          summary="Inspect the complete recorded patient timeline"
+          open={tab === "History"}
+          onToggle={() => setTab(tab === "History" ? "Care" : "History")}
+        >
+          {tab === "History" && (
+            <section className="activity-timeline">
+              <h2>Patient history</h2>
+              <PatientTimeline state={state} patientId={p.id} />
+              <EventTimeline
+                events={state.events.filter((e) => e.patientId === id)}
+                patients={[p]}
+              />
+            </section>
+          )}
+        </CareSection>
+        <CareSection
+          title="Care & documentation"
+          summary={`${charts.length} entries - ${charts.filter((c) => c.status === "DRAFT").length} drafts to confirm`}
+          open={tab === "Chart"}
+          onToggle={() => setTab(tab === "Chart" ? "Care" : "Chart")}
+        >
+          {tab === "Chart" && (
+            <div className="chart-layout">
+              <section className="surface chart-form">
+                <span className="status">
+                  {dirty
+                    ? "Working draft - retained on this device"
+                    : "Nurse-entered documentation"}
+                </span>
+                <h2>
+                  {amend
+                    ? "Append correction"
+                    : draft
+                      ? "Edit bedside draft"
+                      : "Document at the bedside"}
+                </h2>
+                <p>
+                  Unconfirmed work is retained in this browser tab. Save a draft
+                  to store it in the demo record.
+                </p>
+                <p>
+                  For {p.name} · Room {p.room}. Review patient identity and
+                  source data before confirming.
+                </p>
+                <label>
+                  Entry type
+                  <select
+                    value={type}
+                    onChange={(e) => {
+                      setType(e.target.value);
+                      setDirty(true);
+                      setNeedsSave(true);
+                      setVerified(false);
+                    }}
+                  >
+                    <option value="OBSERVATION">Nursing observation</option>
+                    <option value="ASSESSMENT">Bedside assessment</option>
+                    <option value="CARE_NOTE">Care note</option>
+                  </select>
+                </label>
+                <label>
+                  Link a care task
+                  <select
+                    value={task}
+                    onChange={(e) => {
+                      setTask(e.target.value);
+                      setDirty(true);
+                      setNeedsSave(true);
+                      setVerified(false);
+                    }}
+                  >
+                    <option value="">No task linked</option>
+                    {state.tasks
+                      .filter((t) => t.patientId === id)
+                      .map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.title}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+                <label>
+                  Observation / nurse narrative
+                  <textarea
+                    maxLength={5000}
+                    value={text}
+                    onChange={(e) => {
+                      setText(e.target.value);
+                      setDirty(true);
+                      setNeedsSave(true);
+                      setVerified(false);
+                    }}
+                    placeholder="Enter your synthetic bedside observation"
+                  />
+                </label>
+                <label className="checkbox">
+                  <input
+                    type="checkbox"
+                    checked={linkVitals}
+                    onChange={(e) => {
+                      setLinkVitals(e.target.checked);
+                      setDirty(true);
+                      setNeedsSave(true);
+                      setVerified(false);
+                    }}
+                  />
+                  Include latest simulated observations in saved draft
+                </label>
+                {linkVitals && (
+                  <div className="provenance">
+                    {current.map((v) => (
+                      <p key={v.id}>
+                        {metricName(v.metric)}: {v.value} {v.unit} ·{" "}
+                        {time(v.observedAt)} · {v.source}
+                      </p>
+                    ))}
+                  </div>
+                )}
+                <button
+                  disabled={busy || !text.trim()}
+                  onClick={() => void save()}
+                >
+                  Save draft
+                </button>
+                {draft && (
+                  <div className="confirm-box">
+                    {needsSave && (
+                      <p role="status">
+                        Save your changes before confirming this entry.
+                      </p>
+                    )}
+                    <h3>Review saved draft</h3>
+                    <p>{state.charts.find((c) => c.id === draft)?.text}</p>
+                    <small>
+                      {state.charts.find((c) => c.id === draft)?.provenance}
+                    </small>
+                    <label className="checkbox">
+                      <input
+                        type="checkbox"
+                        checked={verified}
+                        onChange={(e) => setVerified(e.target.checked)}
+                      />
+                      I reviewed the saved entry, patient identity, and
+                      provenance.
+                    </label>
+                    <button
+                      disabled={
+                        busy ||
+                        needsSave ||
+                        !verified ||
+                        state.charts.find((c) => c.id === draft)?.text !==
+                          text ||
+                        state.charts.find((c) => c.id === draft)?.type !==
+                          type ||
+                        (state.charts.find((c) => c.id === draft)
+                          ?.linkedTaskId ?? "") !== task
+                      }
+                      onClick={() =>
+                        void mutate(`/chart/drafts/${draft}/confirm`, {
+                          verified,
+                        })
+                          .then(() => {
+                            setDraft("");
+                            setText("");
+                            setDirty(false);
+                            sessionStorage.removeItem(`achillea-note-${id}`);
+                            setVerified(false);
+                          })
+                          .catch(() => {})
+                      }
+                    >
+                      Confirm entry
+                    </button>
+                  </div>
+                )}
+              </section>
+              <section>
+                <h2>Chart history</h2>
+                {!charts.length && (
+                  <p className="empty">
+                    No entries yet. Save a draft to begin.
+                  </p>
+                )}
+                {charts
+                  .slice()
+                  .reverse()
+                  .map((c) => (
+                    <article className="chart-entry" key={c.id}>
+                      <span className="status">{words(c.status)}</span>
+                      <h3>{words(c.type)}</h3>
+                      <p className="narrative">{c.text}</p>
+                      <small>
+                        {time(c.confirmedAt ?? c.authoredAt)} · {c.nurseId}
+                        <br />
+                        {c.provenance}
+                        {c.amendmentOfId && (
+                          <>
+                            <br />
+                            Amends entry {c.amendmentOfId}
+                          </>
+                        )}
+                      </small>
+                      <div className="linked-readings">
+                        {c.linkedVitalIds.map((vid) => {
+                          const v = state.vitals.find((v) => v.id === vid);
+                          return v ? (
+                            <p key={vid}>
+                              {metricName(v.metric)} {v.value} {v.unit} ·{" "}
+                              {time(v.observedAt)} · {v.source}
+                            </p>
+                          ) : null;
+                        })}
+                      </div>
+                      <button
+                        className="secondary"
+                        onClick={() => {
+                          if (
+                            dirty &&
+                            text.trim() &&
+                            !window.confirm(
+                              "Replace the current working note with this entry? Save your draft first to keep it in the demo record.",
+                            )
+                          )
+                            return;
+                          setNeedsSave(c.status !== "DRAFT");
+                          setDirty(true);
+                          setText(c.status === "DRAFT" ? c.text : "");
+                          setDraft(c.status === "DRAFT" ? c.id : "");
+                          setAmend(c.status === "DRAFT" ? "" : c.id);
+                          setType(c.type);
+                          setTask(c.linkedTaskId ?? "");
+                          setLinkVitals(c.linkedVitalIds.length > 0);
+                          setVerified(false);
+                        }}
+                      >
+                        {c.status === "DRAFT"
+                          ? "Edit draft"
+                          : "Append amendment"}
+                      </button>
+                    </article>
+                  ))}
+              </section>
+            </div>
+          )}
+        </CareSection>
+      </div>
     </div>
   );
 }

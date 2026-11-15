@@ -19,6 +19,7 @@ import {
   Wifi,
   WifiOff,
   Radio,
+  MoreHorizontal,
 } from "lucide-react";
 import type { ActivityItem, Chart, Patient, Round, State, Task } from "./types";
 import { api } from "./api";
@@ -247,7 +248,7 @@ export default function App() {
             aria-label="Open demo controls"
             onClick={() => setDemo(!demo)}
           >
-            <FlaskConical size={19} />
+            <MoreHorizontal size={19} />
           </button>
         </header>
         <div className="simulation">

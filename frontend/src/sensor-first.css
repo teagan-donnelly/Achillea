@@ -343,3 +343,191 @@
     transition: none;
   }
 }
+
+/* Final bedside hierarchy: urgency first, supporting evidence second. */
+.mockup-design .repositioning-home .page-hero {
+  padding: 20px;
+}
+.mockup-design .repositioning-home .page-hero h1 {
+  font-size: clamp(1.45rem, 5vw, 2rem);
+  line-height: 1.15;
+  max-width: 24ch;
+}
+.mockup-design .turn-queue .turn-overdue {
+  background: #fffaf7;
+  padding: 22px;
+}
+.mockup-design .turn-queue .turn-overdue .turn-identity h3 {
+  font-size: 1.2rem;
+}
+.mockup-design .turn-queue .turn-overdue .turn-deadline {
+  font-size: clamp(1.8rem, 7.5vw, 2.5rem);
+  line-height: 1.1;
+  letter-spacing: -0.025em;
+  margin: 8px 0;
+  color: #8b3e2e;
+}
+.mockup-design .turn-queue .turn-overdue:first-child .turn-deadline {
+  font-size: clamp(2rem, 8.5vw, 3rem);
+}
+.mockup-design .turn-review-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+  padding-top: 12px;
+  border-top: 1px solid #e6dfd6;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #0f3d2e;
+  min-height: 44px;
+}
+.mockup-design .turn-due_soon .turn-deadline {
+  font-size: 1.3rem;
+}
+.mockup-design .turn-ontrack .turn-deadline {
+  font-size: 1.1rem;
+}
+.mockup-design .turn-context {
+  align-items: center;
+}
+.mockup-design .turn-context > button {
+  padding: 8px 12px;
+  font-size: 0.8rem;
+}
+.mockup-design .patient-primary-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin: 18px 0;
+  padding: 4px;
+  background: #e6ede3;
+  border-radius: 12px;
+}
+.mockup-design .patient-primary-tabs button {
+  min-width: 0;
+  min-height: 46px;
+  padding: 10px 4px;
+  justify-content: center;
+  font-size: 0.875rem;
+  white-space: normal;
+  background: transparent;
+  border: 0;
+  color: #0f3d2e;
+  border-radius: 8px;
+}
+.mockup-design .patient-primary-tabs button.selected {
+  background: #0f3d2e;
+  color: #fff;
+}
+.mockup-design .patient-care-sections[hidden],
+.mockup-design .patient-quick-actions[hidden] {
+  display: none;
+}
+.mockup-design .body-position .sensor-label {
+  font:
+    11px "DM Sans",
+    sans-serif;
+  stroke: none;
+  fill: #0f3d2e;
+}
+.mockup-design .region-readings > div {
+  padding: 12px 0;
+  border-bottom: 1px solid #e2e6dd;
+}
+.mockup-design .region-readings > div:last-child {
+  border-bottom: 0;
+}
+.mockup-design .region-unavailable {
+  color: #76553e;
+}
+.mockup-design .region-unavailable svg {
+  color: #76553e;
+}
+.mockup-design .region-reporting svg {
+  color: #2e6b57;
+}
+.mockup-design .sensor-sample-plot {
+  margin: 20px 0;
+  padding: 16px 0;
+  border-block: 1px solid #e2e6dd;
+}
+.mockup-design .sensor-sample-plot figcaption {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.mockup-design .sensor-sample-plot figcaption span,
+.mockup-design .sensor-sample-plot small {
+  font-size: 0.8rem;
+  color: #59695e;
+}
+.mockup-design .sensor-sample-plot svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin-top: 12px;
+}
+.mockup-design .sensor-sample-plot line {
+  stroke: #dbe3d7;
+  stroke-width: 1;
+}
+.mockup-design .sensor-sample-plot text {
+  fill: #59695e;
+  font:
+    10px "DM Sans",
+    sans-serif;
+}
+.mockup-design .sensor-sample-plot .sample-chest {
+  fill: #2e6b57;
+}
+.mockup-design .sensor-sample-plot .sample-pelvis {
+  fill: #ad6248;
+}
+.mockup-design .sample-legend {
+  display: flex;
+  gap: 18px;
+  font-size: 0.8rem;
+  margin: 0 0 8px;
+}
+.mockup-design .sample-legend span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.mockup-design .sample-legend span::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #2e6b57;
+}
+.mockup-design .sample-legend span:last-child::before {
+  background: #ad6248;
+}
+.mockup-design .turn-review > h2 {
+  font-family: Fraunces, Georgia, serif;
+  font-size: 1.6rem;
+}
+.mockup-design .turn-review > button {
+  margin-top: 14px;
+}
+@media (min-width: 1024px) {
+  .mockup-design .command-columns {
+    grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  }
+  .mockup-design .patient-primary-tabs {
+    max-width: 650px;
+  }
+}
+@media (max-width: 359px) {
+  .mockup-design .turn-queue .turn-overdue {
+    padding: 16px;
+  }
+  .mockup-design .turn-review {
+    padding: 16px;
+  }
+  .mockup-design .patient-primary-tabs button {
+    font-size: 0.8rem;
+  }
+}

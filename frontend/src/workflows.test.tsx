@@ -97,7 +97,7 @@ describe("Bedside workflows", () => {
         </Routes>
       </MemoryRouter>,
     );
-    fireEvent.click(screen.getByRole("button", { name: "Chart" }));
+    fireEvent.click(screen.getByRole("button", { name: "Document care" }));
     fireEvent.change(
       screen.getByPlaceholderText("Enter your synthetic bedside observation"),
       { target: { value: "Synthetic bedside review" } },
