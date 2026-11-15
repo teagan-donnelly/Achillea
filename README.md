@@ -1,5 +1,7 @@
 # Achillea
 
+> **Run it locally with the live bedside simulator: [RUN_LOCALLY.md](RUN_LOCALLY.md)** (three terminals, step by step).
+
 Sensor-first preview: see [isolated startup, two-minute demo and verification](docs/SENSOR_FIRST_DEMO.md). Home prioritizes configured repositioning deadlines; movement evidence requires explicit nurse verification and documentation.
 
 **Recovered hackathon demo:** use [the recovery startup, phone tunnel and two-minute walkthrough](docs/HACKATHON_RECOVERY.md). This branch is based directly on verified pre-Tiger V3; the instructions below describe the original V3 setup.
