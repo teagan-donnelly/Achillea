@@ -230,6 +230,42 @@ public class Model {
     String quality
   ) {}
 
+  /** One free-form roll reading from a single body-region sensor (UPPER_TORSO or PELVIS). */
+  public record OrientationReading(
+    String sourceEventId,
+    String patientId,
+    String bodyRegion,
+    Double rollDegrees,
+    Instant capturedAt,
+    String quality
+  ) {}
+
+  /** Both regions in one frame; a null angle means that region was not measured. */
+  public record PostureReading(
+    String sourceEventId,
+    String patientId,
+    Double upperTorsoDegrees,
+    Double pelvisDegrees,
+    Instant capturedAt,
+    String quality
+  ) {}
+
+  /**
+   * A free-form movement (e.g. a turn the simulator just finished). "Before" angles default to
+   * the latest stored sample per region; pelvisAfter null means the pelvis was not measured.
+   */
+  public record MovementReading(
+    String sourceEventId,
+    String patientId,
+    Double upperTorsoBefore,
+    Double upperTorsoAfter,
+    Double pelvisBefore,
+    Double pelvisAfter,
+    Instant capturedAt,
+    String quality,
+    Double confidence
+  ) {}
+
   public record Command(
     String reason,
     String text,
