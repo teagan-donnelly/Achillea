@@ -1,4 +1,26 @@
-# Run Achillea + the bedside simulator locally
+# Run Achillea locally
+
+## Recommended demo: backend-managed recorded replay (two terminals, no simulator tab needed)
+
+```powershell
+cd frontend; npm ci; cd ..
+mvn -f backend/pom.xml -DskipTests package
+# Terminal 1 (new database name = clean slate)
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/Start-HackathonBackend.ps1 -DatabaseName replay-demo1
+# Terminal 2
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/Start-HackathonFrontend.ps1
+```
+
+Open http://127.0.0.1:15274 and pick **ICU**. The backend replays the recorded MIMIC-IV demo charting for
+Alex Linden (108) and ICU 04-07, plus a clearly labeled **synthetic fixture** for Robin Ash (109) whose heart
+rate rises mid-shift. Playback runs on a backend clock, so it keeps going while you switch tabs, close
+screens, or refresh. Controls (pause, 1×/5×/10×, loop, restart) are in the **Recorded Data Replay** bar on
+Monitoring. `-ReplaySpeed 5` sets the start speed; `-NoReplay` turns it off. Do not run `simulator/` against a
+replay backend (both would write vitals).
+
+---
+
+## Alternative: the 3D bedside simulator
 
 Three terminals: **backend**, **Achillea website**, **simulator**. The simulator streams five ICU patients into the backend, and the Achillea website updates live.
 

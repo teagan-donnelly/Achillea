@@ -87,24 +87,15 @@ describe("Mobile navigation", () => {
   it("swipes forward and back, without wrapping at either edge", () => {
     setup();
     const area = screen.getByTestId("gesture");
-    swipe(area, 100);
-    expect(screen.getByLabelText("Current route")).toHaveTextContent("/");
-    swipe(area, -100);
-    expect(screen.getByLabelText("Current route")).toHaveTextContent(
-      "/patients",
-    );
-    swipe(area, -100);
-    expect(screen.getByLabelText("Current route")).toHaveTextContent("/sensors");
-    swipe(area, -100);
-    expect(screen.getByLabelText("Current route")).toHaveTextContent("/rounds");
-    swipe(area, -100);
-    expect(screen.getByLabelText("Current route")).toHaveTextContent("/rounds");
-    swipe(area, 100);
-    expect(screen.getByLabelText("Current route")).toHaveTextContent("/sensors");
-    swipe(area, 100);
-    expect(screen.getByLabelText("Current route")).toHaveTextContent(
-      "/patients",
-    );
+    // tab order: Patients, Tasks, Monitoring "/" (center), Handoff, Settings
+    for (const next of ["/rounds", "/patients", "/patients"]) {
+      swipe(area, 100);
+      expect(screen.getByLabelText("Current route")).toHaveTextContent(next);
+    }
+    for (const next of ["/rounds", "/", "/activity", "/settings", "/settings"]) {
+      swipe(area, -100);
+      expect(screen.getByLabelText("Current route")).toHaveTextContent(next);
+    }
   });
   it("ignores vertical scrolling, short drags, controls, and chart content", () => {
     setup();
@@ -122,7 +113,7 @@ describe("Mobile navigation", () => {
       ctrlKey: true,
     });
     expect(screen.getByLabelText("Current route")).toHaveTextContent(
-      "/patients",
+      "/activity",
     );
     fireEvent.click(screen.getByRole("link", { name: "Rounds" }));
     expect(screen.getByLabelText("Current route")).toHaveTextContent("/rounds");
@@ -134,7 +125,7 @@ describe("Mobile navigation", () => {
       "/patients/p1",
     );
   });
-  it("lands on the command center and provides four main destinations", async () => {
+  it("opens on Monitoring and provides five icon tabs: Patients, Tasks, Monitoring, Handoff, Settings", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (url: string) => ({
@@ -147,17 +138,35 @@ describe("Mobile navigation", () => {
         <App />
       </MemoryRouter>,
     );
-    await screen.findByRole("heading", { name: "Repositioning Command Center" });
-    expect(
-      screen
+    await screen.findByRole("heading", { name: "Monitoring" });
+    const tabs = [
+      ...screen
         .getByRole("navigation", { name: "Main navigation" })
         .querySelectorAll("a"),
-    ).toHaveLength(4);
-    fireEvent.click(screen.getByRole("link", { name: "Rounds" }));
-    expect(screen.getByRole("heading", { name: "Now" })).toBeInTheDocument();
+    ].map((a) => a.getAttribute("aria-label"));
+    expect(tabs).toEqual(["Patients", "Tasks", "Monitoring", "Handoff", "Settings"]);
+    expect(screen.getByRole("link", { name: "Monitoring" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    fireEvent.click(screen.getByRole("link", { name: "Settings" }));
+    expect(screen.getByRole("heading", { name: "Settings" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Settings" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    expect(
+      screen.getAllByRole("link", { current: "page" }).length,
+    ).toBe(1); // only one selected tab
+    fireEvent.click(screen.getByRole("link", { name: "Tasks" }));
+    expect(screen.getByRole("heading", { name: /^Room / })).toBeInTheDocument();
+    // The ranking reason is shown in the task's sheet, not as a caption in the list.
+    expect(screen.queryByText(/Past scheduled due time/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /^Bedside review/ }));
     expect(
       screen.getAllByText(/Past scheduled due time/).length,
     ).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
     fireEvent.click(screen.getByRole("link", { name: "Patients" }));
     expect(
       screen.getByRole("heading", { name: "Your patients" }),

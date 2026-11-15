@@ -1,0 +1,635 @@
+/* Tasks tab (RoundsView.tsx, task-row.tsx, task-sheet.tsx): Apple Reminders x Things 3.
+   Scoped under .tk (screen) and .tk-sheet (sheet bodies). Shared tokens and components: ui.css.
+   Type: 12 / 13 / 15 / 16 / 17. Spacing: 4 / 8 / 12 / 16 / 24. */
+
+/* ---------- Patient filter: horizontally scrolling chips ---------- */
+.mockup-design .tk .tk-filter {
+  display: flex;
+  gap: 8px;
+  margin: 12px 0 0;
+  padding: 2px var(--ach-gutter);
+  overflow-x: auto;
+  scrollbar-width: none;
+  scroll-padding-inline: var(--ach-gutter);
+}
+.mockup-design .tk .tk-filter::-webkit-scrollbar {
+  display: none;
+}
+.mockup-design .tk .tk-filter button {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 48px;
+  height: 48px;
+  margin: 0;
+  padding: 0 14px;
+  border: 1px solid var(--ach-border);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--ach-icon);
+  box-shadow: none;
+  font: 500 0.875rem/42px var(--ach-font);
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+.mockup-design .tk-filter-person {
+  display: grid;
+  gap: 1px;
+  line-height: 1.2;
+  text-align: left;
+}
+.mockup-design .tk-filter-person > span {
+  font-size: 0.75rem;
+  font-weight: 400;
+  opacity: 0.8;
+}
+.mockup-design .tk .tk-filter button small {
+  font-size: 0.75rem;
+  line-height: inherit;
+  color: var(--ach-faint);
+  font-variant-numeric: tabular-nums;
+}
+.mockup-design .tk .tk-filter button[aria-pressed="true"] {
+  background: var(--ach-mint);
+  border-color: var(--ach-mint);
+  color: var(--ach-green);
+  font-weight: 600;
+}
+.mockup-design .tk .tk-filter button[aria-pressed="true"] small {
+  color: var(--ach-green);
+  opacity: 0.75;
+}
+
+/* ---------- Section action ("Show" / "Hide") ---------- */
+.mockup-design .tk .tk-text-button {
+  min-height: 44px;
+  height: 44px;
+  margin: 0;
+  padding: 0 4px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--ach-green);
+  font: 500 0.9375rem/1 var(--ach-font);
+  cursor: pointer;
+}
+.mockup-design .tk .tk-text-button:hover {
+  background: transparent;
+  opacity: 0.75;
+}
+
+/* ---------- List rows ---------- */
+.mockup-design .tk .tk-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.mockup-design .tk .tk-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+}
+.mockup-design .tk .tk-row-body {
+  flex: 1;
+  min-width: 0;
+  border-bottom: 0.5px solid var(--ach-border);
+  padding-bottom: 12px;
+}
+.mockup-design .tk .tk-row:last-child .tk-row-body {
+  border-bottom: 0;
+}
+
+/* Reminders completion ring: 24px, 44px hit area. */
+.mockup-design .tk .tk-circle {
+  position: relative;
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  min-height: 44px;
+  margin: 2px -10px 0 -10px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  box-shadow: none;
+  cursor: pointer;
+}
+.mockup-design .tk .tk-circle::before {
+  content: "";
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1.5px solid #c5ccc7;
+  background: #fff;
+  box-sizing: border-box;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    transform 0.15s var(--ach-ease);
+}
+.mockup-design .tk .tk-circle:hover {
+  background: transparent;
+}
+.mockup-design .tk .tk-circle:hover::before {
+  border-color: var(--ach-green);
+}
+.mockup-design .tk .tk-circle:active::before {
+  transform: scale(0.88);
+  background: var(--ach-mint);
+  border-color: var(--ach-green);
+}
+.mockup-design .tk .tk-circle.checked::before {
+  background: var(--ach-green);
+  border-color: var(--ach-green);
+}
+.mockup-design .tk .tk-circle.checked svg {
+  position: absolute;
+  width: 13px;
+  height: 13px;
+  color: #fff;
+}
+
+.mockup-design .tk .tk-row-main {
+  display: grid;
+  justify-content: stretch;
+  justify-items: start;
+  align-items: start;
+  gap: 2px;
+  width: 100%;
+  min-height: 44px;
+  margin: 0;
+  padding: 12px 0 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--ach-text);
+  text-align: left;
+  font: inherit;
+  font-weight: 400;
+  cursor: pointer;
+}
+.mockup-design .tk .tk-row-main:hover {
+  background: transparent;
+}
+.mockup-design .tk .tk-row-main:active .tk-title {
+  opacity: 0.6;
+}
+.mockup-design .tk .tk-title {
+  display: block;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 1rem;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  line-height: 1.35;
+}
+.mockup-design .tk .tk-sub {
+  max-width: 100%;
+  font-size: 0.875rem;
+  line-height: 1.35;
+  color: var(--ach-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mockup-design .tk .tk-row.done .tk-title {
+  color: var(--ach-muted);
+  font-weight: 400;
+}
+
+/* ---------- History date filter ---------- */
+.mockup-design .tk .tk-day-filter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 16px var(--ach-gutter) 0;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--ach-text);
+}
+.mockup-design .tk .tk-day-filter select {
+  width: auto;
+  min-height: 44px;
+  margin: 0;
+  padding: 6px 12px;
+  border: 1px solid var(--ach-border);
+  border-radius: 999px;
+  background: var(--ach-surface);
+  font: 500 0.875rem/1.2 var(--ach-font);
+  color: var(--ach-icon);
+}
+
+/* ---------- Sheet body ---------- */
+.mockup-design .tk-sheet {
+  display: grid;
+  gap: 16px;
+  font-family: var(--ach-font);
+  color: var(--ach-text);
+}
+.mockup-design .tk-sheet-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.mockup-design .tk-sheet-pills:empty {
+  display: none;
+}
+.mockup-design .tk-info {
+  display: grid;
+  margin: 0;
+  padding: 0 14px;
+  border-radius: var(--ach-radius-sm);
+  background: var(--ach-surface);
+}
+.mockup-design .tk-info-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 46px;
+  padding: 12px 0;
+  border-bottom: 0.5px solid var(--ach-border);
+  color: var(--ach-text);
+  text-decoration: none;
+}
+.mockup-design .tk-info-row:last-child {
+  border-bottom: 0;
+}
+.mockup-design .tk-info-label {
+  flex: none;
+  font-size: 0.875rem;
+  color: var(--ach-muted);
+}
+.mockup-design .tk-info-value {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  font-size: 0.9375rem;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+.mockup-design .tk-info-link .tk-info-value {
+  color: var(--ach-text);
+  font-weight: 500;
+}
+.mockup-design .tk-info-link svg {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  color: var(--ach-faint);
+}
+.mockup-design .tk-overdue {
+  color: var(--ach-red);
+}
+.mockup-design .tk-block h3 {
+  margin: 0 0 6px;
+  font: 400 0.8125rem/1.3 var(--ach-font);
+  color: var(--ach-muted);
+}
+.mockup-design .tk-block p {
+  margin: 0 0 4px;
+  font-size: 0.9375rem;
+  line-height: 1.45;
+  color: var(--ach-text);
+}
+.mockup-design .tk-sheet small {
+  display: block;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: var(--ach-faint);
+}
+.mockup-design .tk-reasons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0;
+  padding: 0;
+  list-style: none;
+}
+.mockup-design .tk-reasons li {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--ach-grey-soft);
+  color: var(--ach-grey-text);
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.3;
+}
+.mockup-design .tk-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  color: var(--ach-green);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  text-decoration: none;
+}
+.mockup-design .tk-link svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Priority: three-way capsule. */
+
+/* Grouped action rows (Document, Move earlier). */
+.mockup-design .tk-sheet-links {
+  display: grid;
+  padding: 0 14px;
+  border-radius: var(--ach-radius-sm);
+  background: var(--ach-surface);
+}
+.mockup-design .tk-action-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 48px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-bottom: 0.5px solid var(--ach-border);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--ach-text);
+  font: 500 0.9375rem/1.3 var(--ach-font);
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+.mockup-design .tk-action-row:last-child {
+  border-bottom: 0;
+}
+.mockup-design .tk-action-row:hover {
+  background: transparent;
+}
+.mockup-design .tk-action-row span {
+  flex: 1;
+}
+.mockup-design .tk-action-row svg {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  color: var(--ach-green);
+}
+.mockup-design .tk-action-row .tk-chev {
+  width: 16px;
+  height: 16px;
+  color: var(--ach-faint);
+}
+
+/* Forms inside sheets (complete, defer, schedule). */
+.mockup-design .tk-time-shortcuts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.mockup-design .tk-time-shortcuts button {
+  min-height: 44px;
+  margin: 0;
+  padding: 0 14px;
+  border: 1px solid var(--ach-border);
+  border-radius: 999px;
+  background: var(--ach-surface);
+  box-shadow: none;
+  color: var(--ach-green);
+  font: 500 0.875rem var(--ach-font);
+}
+.mockup-design .tk-time-shortcuts button:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+.mockup-design .tk-time-shortcuts button:not(:disabled):active {
+  background: var(--ach-mint);
+}
+.mockup-design .tk-sheet .tk-saving {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  color: var(--ach-green);
+  background: var(--ach-mint);
+  font-size: 0.875rem;
+}
+.mockup-design .tk-sheet .tk-completion-hint {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--ach-muted);
+}
+.mockup-design .tk-form,
+.mockup-design .tk-sheet .schedule-review-form {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+}
+.mockup-design .tk-sheet .schedule-review-form p {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--ach-muted);
+}
+.mockup-design .tk-field,
+.mockup-design .tk-sheet .schedule-review-form label {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--ach-text);
+}
+.mockup-design .tk-sheet :is(select, textarea, input:not([type="checkbox"])) {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--ach-border);
+  border-radius: 12px;
+  background: var(--ach-surface);
+  color: var(--ach-text);
+  font: 400 1rem/1.4 var(--ach-font);
+  box-shadow: none;
+}
+.mockup-design .tk-sheet textarea {
+  min-height: 88px;
+  resize: vertical;
+}
+.mockup-design .tk-sheet :is(select, textarea, input):focus {
+  border-color: var(--ach-green);
+  background: #fff;
+}
+.mockup-design .tk-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--ach-mint);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--ach-text);
+  cursor: pointer;
+}
+.mockup-design .tk-check input {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin: 1px 0 0;
+  accent-color: var(--ach-green);
+}
+.mockup-design .tk-sheet .schedule-review-form > button {
+  min-height: 44px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--ach-green);
+  color: #fff;
+  font: 600 0.9375rem/1 var(--ach-font);
+}
+.mockup-design .tk-error {
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: var(--ach-red-soft);
+  color: #b42318;
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+/* Sheet footer: equal-width actions; Cancel hugs its label so the confirm action fits at 320. */
+.mockup-design .ach-sheet-footer:has(.tk-cancel) {
+  flex-wrap: nowrap;
+}
+.mockup-design .ach-sheet-footer:has(.tk-cancel) .ach-button {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 0 10px;
+  white-space: nowrap;
+}
+.mockup-design .ach-sheet-footer:has(.tk-cancel) .ach-button.tk-cancel {
+  flex: none;
+  padding: 0 18px;
+}
+.mockup-design .ach-sheet-footer:has(.tk-cancel) .ach-button.secondary:hover {
+  background: var(--ach-surface);
+}
+.mockup-design
+  .ach-sheet-footer:has(.tk-cancel)
+  .ach-button:not(.secondary):hover {
+  background: #1d6a40;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mockup-design .tk .tk-circle::before,
+  .mockup-design .tk .tk-filter button {
+    transition: none;
+  }
+}
+
+/* ---------- Polish pass: Reminders rows ---------- */
+.mockup-design .tk.ach-screen {
+  padding-bottom: calc(112px + env(safe-area-inset-bottom));
+}
+.mockup-design .tk .tk-bang {
+  margin-right: 5px;
+  color: var(--ach-red);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+}
+.mockup-design .tk .tk-when {
+  font-size: 0.875rem;
+  line-height: 1.35;
+  color: var(--ach-muted);
+  font-variant-numeric: tabular-nums;
+}
+.mockup-design .tk .tk-when time.overdue {
+  color: var(--ach-red);
+}
+.mockup-design .tk .tk-status {
+  color: var(--ach-muted);
+}
+.mockup-design .tk .tk-sub {
+  color: var(--ach-faint);
+  font-size: 0.8125rem;
+}
+
+/* ---------- Polish pass: sheet ---------- */
+.mockup-design .tk-sheet .ach-segmented {
+  margin: 0;
+}
+.mockup-design .tk-context {
+  margin: 0;
+  font-size: 0.9375rem;
+  line-height: 1.45;
+  color: var(--ach-text);
+}
+.mockup-design .tk-sheet-links {
+  margin: 0;
+  list-style: none;
+}
+.mockup-design .tk-sheet-links li {
+  border-bottom: 0.5px solid var(--ach-border);
+}
+.mockup-design .tk-sheet-links li:last-child {
+  border-bottom: 0;
+}
+.mockup-design .tk-sheet-links li .tk-action-row {
+  border-bottom: 0;
+}
+.mockup-design .tk-action-row small {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.8125rem;
+  font-weight: 400;
+  color: var(--ach-muted);
+}
+.mockup-design .tk-action-row small.tk-overdue {
+  color: var(--ach-red);
+}
+.mockup-design .ach-sheet-footer .tk-footer-stack {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+}
+.mockup-design .ach-sheet .tk-quiet-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+.mockup-design .ach-sheet .tk-quiet {
+  min-height: 44px;
+  margin: 0;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--ach-green);
+  font: 500 0.9375rem/1 var(--ach-font);
+  cursor: pointer;
+}
+.mockup-design .ach-sheet .tk-quiet:hover {
+  background: var(--ach-surface);
+}
+.mockup-design .ach-sheet .tk-quiet:disabled {
+  color: var(--ach-muted);
+  opacity: 1;
+  cursor: default;
+}
+.mockup-design .ach-sheet-footer:has(.tk-cancel) .ach-button.tk-primary {
+  width: 100%;
+  flex: none;
+}

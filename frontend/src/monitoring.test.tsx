@@ -129,7 +129,7 @@ it("shows an honest trend unavailable state when history is insufficient", () =>
   expect(screen.getByText(/Trend unavailable/)).toBeInTheDocument();
   expect(screen.queryByRole("img")).not.toBeInTheDocument();
 });
-it("uses a sparse task queue without empty Next and Later board columns", () => {
+it("groups tasks by patient instead of due-time buckets", () => {
   render(
     <MemoryRouter>
       <RoundsView
@@ -141,14 +141,14 @@ it("uses a sparse task queue without empty Next and Later board columns", () => 
       />
     </MemoryRouter>,
   );
-  expect(screen.getByRole("heading", { name: "Now" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: /^Room / })).toBeInTheDocument();
+  expect(screen.queryByRole("heading", { name: /^Overdue/ })).not.toBeInTheDocument();
   expect(
-    screen.queryByRole("heading", { name: "Next" }),
+    screen.queryByRole("heading", { name: /^Due Now/ }),
   ).not.toBeInTheDocument();
   expect(
-    screen.queryByRole("heading", { name: "Later" }),
+    screen.queryByRole("heading", { name: /^Upcoming/ }),
   ).not.toBeInTheDocument();
-  expect(screen.getByText("Next: no scheduled tasks")).toBeInTheDocument();
 });
 it("refreshes task state and Activity after an acknowledged API response", async () => {
   let data = { ...state, tasks: [round.task] },
@@ -185,14 +185,18 @@ it("refreshes task state and Activity after an acknowledged API response", async
       <App />
     </MemoryRouter>,
   );
-  await screen.findByRole("button", { name: "Acknowledge" });
+  // Tasks tab: task actions live in the task sheet opened from the row.
+  fireEvent.click(
+    await screen.findByRole("button", { name: /^Review observations,/ }),
+  );
   fireEvent.click(screen.getByRole("button", { name: "Acknowledge" }));
   await waitFor(() =>
-    expect(screen.getByRole("button", { name: "Acknowledge" })).toBeDisabled(),
+    expect(screen.getByRole("button", { name: "Reviewed" })).toBeDisabled(),
   );
   fireEvent.click(screen.getByRole("link", { name: "Activity history" }));
+  // /activity is now the Handoff tab (shift handoff records, not the raw event feed).
   expect(
-    await screen.findByText("Task acknowledged at bedside"),
+    await screen.findByRole("heading", { name: "Handoff" }),
   ).toBeInTheDocument();
   expect(
     fetch.mock.calls.some(
@@ -222,7 +226,7 @@ it("keeps ICU workflows separate when switching units", async () => {
       <App />
     </MemoryRouter>,
   );
-  await screen.findByRole("heading", { name: "Repositioning Command Center" });
+  await screen.findByRole("heading", { name: "Monitoring" });
   fireEvent.change(screen.getByLabelText("Demo unit"), {
     target: { value: "ICU" },
   });

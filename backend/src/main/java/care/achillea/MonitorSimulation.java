@@ -10,6 +10,10 @@ import org.springframework.stereotype.Component;
 @Component
 public class MonitorSimulation {
 
+  /** Patients whose bedside monitor is driven by ReplayEngine; the synthetic generator skips them. */
+  public final java.util.Set<String> replayOwned =
+    java.util.concurrent.ConcurrentHashMap.newKeySet();
+
   public void ensureDevices(State s, Instant now) {
     if (s.demoStartedAt == null) s.demoStartedAt = now;
     for (Patient p : s.patients) {
@@ -37,7 +41,7 @@ public class MonitorSimulation {
           latestVital == null ? null : latestVital.observedAt();
         s.devices.add(monitor);
       }
-      monitor(s, p.id()).updateIntervalSeconds =
+      if (!replayOwned.contains(p.id())) monitor(s, p.id()).updateIntervalSeconds =
         15 + (s.patients.indexOf(p) % 3) * 15;
       if (p.repositionPlan()) for (String region : List.of(
         "UPPER_TORSO",
@@ -87,6 +91,7 @@ public class MonitorSimulation {
     s.monitorTick++;
     for (int index = 0; index < s.patients.size(); index++) {
       Patient p = s.patients.get(index);
+      if (replayOwned.contains(p.id())) continue;
       Device d = monitor(s, p.id());
       d.updateIntervalSeconds = 15 + (index % 3) * 15;
       String previousConnection = d.connectionState;
@@ -274,8 +279,14 @@ public class MonitorSimulation {
           ? "UNKNOWN"
           : d.connectionState.equals("DISCONNECTED")
             ? "DISCONNECTED"
-            : d.lastSampledAt.isBefore(now.minusSeconds(60))
+            : d.lastSampledAt.isBefore(now.minusSeconds(staleAfterSeconds(d)))
               ? "STALE"
               : "FRESH";
+  }
+
+  /** Replayed monitors report on the recording's cadence; preserve real gaps as STALE. */
+  static long staleAfterSeconds(Device d) {
+    boolean replay = d.mode != null && (d.mode.startsWith("RECORDED") || d.mode.equals("SYNTHETIC_FIXTURE"));
+    return replay ? Math.max(15, Math.round(d.updateIntervalSeconds * 2.5)) : 60;
   }
 }

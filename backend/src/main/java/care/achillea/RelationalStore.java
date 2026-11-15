@@ -61,7 +61,9 @@ public class RelationalStore {
       "charts",
       List.of(new Child("chart_evidence_links", "vital_id", "linkedVitalIds"))
     ),
-    new Kind("activity_events", Event.class, "events", List.of())
+    new Kind("activity_events", Event.class, "events", List.of()),
+    new Kind("handoffs", Handoff.class, "handoffs", List.of()),
+    new Kind("handoff_versions", HandoffVersion.class, "handoffVersions", List.of())
   );
 
   private final JdbcTemplate jdbc;

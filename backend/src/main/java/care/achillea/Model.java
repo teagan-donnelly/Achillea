@@ -1,5 +1,7 @@
 package care.achillea;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -18,6 +20,8 @@ public class Model {
     public List<Event> events = new ArrayList<>();
     public List<Device> devices = new ArrayList<>();
     public List<Repositioning.Plan> repositioningPlans = new ArrayList<>();
+    public List<Handoff> handoffs = new ArrayList<>();
+    public List<HandoffVersion> handoffVersions = new ArrayList<>();
     public Instant demoStartedAt, serverTime;
     public long monitorTick;
   }
@@ -307,5 +311,70 @@ public class Model {
         List.of()
       );
     }
+  }
+
+  /** The six free-text handoff sections; null fields mean "not provided" in PATCH requests. */
+  public record HandoffSections(
+    String currentConcerns,
+    String changesDuringShift,
+    String interventionsAndResponse,
+    String outstandingFollowUp,
+    String nextShiftPriorities,
+    String additionalObservations
+  ) {}
+
+  /**
+   * Section columns are flattened for RelationalStore (section_current_concerns, ...) and exposed
+   * in JSON as one nested "sections" object.
+   */
+  public abstract static class HandoffText {
+
+    @JsonIgnore
+    public String sectionCurrentConcerns = "",
+      sectionChangesDuringShift = "",
+      sectionInterventionsAndResponse = "",
+      sectionOutstandingFollowUp = "",
+      sectionNextShiftPriorities = "",
+      sectionAdditionalObservations = "";
+
+    @JsonProperty("sections")
+    public HandoffSections getSections() {
+      return new HandoffSections(
+        sectionCurrentConcerns,
+        sectionChangesDuringShift,
+        sectionInterventionsAndResponse,
+        sectionOutstandingFollowUp,
+        sectionNextShiftPriorities,
+        sectionAdditionalObservations
+      );
+    }
+
+    @JsonProperty("sections")
+    public void setSections(HandoffSections x) {
+      if (x == null) return;
+      if (x.currentConcerns() != null) sectionCurrentConcerns = x.currentConcerns();
+      if (x.changesDuringShift() != null) sectionChangesDuringShift = x.changesDuringShift();
+      if (x.interventionsAndResponse() != null) sectionInterventionsAndResponse = x.interventionsAndResponse();
+      if (x.outstandingFollowUp() != null) sectionOutstandingFollowUp = x.outstandingFollowUp();
+      if (x.nextShiftPriorities() != null) sectionNextShiftPriorities = x.nextShiftPriorities();
+      if (x.additionalObservations() != null) sectionAdditionalObservations = x.additionalObservations();
+    }
+  }
+
+  /** Nurse-authored shift handoff; never seeded. Status DRAFT -> READY -> REVIEWED -> ACKNOWLEDGED. */
+  public static class Handoff extends HandoffText {
+
+    public String id, patientId, shiftDate, shiftLabel, senderId, receiverId, status = "DRAFT";
+    public int version = 1;
+    public Instant createdAt, updatedAt, readyAt, reviewedAt, acknowledgedAt;
+    public String reviewedBy, acknowledgedBy;
+  }
+
+  /** Append-only snapshot written on every handoff create and edit. */
+  public static class HandoffVersion extends HandoffText {
+
+    public String id, handoffId, patientId, savedBy, status;
+    public int version;
+    public Instant savedAt;
   }
 }

@@ -54,6 +54,8 @@ public class ClinicalController {
     s.charts.removeIf(c -> !ids.contains(c.patientId));
     s.devices.removeIf(d -> !ids.contains(d.patientId));
     s.repositioningPlans.removeIf(p -> !ids.contains(p.patientId));
+    s.handoffs.removeIf(h -> !ids.contains(h.patientId));
+    s.handoffVersions.removeIf(v -> !ids.contains(v.patientId));
     s.events.removeIf(
       e -> e.patientId() != null && !ids.contains(e.patientId())
     );
@@ -96,6 +98,7 @@ public class ClinicalController {
     s.vitals.clear();
     s.samples.clear();
     s.events.clear();
+    s.handoffVersions.clear();
     return s;
   }
 

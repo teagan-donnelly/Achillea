@@ -1,0 +1,92 @@
+/* Handoff tab: Apple-clean cards, Instagram-style story rings and swipeable panes. */
+/* patient header */
+.hu-hero{display:flex;gap:14px;align-items:center;padding:4px 2px 14px}
+.hu-hero h2{font-size:22px;margin:0;color:var(--ach-text,#1c1c1e);letter-spacing:-.01em}
+.hu-hero p{margin:2px 0 0;font-size:14px;color:var(--ach-muted,#6b6b70)}
+.hu-stats{display:flex;gap:18px;margin:6px 0 0;font-size:12px;color:var(--ach-muted,#6b6b70)}
+.hu-stats b{display:block;font-size:17px;color:var(--ach-text,#1c1c1e)}
+.hu-stats .is-warn b{color:var(--ach-amber,#c98a1b)}
+
+/* tabs: same capsule + sliding highlight as the bottom navigation */
+.hu-tabs-wrap{min-width:0}
+.hu-tabs{--pad:5px;position:relative;display:grid;grid-template-columns:repeat(var(--n),minmax(0,1fr));height:50px;padding:var(--pad);box-sizing:border-box;border:1px solid var(--nav-border,#e6eee8);border-radius:9999px;background:var(--nav-bg,#fff);box-shadow:0 6px 20px rgb(39 51 43 / 8%);margin:0 0 14px}
+.hu-tabs button{position:relative;z-index:1;border:0;background:none;font:500 0.875rem/1.2 var(--ach-font,inherit);letter-spacing:-0.01em;color:var(--nav-icon,#27332b);border-radius:9999px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:0 4px;min-width:0}
+.hu-tabs button.active{color:var(--nav-green,#237a4b);font-weight:600}
+.hu-tabs button:focus-visible{outline:2px solid var(--nav-green,#237a4b);outline-offset:-2px}
+.hu-tab-thumb{position:absolute;z-index:0;top:var(--pad);bottom:var(--pad);left:var(--pad);width:calc((100% - 2 * var(--pad)) / var(--n));border-radius:9999px;background:var(--nav-highlight,#e3f3e8);transform:translateX(calc(var(--i) * 100%));transition:transform 200ms ease;pointer-events:none}
+.hu-tab-count{min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--ach-amber,#c98a1b);color:#fff;font-size:11px;font-weight:700;display:inline-grid;place-items:center;box-sizing:border-box}
+.hu-pane{display:none;min-width:0;gap:12px;align-content:start;padding-bottom:8px}
+.hu-pane.is-active{display:grid}
+@media (prefers-reduced-motion:reduce){.hu-tab-thumb{transition:none}}
+
+/* cards */
+.hu-card,.hu-summary{background:var(--ach-surface,#fff);border:1px solid var(--ach-border,#ececf0);border-radius:20px;padding:14px;min-width:0;overflow-wrap:anywhere}
+.hu-card h3,.hu-summary h3{display:flex;align-items:center;gap:6px;font-size:16px;margin:0 0 4px;color:var(--ach-text,#1c1c1e)}
+.hu-sub{font-size:12px;color:var(--ach-muted,#6b6b70);margin:0}
+.hu-last.is-empty p{font-size:14px;color:var(--ach-muted,#6b6b70);margin:0}
+.hu-last-row{display:grid;gap:2px;padding:10px 0 0}
+.hu-last-row span{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--ach-muted,#6b6b70)}
+.hu-last-row p{margin:0;font-size:14px;line-height:1.45;white-space:pre-line;color:var(--ach-text,#1c1c1e)}
+.hu-summary-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px}
+.hu-sbar{display:grid;gap:10px}
+.hu-slide{border-top:1px solid var(--ach-border,#ececf0);padding:12px 0 2px}
+.hu-slide header{display:flex;align-items:center;gap:8px;font-weight:600;font-size:15px;margin-bottom:8px;color:var(--ach-text,#1c1c1e)}
+.hu-letter{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;font-size:13px;font-weight:700;background:var(--nav-highlight,#e3f3e8);color:var(--nav-green,#237a4b)}
+.hu-slide ul{margin:0;padding-left:18px;display:grid;gap:5px;font-size:14px;line-height:1.45;color:var(--ach-text,#1c1c1e)}
+.hu-primary{width:100%;min-height:46px;margin-top:12px;border:0;border-radius:9999px;background:var(--nav-green,#237a4b);color:#fff;font:inherit;font-size:15px;font-weight:600;cursor:pointer}
+.hu-fields{margin:6px 0 0;display:grid}
+.hu-fields>div{display:grid;grid-template-columns:minmax(0,42%) minmax(0,1fr);gap:8px;align-items:center;padding:9px 0;border-top:1px solid var(--ach-border,#ececf0);font-size:14px}
+.hu-fields dt{color:var(--ach-muted,#6b6b70)}
+.hu-fields dd{margin:0;color:var(--ach-text,#1c1c1e);min-width:0}
+.hu-fields input{width:100%;box-sizing:border-box;border:0;border-radius:10px;background:var(--ach-bg,#f2f2f7);padding:9px 10px;font:inherit;font-size:16px;color:var(--ach-text,#1c1c1e)}
+.hu-fields .is-missing dt,.hu-missing{color:#d70015}
+.hu-empty{padding:28px 12px;text-align:center;color:var(--ach-muted,#6b6b70);font-size:14px}
+
+/* embedded cards from other modules inside panes */
+.hu-pane .hr-card,.hu-pane .rp-alert{margin:0;border-radius:20px}
+.hu-pane .hr-card .hr-head h2{font-size:16px}
+.hu-pane .ach-section,.hu-pane section.section{margin:0}
+.hu-notes-card .hx-steps{margin-top:0}
+.hu-row-detail{display:block;font-size:13px}
+.hu-fill{width:100%;min-height:44px;margin:0 0 12px;border:1px solid var(--nav-border,#e6eee8);border-radius:9999px;background:var(--nav-highlight,#e3f3e8);color:var(--nav-green,#237a4b);font:inherit;font-size:15px;font-weight:600;cursor:pointer}
+.hu-note-group{border:0;margin:0 0 14px;padding:0;display:grid;gap:10px;min-width:0}
+.hu-note-group legend{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--ach-muted,#6b6b70);padding:0;margin-bottom:6px}
+.hu-note-field{display:grid;gap:6px;font-size:14px;font-weight:500;color:var(--ach-text,#1c1c1e)}
+.hu-note-field textarea{width:100%;box-sizing:border-box;border:1px solid var(--ach-border,#ececf0);border-radius:14px;background:var(--ach-bg,#f7f7f9);padding:10px 12px;font:inherit;font-size:16px;font-weight:400;line-height:1.45;color:var(--ach-text,#1c1c1e);resize:none;overflow:hidden}
+.hu-note-field textarea:focus{outline:2px solid var(--nav-green,#237a4b);outline-offset:0;background:var(--ach-surface,#fff)}
+.hu-snapshot>summary{display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;list-style:none;min-height:32px}
+.hu-snapshot>summary::-webkit-details-marker{display:none}
+.hu-snapshot>summary h3{margin:0}
+
+/* Same side gutter as the rest of the app so the handoff screen sits centred. */
+.mockup-design .hx .hu-hero,
+.mockup-design .hx .hu-tabs-wrap {
+  padding-left: var(--ach-gutter, 16px);
+  padding-right: var(--ach-gutter, 16px);
+  box-sizing: border-box;
+}
+.mockup-design .hx .hr-next {
+  margin-left: var(--ach-gutter, 16px);
+  margin-right: var(--ach-gutter, 16px);
+}
+/* Sections inside panes already sit in a padded card; drop their own gutter to avoid a lopsided double inset. */
+.mockup-design .hx .hu-card .ach-section,
+.mockup-design .hx .hu-card section.ach-section {
+  padding-left: 0;
+  padding-right: 0;
+  margin-left: 0;
+  margin-right: 0;
+}
+
+/* The handoff list reset (.hx ul { padding: 0 }) must not remove the Patients-style row inset. */
+.mockup-design .hx ul.pt-inbox {
+  padding-left: var(--ach-gutter, 16px);
+}
+/* No resize grips or scrollbars on note boxes; they grow with their text. */
+.mockup-design .hx textarea {
+  resize: none;
+  scrollbar-width: none;
+}
+.mockup-design .hx textarea::-webkit-scrollbar {
+  display: none;
+}

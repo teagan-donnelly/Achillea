@@ -80,7 +80,7 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-it("groups existing patient workflows into three primary sections without losing documentation or history", () => {
+it("keeps repositioning review in a sheet alongside all four patient record sections", () => {
   const s = fixture();
   render(
     <MemoryRouter initialEntries={["/patients/icu?section=repositioning"]}>
@@ -100,27 +100,32 @@ it("groups existing patient workflows into three primary sections without losing
       </Routes>
     </MemoryRouter>,
   );
-  expect(
-    document.querySelectorAll(".patient-primary-tabs button"),
-  ).toHaveLength(3);
-  fireEvent.click(screen.getByRole("button", { name: "Care" }));
-  expect(screen.getByRole("button", { name: /Pending tasks/ })).toHaveAttribute(
-    "aria-expanded",
+  // Patients redesign: four record sections (Summary, Timeline, Trends, Records).
+  expect(screen.getAllByRole("tab")).toHaveLength(4);
+  expect(screen.getByRole("tab", { name: "Summary" })).toHaveAttribute(
+    "aria-selected",
     "true",
   );
-  fireEvent.click(screen.getByRole("button", { name: /Care & documentation/ }));
+  fireEvent.click(screen.getByRole("button", { name: /^Repositioning/ }));
+  expect(screen.getByRole("dialog", { name: "Repositioning" })).toBeVisible();
+  expect(screen.getByRole("button", { name: "Confirm & document" })).toBeDisabled();
+  fireEvent.click(screen.getByRole("button", { name: "Close" }));
+  fireEvent.click(screen.getByRole("button", { name: "Document care" }));
   expect(
     screen.getByPlaceholderText("Enter your synthetic bedside observation"),
   ).toBeVisible();
-  fireEvent.click(
-    screen.getByRole("button", { name: /Original event history/ }),
-  );
+  fireEvent.click(screen.getByRole("button", { name: "Close" }));
+  fireEvent.click(screen.getByRole("tab", { name: "Timeline" }));
   expect(
-    screen.getByRole("heading", { name: "Patient history" }),
+    screen.getByRole("region", { name: "Patient timeline" }),
   ).toBeVisible();
-  fireEvent.click(screen.getByRole("button", { name: "Vitals" }));
-  expect(screen.getByRole("button", { name: "Vitals" })).toHaveAttribute(
-    "aria-pressed",
+  fireEvent.click(screen.getByRole("tab", { name: "Records" }));
+  expect(
+    screen.getByRole("region", { name: "Clinical records" }),
+  ).toBeVisible();
+  fireEvent.click(screen.getByRole("tab", { name: "Trends" }));
+  expect(screen.getByRole("tab", { name: "Trends" })).toHaveAttribute(
+    "aria-selected",
     "true",
   );
 });

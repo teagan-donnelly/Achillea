@@ -187,11 +187,12 @@ describe("Bedside mobile redesign", () => {
   });
   it("opens care sections without saving or confirming care automatically", () => {
     const mutate = patient();
-    fireEvent.click(screen.getByRole("button", { name: "Care" }));
-    const doc = screen.getByRole("button", { name: /Care & documentation/ });
-    expect(doc).toHaveAttribute("aria-expanded", "false");
-    fireEvent.click(doc);
-    expect(doc).toHaveAttribute("aria-expanded", "true");
+    // Patients redesign: documentation opens in a sheet from "Document care".
+    expect(
+      screen.queryByPlaceholderText("Enter your synthetic bedside observation"),
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Document care" }));
+    expect(screen.getByRole("dialog")).toBeVisible();
     const narrative = screen.getByPlaceholderText(
       "Enter your synthetic bedside observation",
     );
@@ -212,9 +213,10 @@ describe("Bedside mobile redesign", () => {
   });
   it("exposes pending-task summaries and existing task actions", () => {
     patient({ ...state, tasks: [round.task] }, [round]);
-    fireEvent.click(screen.getByRole("button", { name: "Care" }));
-    const tasks = screen.getByRole("button", { name: /Pending tasks/ });
-    expect(tasks).toHaveTextContent("1 open tasks - 1 require review");
+    // Patients redesign: care tasks are a collapsible Summary section.
+    const tasks = screen.getByRole("button", { name: /^Care tasks/ });
+    expect(tasks).toHaveTextContent(/1 open · next due/);
+    fireEvent.click(tasks);
     expect(tasks).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByRole("button", { name: "Acknowledge" })).toBeVisible();
     expect(screen.getByRole("button", { name: "Complete" })).toBeVisible();
@@ -241,7 +243,7 @@ describe("Bedside mobile redesign", () => {
     });
     expect(
       screen.getByRole("button", { name: /Sensor monitoring/ }),
-    ).toHaveTextContent("simulated chest & pelvis");
+    ).toHaveAttribute("aria-expanded", "false");
     fireEvent.click(screen.getByRole("button", { name: /Sensor monitoring/ }));
     expect(screen.getByText("Upper torso")).toBeVisible();
     expect(
@@ -250,17 +252,16 @@ describe("Bedside mobile redesign", () => {
     expect(
       screen.getByText(/Orientation observations do not confirm/),
     ).toBeVisible();
-    await screen.findByText(/Independent upper-torso/);
+    fireEvent.click(screen.getByText("Sensor history", { selector: "summary" }));
+    expect(await screen.findByText(/Independent upper-torso/)).toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: /Sensor monitoring/ }));
     expect(
       screen.getByRole("button", { name: /Sensor monitoring/ }),
     ).toHaveAttribute("aria-expanded", "false");
-    fireEvent.click(screen.getByRole("button", { name: "Care" }));
-    fireEvent.click(
-      screen.getByRole("button", { name: /Original event history/ }),
-    );
+    // Patients redesign: the event history is the Timeline tab.
+    fireEvent.click(screen.getByRole("tab", { name: "Timeline" }));
     expect(
-      screen.getByRole("region", { name: "24-hour patient activity" }),
+      screen.getByRole("region", { name: "Patient timeline" }),
     ).toBeVisible();
   });
   it("folds consecutive backend monitoring windows without hiding exceptions or reordering source data", () => {
@@ -317,8 +318,12 @@ describe("Bedside mobile redesign", () => {
         />
       </MemoryRouter>,
     );
-    const now = document.getElementById("schedule-now")!;
-    fireEvent.click(within(now).getByRole("button", { name: "Defer" }));
+    // Tasks tab: the overdue row opens a sheet; deferral still needs an explicit reason.
+    const overdue = document.querySelector<HTMLElement>(".tk-list")!;
+    fireEvent.click(
+      within(overdue).getByRole("button", { name: /^Bedside review,/ }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Defer" }));
     fireEvent.change(screen.getByLabelText("Reason for deferral"), {
       target: { value: "Synthetic patient requested later review" },
     });

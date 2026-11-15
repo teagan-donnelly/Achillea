@@ -1,0 +1,254 @@
+/* ------------------------------------------------------------------
+   Settings (show-only). Built on the shared kit (ui.css): Apple-style
+   grouped inset lists on --ach-surface, 12px radius, hairline separators.
+   Scoped under `.mockup-design .st` so it wins over legacy global
+   button / input / label rules.
+   ------------------------------------------------------------------ */
+.mockup-design .st {
+  /* The workspace already pads for the floating nav; this guarantees the
+     last group clears it even if that padding changes. */
+  padding-bottom: calc(24px + env(safe-area-inset-bottom));
+}
+.mockup-design .st select {
+  width: auto;
+  max-width: 62%;
+  min-height: 44px;
+  margin: 0;
+  padding: 8px;
+  border: 1px solid var(--ach-border);
+  border-radius: 12px;
+  background: white;
+  font: 400 1rem var(--ach-font);
+}
+.mockup-design .st .st-help {
+  color: var(--ach-muted);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  margin: 12px 4px;
+}
+
+/* Grouped inset list */
+.mockup-design .st .st-group {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  list-style: none;
+  border-radius: 12px;
+  background: var(--ach-surface);
+}
+.mockup-design .st .st-group > * + *,
+.mockup-design .st .st-group > .st-row + .st-row,
+.mockup-design .st .st-group > .st-profile + .st-row {
+  border-top: 1px solid var(--ach-border);
+}
+
+/* Rows */
+.mockup-design .st .st-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 52px;
+  margin: 0;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--ach-text);
+  font: 400 1.0625rem/1.3 var(--ach-font);
+  letter-spacing: -0.01em;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+.mockup-design .st button.st-row:active {
+  background: #eef3ef;
+}
+.mockup-design .st .st-row:focus-visible {
+  outline: 2px solid var(--ach-green);
+  outline-offset: -2px; /* the group clips overflow */
+}
+.mockup-design .st .st-row-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mockup-design .st .st-static {
+  cursor: default;
+}
+.mockup-design .st .st-static dt {
+  font-weight: 400;
+}
+.mockup-design .st .st-static dd {
+  margin: 0;
+  font: inherit;
+  color: var(--ach-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Profile */
+.mockup-design .st .st-profile {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 80px;
+  padding: 14px 16px;
+}
+.mockup-design .st .st-profile .ach-avatar {
+  width: 56px;
+  height: 56px;
+  font-size: 1.125rem;
+}
+.mockup-design .st .st-profile-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.mockup-design .st .st-profile-name {
+  overflow: hidden;
+  color: var(--ach-text);
+  font-size: 1.0625rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mockup-design .st .st-profile-unit {
+  overflow: hidden;
+  color: var(--ach-muted);
+  font-size: 0.9375rem;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mockup-design .st .st-signout {
+  justify-content: center;
+  color: var(--ach-red);
+  font-weight: 500;
+}
+
+/* Sign-in form */
+.mockup-design .st .st-form {
+  display: grid;
+  gap: 16px;
+}
+.mockup-design .st .st-field {
+  display: grid;
+  gap: 2px;
+  padding: 10px 16px 6px;
+}
+.mockup-design .st .st-field label {
+  display: block;
+  color: var(--ach-muted);
+  font: 500 0.8125rem/1.3 var(--ach-font);
+}
+.mockup-design .st .st-field input {
+  width: 100%;
+  min-width: 0;
+  min-height: 36px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--ach-text);
+  font: 400 1.0625rem/1.3 var(--ach-font); /* >=16px: no iOS focus zoom */
+}
+.mockup-design .st .st-field input:focus,
+.mockup-design .st .st-field input:focus-visible {
+  outline: none;
+}
+/* The field row shows focus instead of the bare input */
+.mockup-design .st .st-field:focus-within {
+  box-shadow: inset 0 0 0 2px var(--ach-green);
+}
+.mockup-design .st .st-group > .st-field:first-child:focus-within {
+  border-radius: 12px 12px 0 0;
+}
+.mockup-design .st .st-group > .st-field:last-child:focus-within {
+  border-radius: 0 0 12px 12px;
+}
+.mockup-design .st .st-password {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.mockup-design .st .st-reveal {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  min-height: 44px;
+  margin: -4px -10px -4px 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  box-shadow: none;
+  color: var(--ach-icon);
+}
+.mockup-design .st .st-reveal svg {
+  width: 20px;
+  height: 20px;
+}
+.mockup-design .st .st-submit {
+  width: 100%;
+  min-height: 50px;
+  font-size: 1.0625rem;
+}
+
+/* Switch (visual only; the row is the role="switch" button) */
+.mockup-design .st .st-switch {
+  position: relative;
+  flex: none;
+  width: 51px;
+  height: 31px;
+  border-radius: 999px;
+  background: #e1e6e2;
+  transition: background-color 0.2s ease;
+}
+.mockup-design .st .st-switch > span {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 27px;
+  height: 27px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow:
+    0 3px 8px rgba(17, 17, 17, 0.15),
+    0 1px 1px rgba(17, 17, 17, 0.06);
+  transition: transform 0.2s var(--ach-ease);
+}
+.mockup-design .st .st-toggle[aria-checked="true"] .st-switch {
+  background: var(--ach-green);
+}
+.mockup-design .st .st-toggle[aria-checked="true"] .st-switch > span {
+  transform: translateX(20px);
+}
+
+@media (hover: hover) {
+  .mockup-design .st button.st-row:hover {
+    background: #f0f5f1;
+  }
+  .mockup-design .st .st-reveal:hover {
+    background: rgba(17, 17, 17, 0.05);
+  }
+  .mockup-design .st .st-submit:hover {
+    background: #1d6a41;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mockup-design .st .st-row,
+  .mockup-design .st .st-switch,
+  .mockup-design .st .st-switch > span {
+    transition: none;
+  }
+}

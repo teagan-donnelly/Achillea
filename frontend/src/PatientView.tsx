@@ -1,29 +1,62 @@
-import { HeroShape, MetricIcon, PatientAvatar } from "./VisualPrimitives";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Link,
   useLocation,
   useParams,
   useSearchParams,
 } from "react-router-dom";
-import { ArrowLeft, Radio } from "lucide-react";
-import type { Chart, Movement, Round, State } from "./types";
-import { time, words } from "./api";
-import {
-  latestReadings,
-  readingState,
-  freshness,
-  Trend,
-  DeviceStatus,
-  patientMonitor,
-  metricName,
-} from "./Monitoring";
-import { EventTimeline } from "./EventTimeline";
-import { TaskList, type Mutate } from "./TaskList";
-import { CareSection } from "./CareSection";
-import { PatientTimeline } from "./PatientTimeline";
-import { SensorEvidence } from "./SensorEvidence";
-import { RepositioningDetail } from "./RepositioningViews";
+import { PenLine } from "lucide-react";
+import type { Chart, Round, State } from "./types";
+import type { Mutate } from "./TaskList";
+import { latestReadings } from "./Monitoring";
+import { useDemoNow } from "./RepositioningViews";
+import { feedPatient } from "./monitoring-feed";
+import { Pill, Screen, ScreenHeader, Segmented, type Tone } from "./ui";
+import { ComposeSheet, useChartComposer } from "./patient-compose";
+import { PatientSummary, type SummaryFocus } from "./patient-summary";
+import { PatientTimelineFeed } from "./patient-timeline";
+import { PatientTrends } from "./patient-trends";
+import { PatientRecords } from "./patient-records";
+import { pendingMovements } from "./patient-movements";
+import { carePhase, unitShort } from "./patient-data";
+
+/**
+ * Patient record (/patients/:id): the longitudinal view of one patient — Summary, Timeline,
+ * Trends and Records — plus the bedside workflows (document care, task actions, movement review,
+ * repositioning confirmation). Live monitoring lives in the Monitoring tab.
+ */
+
+type Tab = "summary" | "timeline" | "trends" | "records";
+const TABS: { value: Tab; label: string }[] = [
+  { value: "summary", label: "Summary" },
+  { value: "timeline", label: "Timeline" },
+  { value: "trends", label: "Trends" },
+  { value: "records", label: "Records" },
+];
+/** ?section= deep links used across the app, mapped onto the new tabs. */
+const SECTION: Record<string, { tab: Tab; focus: SummaryFocus }> = {
+  summary: { tab: "summary", focus: null },
+  overview: { tab: "summary", focus: null },
+  tasks: { tab: "summary", focus: "tasks" },
+  repositioning: { tab: "summary", focus: "repositioning" },
+  sensors: { tab: "summary", focus: "sensors" },
+  timeline: { tab: "timeline", focus: null },
+  history: { tab: "timeline", focus: null },
+  vitals: { tab: "trends", focus: null },
+  trends: { tab: "trends", focus: null },
+  chart: { tab: "records", focus: null },
+  records: { tab: "records", focus: null },
+};
+const RETURN_ROUTES = [
+  "/",
+  "/activity",
+  "/patients",
+  "/sensors",
+  "/rounds",
+  "/settings",
+  "/repositioning",
+];
+
 export function PatientView({
   state,
   rounds,
@@ -39,954 +72,251 @@ export function PatientView({
 }) {
   const { id } = useParams();
   const location = useLocation();
-  const returnTo = [
-    "/",
-    "/activity",
-    "/patients",
-    "/sensors",
-    "/rounds",
-  ].includes(location.state?.from)
-    ? location.state.from
-    : "/patients";
-  const [params] = useSearchParams();
-  const p = state.patients.find((p) => p.id === id && p.unit === unit);
-  const requestedChart = state.charts.find(
+  const from: unknown = location.state?.from;
+  const returnTo =
+    typeof from === "string" &&
+    (RETURN_ROUTES.includes(from) || from.startsWith("/monitoring/"))
+      ? from
+      : "/patients";
+  const [params, setParams] = useSearchParams();
+  const now = useDemoNow(state);
+  const tabsRef = useRef<HTMLDivElement>(null);
+  const p = state.patients.find((x) => x.id === id && x.unit === unit);
+  const requested = state.charts.find(
     (c) =>
       c.id === params.get("entry") &&
       c.patientId === id &&
       c.status === "DRAFT",
   );
-  const [tab, setTab] = useState(
-      params.get("section") === "repositioning"
-        ? "Repositioning"
-        : params.get("section") === "chart"
-          ? "Chart"
-          : params.get("section") === "tasks"
-            ? "Care tasks"
-            : params.get("section") === "vitals"
-              ? "Vitals"
-              : params.get("section") === "sensors"
-                ? "Sensors"
-                : p?.repositionPlan
-                  ? "Repositioning"
-                  : "Vitals",
-    ),
-    [text, setText] = useState(requestedChart?.text ?? ""),
-    [type, setType] = useState(requestedChart?.type ?? "OBSERVATION"),
-    [draft, setDraft] = useState(requestedChart?.id ?? ""),
-    [verified, setVerified] = useState(false),
-    [linkVitals, setLinkVitals] = useState(
-      !!requestedChart?.linkedVitalIds.length,
-    ),
-    [task, setTask] = useState(requestedChart?.linkedTaskId ?? ""),
-    [amend, setAmend] = useState(""),
-    [review, setReview] = useState(""),
-    [reviewNote, setReviewNote] = useState(""),
-    [reviewVerified, setReviewVerified] = useState(false),
-    [trendMetric, setTrendMetric] = useState(""),
-    [showAllMovements, setShowAllMovements] = useState(false),
-    [sensorExpanded, setSensorExpanded] = useState(true);
-  const [dirty, setDirty] = useState(false),
-    [needsSave, setNeedsSave] = useState(true),
-    [storageError, setStorageError] = useState(false);
-  useEffect(() => {
-    const warn = (e: BeforeUnloadEvent) => {
-      if (dirty) {
-        e.preventDefault();
-        e.returnValue = "";
-      }
-    };
-    window.addEventListener("beforeunload", warn);
-    return () => window.removeEventListener("beforeunload", warn);
-  }, [dirty]);
-  useEffect(() => {
-    if (!id) return;
-    let saved: string | null = null;
-    try {
-      saved = sessionStorage.getItem(`achillea-note-${id}`);
-    } catch {
-      setStorageError(true);
-    }
-    if (saved) {
-      try {
-        const note = JSON.parse(saved);
-        setText(note.text ?? "");
-        setType(note.type ?? "OBSERVATION");
-        setTask(note.task ?? "");
-        setLinkVitals(!!note.linkVitals);
-        setDraft(note.draft ?? "");
-        setAmend(note.amend ?? "");
-        setDirty(true);
-      } catch {
-        /* Ignore invalid local draft. */
-      }
-    }
-  }, [id]);
-  useEffect(() => {
-    if (id && dirty)
-      try {
-        sessionStorage.setItem(
-          `achillea-note-${id}`,
-          JSON.stringify({ text, type, task, linkVitals, draft, amend }),
-        );
-      } catch {
-        setStorageError(true);
-      }
-  }, [id, dirty, text, type, task, linkVitals, draft, amend]);
-  useEffect(() => {
-    const section = params.get("section");
-    const selected = (
-      {
-        chart: "Chart",
-        tasks: "Care tasks",
-        vitals: "Vitals",
-        sensors: "Sensors",
-        overview: "Overview",
-        repositioning: "Repositioning",
-      } as Record<string, string>
-    )[section ?? ""];
-    if (selected) {
-      setTab(selected);
-      if (selected === "Sensors") setSensorExpanded(true);
-    }
-  }, [params]);
+  const section = SECTION[params.get("section") ?? ""];
+  const [tab, setTab] = useState<Tab>(
+    section?.tab ?? (requested ? "records" : "summary"),
+  );
+  // Tasks links "Document" to ?section=chart&task=<id>: open documentation with that task linked.
+  const taskParam = state.tasks.find(
+    (t) => t.id === params.get("task") && t.patientId === id,
+  )?.id;
+  const [composeOpen, setComposeOpen] = useState(
+    !!requested || !!taskParam || params.get("compose") === "1",
+  );
+  const vitals = state.vitals.filter((v) => v.patientId === id);
+  const current = latestReadings(vitals);
+  const composer = useChartComposer({
+    patientId: id,
+    state,
+    mutate,
+    current,
+    requested,
+    initialTask: taskParam,
+  });
+
+  // Follow ?section= when another screen deep-links into this record.
+  const [lastSection, setLastSection] = useState(section);
+  if (section !== lastSection) {
+    setLastSection(section);
+    if (section) setTab(section.tab);
+  }
+
+  const selectTab = (next: Tab) => {
+    setTab(next);
+    const q = new URLSearchParams(params);
+    q.set("section", next);
+    q.delete("entry");
+    q.delete("task");
+    q.delete("compose");
+    setParams(q, { replace: true, state: location.state });
+    // Keep the section switcher in view when switching from deep in a long tab.
+    const bar = tabsRef.current;
+    const headerHeight =
+      tabsRef.current?.parentElement
+        ?.querySelector(".ach-header")
+        ?.getBoundingClientRect().height ?? 72;
+    if (bar && bar.getBoundingClientRect().top < headerHeight)
+      bar.scrollIntoView?.({ block: "start" });
+  };
+
   useEffect(() => {
     const anchor = window.location.hash.slice(1);
-    if (anchor && tab === "Care tasks")
+    if (anchor && tab === "summary")
       document.getElementById(anchor)?.scrollIntoView?.({ block: "center" });
   }, [tab, id]);
+
+  const closeCompose = useCallback(() => setComposeOpen(false), []);
+  const backLabel =
+    returnTo === "/rounds"
+      ? "Back to Tasks"
+      : returnTo === "/" || returnTo.startsWith("/monitoring")
+        ? "Back to Monitoring"
+        : returnTo === "/activity"
+          ? "Back to Handoff"
+          : returnTo === "/settings"
+            ? "Back to Settings"
+            : "Back to patients";
+
   if (!p)
     return (
-      <>
-        <h1>Patient unavailable in this demo unit.</h1>
-        <p>Switch to the patient’s assigned unit to continue.</p>
-        <Link to="/patients">Back to assigned patients</Link>
-      </>
-    );
-  const vitals = state.vitals.filter((v) => v.patientId === id),
-    charts = state.charts.filter((c) => c.patientId === id),
-    movements = state.movements.filter((m) => m.patientId === id),
-    latest = movements.at(-1),
-    lastConfirmed = movements
-      .filter((m) => m.verificationStatus === "CONFIRMED_CARE")
-      .at(-1);
-  const current = latestReadings(vitals);
-  const monitor = patientMonitor(state, p.id);
-  const patientRounds = rounds.filter((r) => r.task.patientId === id),
-    selectedMetric = current.some((v) => v.metric === trendMetric)
-      ? trendMetric
-      : current[0]?.metric;
-  async function save() {
-    try {
-      const body = {
-        patientId: id,
-        type,
-        text,
-        linkedTaskId: task || null,
-        linkedVitalIds: linkVitals ? current.map((v) => v.id) : [],
-      };
-      const result = (await mutate(
-        amend
-          ? `/chart/${amend}/amendments`
-          : draft
-            ? `/chart/drafts/${draft}`
-            : "/chart/drafts",
-        body,
-        draft && !amend ? "PATCH" : "POST",
-      )) as Chart;
-      setDirty(true);
-      setNeedsSave(false);
-      setDraft(result.id);
-      setAmend("");
-      setVerified(false);
-    } catch {
-      /* App feedback. */
-    }
-  }
-  const primarySection = ["Repositioning", "Sensors"].includes(tab)
-    ? "Repositioning"
-    : ["Vitals", "Overview"].includes(tab)
-      ? "Vitals"
-      : "Care";
-  return (
-    <div className="patient-bedside" data-no-swipe>
-      {storageError && (
-        <p className="error" role="alert">
-          Browser draft retention is unavailable. Save your draft before leaving
-          this patient.
-        </p>
-      )}
-      <div className="patient-heading">
-        <HeroShape />
-        <Link className="back" to={returnTo}>
-          <ArrowLeft size={16} />{" "}
-          {returnTo === "/rounds"
-            ? "Back to Rounds"
-            : returnTo === "/" || returnTo === "/activity"
-              ? "Back to Activity"
-              : "Assigned patients"}
-        </Link>
-        <PatientAvatar />
-        <div>
-          <h1>{p.name}</h1>
-          <p>
-            Room {p.room} ·{" "}
-            {p.unit === "ICU" ? "ICU expansion scenario" : "Labor & delivery"} ·
-            Jordan Ellis, RN
-          </p>
-          <small>Synthetic ID: {p.id}</small>
-        </div>
-        <button onClick={() => setTab("Chart")}>Document care</button>
-      </div>
-      <div className="tabs patient-primary-tabs" aria-label="Patient sections">
-        {["Repositioning", "Vitals", "Care"].map((section) => (
-          <button
-            key={section}
-            aria-pressed={primarySection === section}
-            className={primarySection === section ? "selected" : ""}
-            onClick={() => setTab(section === "Care" ? "Care tasks" : section)}
-          >
-            {section}
-          </button>
-        ))}
-      </div>
-      {(tab === "Overview" || tab === "Vitals") && (
-        <>
-          <section
-            className="patient-vitals"
-            aria-label="Latest patient measurements"
-          >
-            <div className="section-heading">
-              <h2>Latest observations</h2>
-              <span>
-                <Radio size={14} /> Simulated monitor
-              </span>
-            </div>
-            <div className="vital-grid">
-              {(tab === "Overview" ? current.slice(0, 3) : current).map((v) => (
-                <article className="vital" key={v.metric}>
-                  <h3>
-                    <MetricIcon metric={v.metric} />
-                    {metricName(v.metric)}
-                  </h3>
-                  <p className="reading">
-                    {[
-                      "Unavailable",
-                      "Disconnected",
-                      "Signal unavailable",
-                    ].includes(readingState(v, monitor))
-                      ? "Unavailable"
-                      : v.value}
-                    <span>{v.unit}</span>
-                  </p>
-                  {tab === "Overview" &&
-                    vitals.filter(
-                      (x) => x.metric === v.metric && x.quality === "VALID",
-                    ).length > 1 && (
-                      <Trend
-                        compact
-                        readings={vitals.filter((x) => x.metric === v.metric)}
-                      />
-                    )}
-                  <small className="vital-source">
-                    Observed {time(v.observedAt)} · received{" "}
-                    {time(v.receivedAt)}
-                  </small>
-                  <small>
-                    {v.source} · {words(v.quality)}
-                  </small>
-                  <span
-                    className={
-                      readingState(v, monitor) === "Old reading"
-                        ? "freshness old"
-                        : "freshness"
-                    }
-                  >
-                    {readingState(v, monitor)} · {freshness(v)}
-                  </span>
-                </article>
-              ))}
-              {!current.length && (
-                <p className="empty">
-                  No monitor readings available. Check source availability
-                  before documenting measurements.
-                </p>
-              )}
-            </div>
-            <DeviceStatus device={monitor} />
-          </section>
-          {tab === "Overview" && (
-            <PatientTimeline state={state} patientId={p.id} />
-          )}
-          {selectedMetric && tab === "Vitals" && (
-            <section className="monitor-history" data-no-swipe>
-              <div className="section-heading">
-                <div>
-                  <h2>Recorded trend</h2>
-                </div>
-                <label>
-                  Measurement
-                  <select
-                    aria-label="Trend measurement"
-                    value={selectedMetric}
-                    onChange={(e) => setTrendMetric(e.target.value)}
-                  >
-                    {current.map((v) => (
-                      <option key={v.metric} value={v.metric}>
-                        {metricName(v.metric)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-              <Trend
-                compact={false}
-                readings={vitals.filter((v) => v.metric === selectedMetric)}
-              />
-              <p className="monitor-footnote">
-                Source observations inform your review. They do not confirm
-                care.
-              </p>
-            </section>
-          )}
-          <details className="monitor-demo-controls">
-            <summary>Monitor simulation controls</summary>
-            <button
-              className="secondary"
-              disabled={busy || monitor?.connectionState === "DISCONNECTED"}
-              onClick={() =>
-                void mutate(`/demo/scenarios/vital?patientId=${id}`).catch(
-                  () => {},
-                )
-              }
-            >
-              Receive simulated monitor reading
-            </button>
-            {monitor?.connectionState === "DISCONNECTED" && (
-              <button
-                className="secondary"
-                disabled={busy}
-                onClick={() =>
-                  void mutate(
-                    `/demo/scenarios/monitor-reconnect?patientId=${id}`,
-                  ).catch(() => {})
-                }
-              >
-                Reconnect simulated monitor
-              </button>
-            )}
-          </details>
-        </>
-      )}
-      <div className="patient-quick-actions" hidden={primarySection !== "Care"}>
-        {" "}
-        <section
-          className="patient-work-summary"
-          aria-label="Patient care summary"
-        >
-          <div>
-            <span className="summary-label">Care at a glance</span>
-            <strong>
-              {patientRounds.length} open tasks /{" "}
-              {charts.filter((c) => c.status === "DRAFT").length} chart drafts
-            </strong>
-            <p>
-              {patientRounds[0]
-                ? `${patientRounds[0].task.title} - due ${time(patientRounds[0].task.dueAt)}`
-                : "No outstanding scheduled tasks"}
-            </p>
-          </div>
-          <button className="secondary" onClick={() => setTab("Care tasks")}>
-            Review care
-          </button>
-        </section>
-      </div>
-      {primarySection === "Repositioning" && (
-        <RepositioningDetail
-          state={state}
-          patient={p}
-          mutate={mutate}
-          busy={busy}
+      <Screen className="pt-profile">
+        <ScreenHeader
+          title="Patient"
+          back="/patients"
+          backLabel="Back to patients"
         />
-      )}
-      <div hidden={primarySection !== "Care"} className="patient-care-sections">
-        <CareSection
-          title="Pending tasks"
-          summary={`${patientRounds.length} open tasks - ${patientRounds.filter((r) => r.rank <= 1).length} require review`}
-          open={tab === "Care tasks"}
-          onToggle={() => setTab(tab === "Care tasks" ? "Care" : "Care tasks")}
-        >
-          {tab === "Care tasks" && (
-            <section>
-              <h2>Care tasks</h2>
-              <TaskList
-                rounds={rounds.filter((r) => r.task.patientId === id)}
-                state={state}
-                mutate={mutate}
-                busy={busy}
-              />
-              {state.tasks
-                .filter((t) => t.patientId === id && t.status === "COMPLETED")
-                .map((t) => (
-                  <p key={t.id}>
-                    Completed: {t.title} · {t.verifiedBy} ·{" "}
-                    {t.completedAt && time(t.completedAt)}
-                  </p>
-                ))}
-            </section>
-          )}
-        </CareSection>
-        {primarySection === "Care" && (
-          <section className="plan">
-            <h2>Care plan</h2>
-            <p>
-              {p.summary}.{" "}
-              {p.repositionPlan
-                ? "Positioning review is prescribed in this synthetic patient’s plan."
-                : "No repositioning-review protocol is assigned to this L&D patient."}
-            </p>
-          </section>
-        )}
-      </div>
-      {p.repositionPlan && primarySection === "Repositioning" && (
-        <CareSection
-          title="Sensor monitoring"
-          summary={`${movements.filter((m) => m.reviewRequired !== false && !["CONFIRMED_CARE", "NOT_CARE"].includes(m.verificationStatus)).length} movements awaiting review - simulated chest & pelvis`}
-          open={sensorExpanded && tab === "Sensors"}
-          onToggle={() => {
-            if (tab === "Sensors") setSensorExpanded(!sensorExpanded);
-            else {
-              setSensorExpanded(true);
-              setTab("Sensors");
-            }
-          }}
-        >
-          {p.repositionPlan && sensorExpanded && tab === "Sensors" && (
-            <section className="sensor-panel">
-              <div className="section-heading">
-                <h2>Repositioning monitoring</h2>
-                <span>Prototype heuristic</span>
-              </div>
-              <p>
-                Orientation observations do not confirm repositioning or
-                pressure relief.
-              </p>
-              <div className="sensor-regions">
-                <SensorRegion
-                  state={state}
-                  patientId={p.id}
-                  region="UPPER_TORSO"
-                  latest={latest}
-                />
-                <SensorRegion
-                  state={state}
-                  patientId={p.id}
-                  region="PELVIS"
-                  latest={latest}
-                />
-              </div>
-              <p>
-                Last detected movement:{" "}
-                <strong>
-                  {latest ? time(latest.capturedAt) : "No observations"}
-                </strong>
-              </p>
-              <p>
-                Last nurse-confirmed movement review:{" "}
-                <strong>
-                  {lastConfirmed?.reviewedAt
-                    ? time(lastConfirmed.reviewedAt)
-                    : "None in this demo"}
-                </strong>
-              </p>
-              <p>
-                Last documented care completion:{" "}
-                <strong>
-                  {charts
-                    .filter(
-                      (c) =>
-                        c.type === "TASK_COMPLETION" &&
-                        c.status === "CONFIRMED" &&
-                        c.linkedMovementId,
-                    )
-                    .at(-1)?.confirmedAt
-                    ? time(
-                        charts
-                          .filter(
-                            (c) =>
-                              c.type === "TASK_COMPLETION" &&
-                              c.status === "CONFIRMED" &&
-                              c.linkedMovementId,
-                          )
-                          .at(-1)!.confirmedAt!,
-                      )
-                    : "None in this demo"}
-                </strong>
-              </p>
-              <SensorEvidence patientId={p.id} revision={state.serverTime} />
-              {movements.length > 4 && (
-                <button
-                  className="secondary"
-                  onClick={() => setShowAllMovements(!showAllMovements)}
-                >
-                  {showAllMovements
-                    ? "Show latest four movements"
-                    : `Show all ${movements.length} movements`}
-                </button>
-              )}
-              {!movements.length && (
-                <p>
-                  No movement candidates yet. Use Demo controls to generate
-                  independent region observations.
-                </p>
-              )}
-              {movements
-                .slice(showAllMovements ? 0 : -4)
-                .reverse()
-                .map((m) => (
-                  <article className="movement" key={m.id}>
-                    <strong>{words(m.classification)}</strong>
-                    {m.reviewRequired && (
-                      <p>
-                        Review required:{" "}
-                        {m.reviewReasonCodes?.map(words).join(" / ")}
-                      </p>
-                    )}
-                    <p>
-                      {words(m.quality)} · {time(m.capturedAt)} ·{" "}
-                      {words(m.verificationStatus)}
-                    </p>
-                    <details>
-                      <summary>Sensor observation details</summary>
-                      <small>
-                        Chest {m.chestBefore}° → {m.chestAfter}° · Pelvis{" "}
-                        {m.pelvisBefore}° → {m.pelvisAfter}° · Source samples:{" "}
-                        {m.sampleIds.length}
-                        <br />
-                        Torso source: {m.chestSensorId ?? "Unavailable"} ·
-                        Pelvis source: {m.pelvisSensorId ?? "Unavailable"}
-                        <br />
-                        Heuristic confidence:{" "}
-                        {m.confidence == null
-                          ? "Unavailable"
-                          : `${Math.round(m.confidence * 100)}% (simulation only)`}
-                      </small>
-                    </details>
-                    {m.verificationStatus !== "CONFIRMED_CARE" && (
-                      <div className="actions">
-                        <button
-                          className="secondary"
-                          onClick={() => {
-                            setReview(m.id);
-                            setReviewNote("");
-                            setReviewVerified(false);
-                          }}
-                        >
-                          Review candidate
-                        </button>
-                        <button
-                          className="secondary"
-                          disabled={busy}
-                          onClick={() =>
-                            void mutate(`/movements/${m.id}/review`, {
-                              status: "NOT_CARE",
-                            }).catch(() => {})
-                          }
-                        >
-                          Not care
-                        </button>
-                        <button
-                          className="secondary"
-                          disabled={busy}
-                          onClick={() =>
-                            void mutate(`/movements/${m.id}/review`, {
-                              status: "NEEDS_REVIEW",
-                            }).catch(() => {})
-                          }
-                        >
-                          Needs review
-                        </button>
-                      </div>
-                    )}
-                    {review === m.id && (
-                      <form
-                        onSubmit={(e) => {
-                          e.preventDefault();
-                          void mutate(`/movements/${m.id}/review`, {
-                            status: "CONFIRMED_CARE",
-                            verified: reviewVerified,
-                            text: reviewNote,
-                          })
-                            .then(() => setReview(""))
-                            .catch(() => {});
-                        }}
-                      >
-                        <div className="sensor-review-header">
-                          <PatientAvatar />
-                          <div>
-                            <h3>Sensor Review</h3>
-                            <p>
-                              {p.name} · Room {p.room}
-                            </p>
-                          </div>
-                        </div>
-                        <p className="sensor-review-disclosure">
-                          Simulated evidence recorded {time(m.capturedAt)}.
-                          Nurse review and documented care completion are
-                          separate actions.
-                        </p>
-                        <label>
-                          Bedside verification note
-                          <textarea
-                            required
-                            value={reviewNote}
-                            onChange={(e) => setReviewNote(e.target.value)}
-                            placeholder="Describe the care you personally verified"
-                          />
-                        </label>
-                        <label className="checkbox">
-                          <input
-                            type="checkbox"
-                            checked={reviewVerified}
-                            required
-                            onChange={(e) =>
-                              setReviewVerified(e.target.checked)
-                            }
-                          />
-                          I verified actual care, beyond the sensor observation.
-                        </label>
-                        <button
-                          disabled={
-                            busy || !reviewVerified || !reviewNote.trim()
-                          }
-                        >
-                          Confirm care observation
-                        </button>
-                        <p>
-                          Then explicitly complete the prescribed task below to
-                          create its confirmed chart entry.
-                        </p>
-                      </form>
-                    )}
-                  </article>
-                ))}
-            </section>
-          )}
-        </CareSection>
-      )}
-      <div hidden={primarySection !== "Care"} className="patient-care-sections">
-        <CareSection
-          title="Original event history"
-          summary="Inspect the complete recorded patient timeline"
-          open={tab === "History"}
-          onToggle={() => setTab(tab === "History" ? "Care" : "History")}
-        >
-          {tab === "History" && (
-            <section className="activity-timeline">
-              <h2>Patient history</h2>
-              <PatientTimeline state={state} patientId={p.id} />
-              <EventTimeline
-                events={state.events.filter((e) => e.patientId === id)}
-                patients={[p]}
-              />
-            </section>
-          )}
-        </CareSection>
-        <CareSection
-          title="Care & documentation"
-          summary={`${charts.length} entries - ${charts.filter((c) => c.status === "DRAFT").length} drafts to confirm`}
-          open={tab === "Chart"}
-          onToggle={() => setTab(tab === "Chart" ? "Care" : "Chart")}
-        >
-          {tab === "Chart" && (
-            <div className="chart-layout">
-              <section className="surface chart-form">
-                <span className="status">
-                  {dirty
-                    ? "Working draft - retained on this device"
-                    : "Nurse-entered documentation"}
-                </span>
-                <h2>
-                  {amend
-                    ? "Append correction"
-                    : draft
-                      ? "Edit bedside draft"
-                      : "Document at the bedside"}
-                </h2>
-                <p>
-                  Unconfirmed work is retained in this browser tab. Save a draft
-                  to store it in the demo record.
-                </p>
-                <p>
-                  For {p.name} · Room {p.room}. Review patient identity and
-                  source data before confirming.
-                </p>
-                <label>
-                  Entry type
-                  <select
-                    value={type}
-                    onChange={(e) => {
-                      setType(e.target.value);
-                      setDirty(true);
-                      setNeedsSave(true);
-                      setVerified(false);
-                    }}
-                  >
-                    <option value="OBSERVATION">Nursing observation</option>
-                    <option value="ASSESSMENT">Bedside assessment</option>
-                    <option value="CARE_NOTE">Care note</option>
-                  </select>
-                </label>
-                <label>
-                  Link a care task
-                  <select
-                    value={task}
-                    onChange={(e) => {
-                      setTask(e.target.value);
-                      setDirty(true);
-                      setNeedsSave(true);
-                      setVerified(false);
-                    }}
-                  >
-                    <option value="">No task linked</option>
-                    {state.tasks
-                      .filter((t) => t.patientId === id)
-                      .map((t) => (
-                        <option key={t.id} value={t.id}>
-                          {t.title}
-                        </option>
-                      ))}
-                  </select>
-                </label>
-                <label>
-                  Observation / nurse narrative
-                  <textarea
-                    maxLength={5000}
-                    value={text}
-                    onChange={(e) => {
-                      setText(e.target.value);
-                      setDirty(true);
-                      setNeedsSave(true);
-                      setVerified(false);
-                    }}
-                    placeholder="Enter your synthetic bedside observation"
-                  />
-                </label>
-                <label className="checkbox">
-                  <input
-                    type="checkbox"
-                    checked={linkVitals}
-                    onChange={(e) => {
-                      setLinkVitals(e.target.checked);
-                      setDirty(true);
-                      setNeedsSave(true);
-                      setVerified(false);
-                    }}
-                  />
-                  Include latest simulated observations in saved draft
-                </label>
-                {linkVitals && (
-                  <div className="provenance">
-                    {current.map((v) => (
-                      <p key={v.id}>
-                        {metricName(v.metric)}: {v.value} {v.unit} ·{" "}
-                        {time(v.observedAt)} · {v.source}
-                      </p>
-                    ))}
-                  </div>
-                )}
-                <button
-                  disabled={busy || !text.trim()}
-                  onClick={() => void save()}
-                >
-                  Save draft
-                </button>
-                {draft && (
-                  <div className="confirm-box">
-                    {needsSave && (
-                      <p role="status">
-                        Save your changes before confirming this entry.
-                      </p>
-                    )}
-                    <h3>Review saved draft</h3>
-                    <p>{state.charts.find((c) => c.id === draft)?.text}</p>
-                    <small>
-                      {state.charts.find((c) => c.id === draft)?.provenance}
-                    </small>
-                    <label className="checkbox">
-                      <input
-                        type="checkbox"
-                        checked={verified}
-                        onChange={(e) => setVerified(e.target.checked)}
-                      />
-                      I reviewed the saved entry, patient identity, and
-                      provenance.
-                    </label>
-                    <button
-                      disabled={
-                        busy ||
-                        needsSave ||
-                        !verified ||
-                        state.charts.find((c) => c.id === draft)?.text !==
-                          text ||
-                        state.charts.find((c) => c.id === draft)?.type !==
-                          type ||
-                        (state.charts.find((c) => c.id === draft)
-                          ?.linkedTaskId ?? "") !== task
-                      }
-                      onClick={() =>
-                        void mutate(`/chart/drafts/${draft}/confirm`, {
-                          verified,
-                        })
-                          .then(() => {
-                            setDraft("");
-                            setText("");
-                            setDirty(false);
-                            sessionStorage.removeItem(`achillea-note-${id}`);
-                            setVerified(false);
-                          })
-                          .catch(() => {})
-                      }
-                    >
-                      Confirm entry
-                    </button>
-                  </div>
-                )}
-              </section>
-              <section>
-                <h2>Chart history</h2>
-                {!charts.length && (
-                  <p className="empty">
-                    No entries yet. Save a draft to begin.
-                  </p>
-                )}
-                {charts
-                  .slice()
-                  .reverse()
-                  .map((c) => (
-                    <article className="chart-entry" key={c.id}>
-                      <span className="status">{words(c.status)}</span>
-                      <h3>{words(c.type)}</h3>
-                      <p className="narrative">{c.text}</p>
-                      <small>
-                        {time(c.confirmedAt ?? c.authoredAt)} · {c.nurseId}
-                        <br />
-                        {c.provenance}
-                        {c.amendmentOfId && (
-                          <>
-                            <br />
-                            Amends entry {c.amendmentOfId}
-                          </>
-                        )}
-                      </small>
-                      <div className="linked-readings">
-                        {c.linkedVitalIds.map((vid) => {
-                          const v = state.vitals.find((v) => v.id === vid);
-                          return v ? (
-                            <p key={vid}>
-                              {metricName(v.metric)} {v.value} {v.unit} ·{" "}
-                              {time(v.observedAt)} · {v.source}
-                            </p>
-                          ) : null;
-                        })}
-                      </div>
-                      <button
-                        className="secondary"
-                        onClick={() => {
-                          if (
-                            dirty &&
-                            text.trim() &&
-                            !window.confirm(
-                              "Replace the current working note with this entry? Save your draft first to keep it in the demo record.",
-                            )
-                          )
-                            return;
-                          setNeedsSave(c.status !== "DRAFT");
-                          setDirty(true);
-                          setText(c.status === "DRAFT" ? c.text : "");
-                          setDraft(c.status === "DRAFT" ? c.id : "");
-                          setAmend(c.status === "DRAFT" ? "" : c.id);
-                          setType(c.type);
-                          setTask(c.linkedTaskId ?? "");
-                          setLinkVitals(c.linkedVitalIds.length > 0);
-                          setVerified(false);
-                        }}
-                      >
-                        {c.status === "DRAFT"
-                          ? "Edit draft"
-                          : "Append amendment"}
-                      </button>
-                    </article>
-                  ))}
-              </section>
-            </div>
-          )}
-        </CareSection>
-      </div>
-    </div>
-  );
-}
+        <div className="pt-missing">
+          <h2>Patient unavailable in this demo unit.</h2>
+          <p>Switch to the patient’s assigned unit to continue.</p>
+          <Link to="/patients">Back to assigned patients</Link>
+        </div>
+      </Screen>
+    );
 
-function SensorRegion({
-  state,
-  patientId,
-  region,
-  latest,
-}: {
-  state: State;
-  patientId: string;
-  region: string;
-  latest?: Movement;
-}) {
-  const device = state.devices?.find(
-    (d) => d.patientId === patientId && d.bodyRegion === region,
-  );
-  const sample = state.samples
-    ?.filter((x) => x.patientId === patientId && x.bodyRegion === region)
-    .slice()
-    .sort((a, b) => Date.parse(a.capturedAt) - Date.parse(b.capturedAt))
-    .at(-1);
-  const disconnected = device
-    ? device.connectionState === "DISCONNECTED"
-    : region === "PELVIS" && latest?.quality === "PELVIS_DISCONNECTED";
-  const angle =
-    sample?.rollDegrees ??
-    (latest?.sampleIds.some((id) =>
-      id.endsWith(region === "PELVIS" ? "-pelvis" : "-chest"),
-    )
-      ? region === "PELVIS"
-        ? latest.pelvisAfter
-        : latest.chestAfter
-      : undefined);
-  const captured = sample?.capturedAt ?? latest?.capturedAt;
+  const feed = feedPatient(state, p, now);
+  const drafts = state.charts.filter(
+    (c) => c.patientId === p.id && c.status === "DRAFT",
+  ).length;
+  const pending = p.repositionPlan ? pendingMovements(state, p.id) : 0;
+  const offline = feed.offlineDevices.filter(
+    (d) => d.state !== "No recent data",
+  ).length;
+  const flags: { text: string; tone: Tone }[] = [];
+  if (offline)
+    flags.push({
+      text:
+        offline === 1
+          ? `${feed.offlineDevices.find((d) => d.state !== "No recent data")!.region} offline`
+          : `${offline} devices offline`,
+      tone: "grey",
+    });
+  if (pending)
+    flags.push({
+      text: `${pending} movement${pending > 1 ? "s" : ""} to review`,
+      tone: "amber",
+    });
+  if (drafts)
+    flags.push({
+      text: `${drafts} draft${drafts > 1 ? "s" : ""} to confirm`,
+      tone: "amber",
+    });
+  const phase = carePhase(p);
+
+  const startFrom = (c: Chart) => {
+    if (composer.startFrom(c)) setComposeOpen(true);
+  };
+
   return (
-    <div>
-      <Radio size={22} />
-      <strong>{region === "PELVIS" ? "Pelvis" : "Upper torso"}</strong>
-      <small>
-        {device
-          ? `${words(device.connectionState)} · ${words(device.freshness)} (simulated)`
-          : disconnected
-            ? "Disconnected - review needed"
-            : latest
-              ? "Last report: connected (simulated)"
-              : "Connectivity unavailable"}
-      </small>
-      <span>
-        {disconnected
-          ? "Unknown / disconnected"
-          : angle === undefined
-            ? "No observation"
-            : `${angle}°`}
-      </span>
-      <small>
-        {disconnected
-          ? "Missing data is not no movement"
-          : captured
-            ? `Observed ${time(captured)}`
-            : "Awaiting sample"}
-      </small>
-      {device && <small>Source: {device.id}</small>}
-    </div>
+    <Screen className="pt-profile">
+      <div data-no-swipe>
+        <ScreenHeader
+          title={p.name}
+          subtitle={`Room ${p.room} · ${unitShort(p.unit)}${phase ? ` · ${phase}` : ""}`}
+          back={returnTo}
+          backLabel={backLabel}
+          right={
+            <button
+              type="button"
+              className="ach-icon-button pt-compose-button"
+              aria-label="Document care"
+              title={
+                composer.dirty
+                  ? "Document care (unsaved draft)"
+                  : "Document care"
+              }
+              onClick={() => setComposeOpen(true)}
+            >
+              <PenLine aria-hidden strokeWidth={1.75} />
+              {composer.dirty && !composeOpen && (
+                <span className="pt-compose-dot" aria-hidden />
+              )}
+            </button>
+          }
+        />
+        {composer.storageError && (
+          <p className="pt-alert" role="alert">
+            Browser draft retention is unavailable. Save your draft before
+            leaving this patient.
+          </p>
+        )}
+        {composer.dirty && !composeOpen && (
+          <button
+            type="button"
+            className="pt-resume-note"
+            onClick={() => setComposeOpen(true)}
+          >
+            <PenLine aria-hidden size={18} />
+            <span>
+              <strong>Continue working note</strong>
+              <small>
+                {composer.needsSave
+                  ? composer.storageError
+                    ? "Not saved; save before leaving this patient"
+                    : "Changes kept in this browser; save to the record"
+                  : "Saved draft ready for your review"}
+              </small>
+            </span>
+            <span className="pt-resume-action">Resume</span>
+          </button>
+        )}
+        {flags.length > 0 && (
+          <ul className="pt-flags" aria-label="Patient flags">
+            {flags.map((f) => (
+              <li key={f.text}>
+                <Pill tone={f.tone}>{f.text}</Pill>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <div ref={tabsRef} className="pt-tabs">
+          <Segmented
+            label="Patient record sections"
+            options={TABS}
+            value={tab}
+            onChange={selectTab}
+          />
+        </div>
+
+        <div className="pt-panel">
+          {tab === "summary" && (
+            <PatientSummary
+              state={state}
+              patient={p}
+              rounds={rounds}
+              mutate={mutate}
+              busy={busy}
+              now={now}
+              focus={section?.focus ?? null}
+            />
+          )}
+          {tab === "timeline" && (
+            <PatientTimelineFeed state={state} patient={p} now={now} />
+          )}
+          {tab === "trends" && (
+            <PatientTrends state={state} patient={p} now={now} />
+          )}
+          {tab === "records" && (
+            <PatientRecords
+              state={state}
+              patientId={p.id}
+              now={now}
+              onEdit={startFrom}
+            />
+          )}
+        </div>
+      </div>
+
+      <ComposeSheet
+        open={composeOpen}
+        onClose={closeCompose}
+        composer={composer}
+        patient={p}
+        state={state}
+        current={current}
+        busy={busy}
+        now={now}
+        onConfirmed={() => {
+          setComposeOpen(false);
+          setTab("records");
+        }}
+      />
+    </Screen>
   );
 }

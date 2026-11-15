@@ -1003,7 +1003,7 @@ for(const [name,[c,p,h],cls] of PRESETS){
 }
 document.querySelectorAll('#source button').forEach(b=>b.onclick=()=>setSource(b.dataset.src));
 /* Time scale: how many simulated seconds pass per real second (0 = paused). Shown in the top bar and the
-   Simulation panel, kept in sync. Initial value: ?speed=N in the URL, else the last choice, else 300x.
+   Simulation panel, kept in sync. Opens paused; P resumes at ?speed=N from the URL, else the last choice, else 60x.
    Data sent to Achillea is always stamped with real time; the scale only changes how fast the shift plays. */
 const SPEEDS=[0,1,10,60,300,600];
 const speedLabel=s=>s===0?'Pause':s+'×';
@@ -1023,9 +1023,11 @@ for(const host of [$('speeds'),$('tscale')])for(const s of SPEEDS){
   let initial=+new URLSearchParams(location.search).get('speed');
   if(!SPEEDS.includes(initial)||!new URLSearchParams(location.search).has('speed')){
     let saved=null;try{saved=localStorage.getItem('sim-speed');}catch(e){}
-    initial=saved!=null&&SPEEDS.includes(+saved)?+saved:300;
+    initial=saved!=null&&SPEEDS.includes(+saved)&&+saved>0?+saved:60;
   }
-  setSpeed(initial,false);
+  // Always open paused at shift start (so a screen recording can begin first); P resumes at the chosen speed.
+  state.lastSpeed=initial>0?initial:60;
+  setSpeed(0,false);
 }
 // "P" toggles pause (ignored while typing in a field)
 document.addEventListener('keydown',e=>{
@@ -1531,8 +1533,18 @@ function keyOrbit(dt){
 const VIT={t0:performance.now()};
 const vitT=()=>(performance.now()-VIT.t0)/1000;
 function vitPatient(){return PATIENT;}
-function vitNumerics(){const c=REPLAY.chart,n=k=>c[k]!=null?Math.round(+c[k]):null;
-  return {hr:n('HR'),rr:n('RR'),spo2:n('SpO2'),sbp:n('SBP'),dbp:n('DBP'),tf:c.TempF!=null?(+c.TempF).toFixed(1):null};}
+// Value at simulated minute t from the charted readings: on the line between the charted reading before and the
+// one after, so it moves every minute and passes exactly through every real charted value. Over a gap longer than
+// CHART_INTERP_MAX minutes the last charted value is held (no invented trend). Before the first reading: no value.
+const CHART_INTERP_MAX=240;
+function chartAt(ev,k,t){let a=null,b=null;
+  for(const e of ev){if(e[1]!==k)continue;const v=parseFloat(e[2]);if(!isFinite(v))continue;
+    if(e[0]<=t)a=[e[0],v];else{b=[e[0],v];break;}}
+  if(!a)return null;if(!b||b[0]-a[0]>CHART_INTERP_MAX)return a[1];
+  return a[1]+(b[1]-a[1])*(t-a[0])/(b[0]-a[0]);}
+function vitNumerics(){const ev=CENSUS[CUR].shift.ev,t=state.simMin,n=k=>{const v=chartAt(ev,k,t);return v==null?null:Math.round(v);};
+  const tf=chartAt(ev,'TempF',t);
+  return {hr:n('HR'),rr:n('RR'),spo2:n('SpO2'),sbp:n('SBP'),dbp:n('DBP'),tf:tf!=null?tf.toFixed(1):null};}
 // series of charted values for a vital, up to "now", from 4 h before the shift
 function vitSeries(k,now){return SHIFT.ev.filter(e=>e[1]===k&&e[0]<=now&&e[0]>=-240).map(e=>[e[0],+e[2]]);}
 const VRANGE={HR:[40,150],SpO2:[80,100],RR:[5,40],SBP:[70,190],TempF:[96,104]};
@@ -1766,9 +1778,8 @@ const r1=x=>Math.round(x*10)/10;
 function achWaiting(id){const P=ACH.p[id];return ACH.on&&P?P.movements.filter(m=>m.reviewRequired&&m.verificationStatus==='UNREVIEWED').length:0;}
 function achStatus(){
   const el=$('achStatus'); if(!el)return;
-  const cadence=state.speed===0?'shift paused; current values repeat every 15 s'
-    :`one update per simulated minute`+(ACH.rate?`, ${ACH.rate>=1?ACH.rate.toFixed(1)+' per second':'every '+Math.round(1/ACH.rate)+' s'}`:'')
-      +(state.speed>=600?'; may merge minutes if the server is busy':'');
+  const cadence=state.speed===0?'shift paused; current values sent every second'
+    :`updates every second`+(ACH.rate?` (${ACH.rate.toFixed(1)}/s measured)`:'');
   el.textContent=ACH.on?`Linked to Achillea: ${CENSUS.length} patients streaming (${cadence}). ${ACH.sent} records sent`+(ACH.errors?`, ${ACH.errors} rejected (last: ${ACH.lastErr})`:'')+'.'
     :ACH.checked?'Not linked to Achillea. Run this page from the simulator dev server to link.':'Checking Achillea';
 }
@@ -1786,14 +1797,19 @@ function achHandoff(oldId,newId){
 // backend in one transaction (POST /api/integrations/batch), so Achillea's UI updates once per sim minute.
 // A real-time heartbeat (15 s) keeps monitors fresh at 1x or while paused. Only one batch is in flight at a time;
 // if the server cannot keep up at high speed, minutes merge into the next send rather than queueing.
-const ACH_HEARTBEAT_MS=15000;
-function achVitals(out,id,c,spo2Lost,at,n){
-  const add=(metric,val,unit,q)=>{if(val==null||!isFinite(+val))return;
-    out.push({sourceEventId:`sim-${ACH.run}-${n}-${id}-${metric}`,patientId:id,metric,value:r1(+val),unit,observedAt:at,quality:q||'VALID'});};
-  add('HEART_RATE',c.HR,'bpm');
-  add('SPO2',c.SpO2,'%',spo2Lost?'MISSING':'VALID');
-  add('RESPIRATORY_RATE',c.RR,'breaths/min');
-  if(c.TempF!=null)add('TEMPERATURE',(+c.TempF-32)*5/9,'°C');
+// Steady real-time cadence: one batch every second at any speed, values computed for that exact moment.
+const ACH_SEND_MS=1000;
+// Every vital the simulator displays, at the current simulated minute (see chartAt), sent once per simulated minute.
+function achVitals(out,id,ev,t,spo2Lost,at,n){
+  const add=(metric,val,unit,q,dp)=>{if(val==null||!isFinite(+val))return;
+    out.push({sourceEventId:`sim-${ACH.run}-${n}-${id}-${metric}`,patientId:id,metric,value:dp?r1(+val):Math.round(+val),unit,observedAt:at,quality:q||'VALID'});};
+  add('HEART_RATE',chartAt(ev,'HR',t),'bpm');
+  add('SPO2',chartAt(ev,'SpO2',t),'%',spo2Lost?'MISSING':'VALID');
+  add('RESPIRATORY_RATE',chartAt(ev,'RR',t),'breaths/min');
+  add('BLOOD_PRESSURE_SYSTOLIC',chartAt(ev,'SBP',t),'mmHg');
+  add('BLOOD_PRESSURE_DIASTOLIC',chartAt(ev,'DBP',t),'mmHg');
+  const tf=chartAt(ev,'TempF',t);
+  if(tf!=null)add('TEMPERATURE',(tf-32)*5/9,'°C',null,true);
 }
 function achQueueMove(body){ACH.pendingMoves.push(body);}
 function achFlush(){
@@ -1802,12 +1818,12 @@ function achFlush(){
     const id=c.achilleaId;
     if(i===CUR){
       const E=state.est, active=re=>devEvents().some(d=>re.test(d.text)&&t>=d.from&&t<d.to), disc=active(/Pelvis patch/);
-      achVitals(observations,id,REPLAY.chart,active(/SpO2/),at,n);
+      achVitals(observations,id,c.shift.ev,t,active(/SpO2/),at,n);
       // no pelvis value while its patch is not reporting (never 0)
       postures.push({sourceEventId:`sim-${ACH.run}-${n}-${id}`,patientId:id,upperTorsoDegrees:r1(E.chest),pelvisDegrees:disc?null:r1(E.pelvis),capturedAt:at});
     } else {
       const b=BG[i];bgAdvance(b,t);
-      achVitals(observations,id,b.chart,false,at,n);
+      achVitals(observations,id,c.shift.ev,t,false,at,n);
       postures.push({sourceEventId:`sim-${ACH.run}-${n}-${id}`,patientId:id,upperTorsoDegrees:b.pose,pelvisDegrees:b.pose,capturedAt:at});
     }
   });
@@ -1855,9 +1871,8 @@ function achTick(){
     if(now-P.lastPoll>3000+stag){P.lastPoll=now-stag;
       achApi(`/patients/${id}/orientation`).then(o=>{P.movements=(o.movements||[]).filter(m=>String(m.id).startsWith(`sim-${ACH.run}`));}).catch(()=>{});}
   });
-  // send: a new simulated minute, a finished turn, or the real-time heartbeat
-  const minute=Math.floor(t);
-  if(!ACH.inFlight&&(minute!==ACH.lastSentMin||ACH.pendingMoves.length||now-ACH.lastSendReal>ACH_HEARTBEAT_MS))achFlush();
+  // send every second: current vitals and posture for all patients plus any turns that finished
+  if(!ACH.inFlight&&now-ACH.lastSendReal>=ACH_SEND_MS)achFlush();
   // measured update rate for the status line
   if(now-ACH.rateAt>2000){ACH.rate=(ACH.batches-ACH.rateBatches)/((now-ACH.rateAt)/1000);ACH.rateAt=now;ACH.rateBatches=ACH.batches;}
   achStatus();

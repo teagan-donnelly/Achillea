@@ -140,6 +140,8 @@ public class CareService {
     s.charts.removeIf(c -> !ids.contains(c.patientId));
     s.devices.removeIf(d -> !ids.contains(d.patientId));
     s.repositioningPlans.removeIf(p -> !ids.contains(p.patientId));
+    s.handoffs.removeIf(h -> !ids.contains(h.patientId));
+    s.handoffVersions.removeIf(v -> !ids.contains(v.patientId));
     s.events.removeIf(
       e -> e.patientId() != null && !ids.contains(e.patientId())
     );
@@ -155,6 +157,22 @@ public class CareService {
 
   public synchronized State read() {
     return assigned(load());
+  }
+
+  /**
+   * Runs one command against the full aggregate and persists it in one transaction (SSE
+   * listeners are notified after commit). Nothing is saved when the command throws.
+   */
+  public synchronized <T> T mutate(java.util.function.Function<State, T> command) {
+    State s = load();
+    T result = command.apply(s);
+    save(s);
+    return result;
+  }
+
+  /** The current time from the configured (test-replaceable) clock. */
+  public Instant now() {
+    return clock.instant();
   }
 
   public synchronized List<Repositioning.Status> repositioning(String unit) {
@@ -945,6 +963,7 @@ public class CareService {
       case "SPO2" -> "%";
       case "TEMPERATURE" -> "°C";
       case "RESPIRATORY_RATE" -> "breaths/min";
+      case "BLOOD_PRESSURE_SYSTOLIC", "BLOOD_PRESSURE_DIASTOLIC" -> "mmHg";
       default -> throw new ResponseStatusException(
         HttpStatus.BAD_REQUEST,
         "Unsupported metric"

@@ -1,6 +1,8 @@
 import { useRef, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-const pages = ["/", "/patients", "/sensors", "/rounds"];
+import { TAB_PATHS } from "./TabBar";
+// Same left-to-right order as the bottom tab bar.
+const pages = TAB_PATHS;
 export function SwipeNavigation({
   children,
   disabled = false,
@@ -13,7 +15,7 @@ export function SwipeNavigation({
     start = useRef<{ x: number; y: number } | null>(null);
   function move(direction: number) {
     const index = pages.indexOf(
-      location.pathname === "/activity" ? "/" : location.pathname,
+      ["/sensors", "/repositioning"].includes(location.pathname) ? "/" : location.pathname,
     );
     if (!disabled && index >= 0 && pages[index + direction])
       navigate(pages[index + direction]);

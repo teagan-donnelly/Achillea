@@ -1,5 +1,5 @@
 export async function api<T>(path:string,body?:unknown,method=body===undefined?'GET':'POST'):Promise<T>{
- const response=await fetch(`/api${path}`,{method,headers:{'Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body)});
+ const response=await fetch(`/api${path}`,{method,headers:{'Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body),signal:typeof AbortSignal!=='undefined'&&'timeout' in AbortSignal?AbortSignal.timeout(10000):undefined});
  if(!response.ok){const error=await response.json().catch(()=>({message:'Server unavailable'}));throw new Error(error.message??`Request failed (${response.status})`);}
  return response.json() as Promise<T>;
 }

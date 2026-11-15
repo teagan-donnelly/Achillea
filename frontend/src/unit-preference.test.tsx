@@ -48,7 +48,7 @@ function mount(path = "/") {
 }
 it("defaults a fresh session to ICU without silently loading or resetting data", async () => {
   localStorage.clear();
-  const fetch = mount();
+  const fetch = mount("/repositioning");
   await screen.findByRole("heading", { name: "Repositioning Command Center" });
   expect(screen.getByLabelText("Demo unit")).toHaveValue("ICU");
   expect(
@@ -102,12 +102,12 @@ it.each(["/", "/patients", "/sensors", "/rounds"])(
     expect(initialUnit()).toBe("L_AND_D");
     const title =
       path === "/"
-        ? "Repositioning Command Center"
+        ? "Monitoring"
         : path === "/patients"
           ? "Patients"
           : path === "/sensors"
             ? "Sensor Monitoring"
-            : "Rounds";
+            : "Tasks";
     expect(
       await screen.findByRole("heading", { name: title }),
     ).toBeInTheDocument();

@@ -275,11 +275,11 @@ it("ignores an older L&D response even after switching ICU and back to L&D", asy
   fireEvent.change(screen.getByLabelText("Demo unit"), {
     target: { value: "ICU" },
   });
-  await screen.findByRole("heading", { name: "Repositioning Command Center" });
+  await screen.findByRole("heading", { name: "Monitoring" });
   fireEvent.change(screen.getByLabelText("Demo unit"), {
     target: { value: "L_AND_D" },
   });
-  await screen.findByRole("heading", { name: "Repositioning Command Center" });
+  await screen.findByRole("heading", { name: "Monitoring" });
   fireEvent.click(screen.getByRole("link", { name: "Patients" }));
   await screen.findByRole("heading", { name: "Synthetic LD" });
   await act(async () => {

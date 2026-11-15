@@ -87,6 +87,73 @@ function patient(data: State, mutate = vi.fn().mockResolvedValue(chart)) {
   );
   return mutate;
 }
+
+it("keeps a closed working note recoverable from the patient overview", () => {
+  const mutate = patient({ ...state, charts: [] });
+  fireEvent.click(screen.getByRole("button", { name: "Document care" }));
+  fireEvent.change(
+    screen.getByRole("textbox", { name: "Observation / nurse narrative" }),
+    { target: { value: "Verified patient comfort and position" } },
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Close" }));
+  expect(
+    screen.getByText("Changes kept in this browser; save to the record"),
+  ).toBeVisible();
+  fireEvent.click(
+    screen.getByRole("button", { name: /Continue working note/ }),
+  );
+  expect(
+    screen.getByRole("textbox", { name: "Observation / nurse narrative" }),
+  ).toHaveValue("Verified patient comfort and position");
+  expect(mutate).not.toHaveBeenCalled();
+});
+
+it("saves with the keyboard without duplicate requests or automatic clinical confirmation", async () => {
+  let finish!: (saved: Chart) => void;
+  const mutate = vi.fn().mockImplementation(
+    () =>
+      new Promise<Chart>((resolve) => {
+        finish = resolve;
+      }),
+  );
+  patient({ ...state, charts: [] }, mutate);
+  fireEvent.click(screen.getByRole("button", { name: "Document care" }));
+  const narrative = screen.getByRole("textbox", {
+    name: "Observation / nurse narrative",
+  });
+  fireEvent.change(narrative, {
+    target: { value: "Patient repositioned and comfort reviewed" },
+  });
+  fireEvent.keyDown(narrative, { ctrlKey: true, key: "Enter" });
+  expect(narrative).toBeDisabled();
+  expect(screen.getByLabelText("Entry type")).toBeDisabled();
+  expect(
+    screen.getByLabelText(
+      "Include latest simulated observations in saved draft",
+    ),
+  ).toBeDisabled();
+  fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
+  expect(mutate).toHaveBeenCalledTimes(1);
+  expect(mutate).toHaveBeenCalledWith(
+    "/chart/drafts",
+    expect.objectContaining({
+      text: "Patient repositioned and comfort reviewed",
+      patientId: "p1",
+    }),
+    "POST",
+  );
+  finish({ ...chart, text: "Patient repositioned and comfort reviewed" });
+  await screen.findByRole("heading", { name: "Review saved draft" });
+  expect(screen.getByRole("button", { name: "Confirm entry" })).toBeDisabled();
+  expect(
+    screen.getByRole("checkbox", {
+      name: "I reviewed the saved entry, patient identity, and provenance.",
+    }),
+  ).not.toBeChecked();
+  fireEvent.keyDown(narrative, { metaKey: true, key: "Enter" });
+  expect(mutate).toHaveBeenCalledTimes(1);
+});
+
 it("requires explicit review and saving changed metadata before chart confirmation", async () => {
   const mutate = patient(state);
   fireEvent.click(screen.getByRole("button", { name: "Edit draft" }));
@@ -224,7 +291,8 @@ it("shows disconnected pelvic sensor and keeps movement review explicit", async 
     },
     mutate,
   );
-  fireEvent.click(screen.getByRole("button", { name: "Repositioning" }));
+  // Patients redesign: sensor review lives in the Summary tab.
+  fireEvent.click(screen.getByRole("tab", { name: "Summary" }));
   fireEvent.click(screen.getByRole("button", { name: /^Sensor monitoring/ }));
   expect(screen.getByText("Unknown / disconnected")).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "Review candidate" }));

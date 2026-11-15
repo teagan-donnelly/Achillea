@@ -1,0 +1,557 @@
+/* Monitoring tab (MonitoringFeed.tsx): light, crisp Instagram-iOS x Apple Health feed.
+   Everything is scoped under .mf.
+   Type scale: 11 / 12 / 13 / 15 / 17 px. Spacing: 4 / 8 / 12 / 16 / 24 px. Weights: 400 / 500 / 600. */
+
+/* Clean full-bleed page on this route: hide the shell's top bar and simulation banner visually
+   (they stay in the DOM), white background, no main padding. */
+.mockup-design.route-monitoring .topbar,
+.mockup-design.route-monitoring .simulation {
+  display: none;
+}
+.mockup-design.route-monitoring,
+.mockup-design.route-monitoring .workspace {
+  background: #fff;
+}
+.mockup-design.route-monitoring main {
+  max-width: none;
+  padding: 0;
+  margin: 0;
+}
+
+.mockup-design .mf {
+  --mf-green: #237a4b;
+  --mf-mint: #e3f3e8;
+  --mf-border: #e8eee9;
+  --mf-hairline: #eff2f0;
+  --mf-icon: #27332b;
+  --mf-text: #111111;
+  --mf-muted: #667085;
+  --mf-faint: #667085;
+  --mf-red: #e5484d;
+  --mf-red-soft: #fdeeee;
+  --mf-red-text: #c4292e;
+  --mf-amber: #f0b03f;
+  --mf-amber-soft: #fff5e1;
+  --mf-amber-text: #8a5a06;
+  --mf-grey: #c4c8cf;
+  --mf-grey-soft: #f2f4f7;
+  --mf-grey-text: #475467;
+  --mf-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  font-family:
+    -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
+    system-ui, sans-serif;
+  color: var(--mf-text);
+  background: #fff;
+  max-width: 600px;
+  margin: 0 auto;
+  padding-bottom: 8px;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Header shares the branded ScreenHeader; attention filtering remains local. */
+.mockup-design .mf .mf-bell {
+  position: relative;
+  justify-self: end;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  min-height: 44px;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--mf-icon);
+  box-shadow: none;
+  cursor: pointer;
+  transition: transform 0.15s var(--mf-ease);
+}
+.mockup-design .mf .mf-bell:active {
+  transform: scale(0.9);
+}
+.mockup-design .mf .mf-bell svg {
+  width: 26px;
+  height: 26px;
+}
+.mockup-design .mf .mf-bell-dot {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--mf-red); /* attention, not success */
+  box-shadow: 0 0 0 2px #fff;
+}
+
+/* ---------- Room carousel (Instagram stories) ----------
+   Four rooms fully visible with the fifth peeking; swipes snap room by room.
+   Ring colour = urgency of care: red (urgent / monitor offline), yellow (watch), green (stable). */
+.mockup-design .mf .mf-stories {
+  container-type: inline-size;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: 16px;
+  scroll-behavior: smooth;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.mockup-design .mf .mf-stories::-webkit-scrollbar {
+  display: none;
+}
+.mockup-design .mf .mf-stories ul {
+  display: flex;
+  --gap: 14px;
+  /* 4 full circles plus about a quarter of the next one inside the 16px-padded column. */
+  --circle: clamp(60px, calc((100cqw - 16px - 4 * var(--gap)) / 4.25), 100px);
+  gap: var(--gap);
+  width: max-content;
+  min-width: 100%;
+  margin: 0;
+  padding: 16px 16px 8px;
+  list-style: none;
+}
+.mockup-design .mf .mf-stories li {
+  scroll-snap-align: start;
+}
+.mockup-design .mf .mf-story {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: var(--circle);
+  color: var(--mf-text);
+  text-decoration: none;
+  border-radius: 14px;
+}
+/* Gradient ring (3px), white gap (3px), then the avatar disc, as on Instagram. */
+.mockup-design .mf .mf-ring {
+  position: relative;
+  display: block;
+  width: var(--circle);
+  height: var(--circle);
+  box-sizing: border-box;
+  padding: 3px;
+  border-radius: 50%;
+  background: var(--ring);
+  transition: transform 0.18s var(--mf-ease);
+}
+.mockup-design .mf .mf-avatar {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  border-radius: 50%;
+  border: 3px solid #fff;
+  background: var(--ring-bg);
+  color: var(--ring-ink);
+}
+.mockup-design .mf .mf-story:active .mf-ring {
+  transform: scale(0.94);
+}
+.mockup-design .mf .mf-avatar svg {
+  width: calc(var(--circle) * 0.4);
+  height: calc(var(--circle) * 0.4);
+}
+.mockup-design .mf .urgency-red {
+  --ring: linear-gradient(45deg, #d92d20 0%, #f04438 45%, #ff7a59 100%);
+  --ring-bg: #fff5f4;
+  --ring-ink: #b42318;
+}
+.mockup-design .mf .urgency-yellow {
+  --ring: linear-gradient(45deg, #e8a200 0%, #f5b800 50%, #ffd84d 100%);
+  --ring-bg: #fffaeb;
+  --ring-ink: #93620a;
+}
+.mockup-design .mf .urgency-green {
+  --ring: linear-gradient(45deg, #1b6b40 0%, #237a4b 45%, #4cbf7e 100%);
+  --ring-bg: #f1f9f4;
+  --ring-ink: #237a4b;
+}
+.mockup-design .mf .mf-badge {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #f04438;
+  color: #fff;
+  font-size: 0.8125rem; /* 13 */
+  font-weight: 700;
+  line-height: 1;
+  box-shadow: 0 0 0 2.5px #fff;
+}
+.mockup-design .mf .mf-story-label {
+  display: grid;
+  justify-items: center;
+  max-width: 100%;
+  line-height: 1.25;
+}
+.mockup-design .mf .mf-story-room,
+.mockup-design .mf .mf-story-name {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mockup-design .mf .mf-story-room {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--mf-text);
+  font-variant-numeric: tabular-nums;
+}
+/* Instagram-style username line under each circle: the patient's name, truncated if long. */
+.mockup-design .mf .mf-story-name {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--mf-muted);
+}
+
+/* ---------- Filter capsule with a sliding highlight ---------- */
+.mockup-design .mf .mf-filter {
+  --mf-i: 0;
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin: 12px 16px 0;
+  padding: 3px;
+  border-radius: 999px;
+  background: #fff;
+  border: 1px solid rgba(17, 17, 17, 0.04);
+  box-shadow:
+    0 2px 10px rgba(17, 17, 17, 0.06),
+    0 1px 2px rgba(17, 17, 17, 0.04);
+}
+.mockup-design .mf .mf-filter-thumb {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 3px;
+  width: calc((100% - 6px) / 3);
+  border-radius: 999px;
+  background: var(--mf-mint);
+  transform: translateX(calc(var(--mf-i) * 100%));
+  transition: transform 0.32s var(--mf-ease);
+}
+.mockup-design .mf .mf-filter button {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-width: 0;
+  font: 600 0.8125rem/1.2 var(--ach-font);
+  height: 44px;
+  min-height: 44px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--mf-icon);
+  box-shadow: none;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+.mockup-design .mf .mf-filter button svg {
+  width: 17px;
+  height: 17px;
+  flex: none;
+  transition: transform 0.15s var(--mf-ease);
+}
+.mockup-design .mf .mf-filter button:active svg {
+  transform: scale(0.88);
+}
+.mockup-design .mf .mf-filter button[aria-pressed="true"] {
+  color: var(--mf-green);
+}
+
+/* ---------- Feed ---------- */
+.mockup-design .mf .mf-feed {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+  padding: 18px 16px 8px;
+  list-style: none;
+}
+.mockup-design .mf .mf-card {
+  position: relative;
+  display: block;
+  container-type: inline-size;
+  padding: 20px 18px;
+  border-radius: 20px;
+  border: 1px solid var(--mf-border);
+  background: #fff;
+  color: var(--mf-text);
+  text-decoration: none;
+  transition:
+    transform 0.18s var(--mf-ease),
+    box-shadow 0.18s ease;
+}
+.mockup-design .mf .mf-card:active {
+  transform: scale(0.98);
+}
+@media (hover: hover) {
+  .mockup-design .mf .mf-card:hover {
+    border-color: #dde5df;
+  }
+}
+.mockup-design .mf .mf-card-top {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  column-gap: 12px;
+}
+.mockup-design .mf .mf-tile {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 13px;
+  background: var(--mf-mint);
+  color: var(--mf-green);
+}
+.mockup-design .mf .mf-card.tone-offline .mf-tile {
+  background: var(--mf-grey-soft);
+  color: var(--mf-faint);
+}
+.mockup-design .mf .mf-tile svg {
+  width: 22px;
+  height: 22px;
+}
+.mockup-design .mf .mf-id {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+.mockup-design .mf .mf-sub {
+  font-size: 0.875rem; /* 14 */
+  font-weight: 400;
+  color: var(--mf-muted);
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mockup-design .mf .mf-room {
+  font-variant-numeric: tabular-nums;
+}
+.mockup-design .mf .mf-id {
+  align-self: center;
+}
+.mockup-design .mf .mf-name {
+  font-size: 1.125rem; /* 18 */
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mockup-design .mf .mf-pill {
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 0.875rem; /* 14 */
+  letter-spacing: 0;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.mockup-design .mf .mf-pill.tone-alert {
+  background: var(--mf-red-soft);
+  color: var(--mf-red-text);
+}
+.mockup-design .mf .mf-pill.tone-warning {
+  background: var(--mf-amber-soft);
+  color: var(--mf-amber-text);
+}
+.mockup-design .mf .mf-pill.tone-stable {
+  background: var(--mf-mint);
+  color: var(--mf-green);
+}
+.mockup-design .mf .mf-pill.tone-offline {
+  background: var(--mf-grey-soft);
+  color: var(--mf-grey-text);
+}
+.mockup-design .mf .mf-chev {
+  width: 16px;
+  height: 16px;
+  margin: 0 -4px 0 -4px;
+  color: var(--mf-faint);
+}
+.mockup-design .mf .mf-rule {
+  height: 1px;
+  margin: 18px 0 16px; /* full-width hairline; nothing to inset against now the tile is gone */
+  border: 0;
+  background: var(--mf-hairline);
+}
+
+/* Vitals: typographic columns, label above, number carries the design. No icons, no rules. */
+.mockup-design .mf .mf-metrics {
+  display: grid;
+  grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr));
+  column-gap: 12px;
+}
+.mockup-design .mf .mf-metrics.n-1 {
+  --cols: 1;
+}
+.mockup-design .mf .mf-metrics.n-2 {
+  --cols: 2;
+}
+.mockup-design .mf .mf-metrics.n-4 {
+  --cols: 4;
+}
+.mockup-design .mf .mf-metric {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.mockup-design .mf .mf-caption {
+  font-size: 0.8125rem; /* 13 */
+  font-weight: 400;
+  color: var(--mf-muted);
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mockup-design .mf .mf-value {
+  font-size: 1.375rem; /* 22 */
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: clip;
+}
+.mockup-design .mf .mf-value.is-empty {
+  font-weight: 400;
+  color: var(--mf-faint);
+}
+.mockup-design .mf .mf-value small {
+  margin-left: 3px;
+  font-size: 0.75rem; /* 12 */
+  font-weight: 400;
+  letter-spacing: 0;
+  color: var(--mf-muted);
+}
+.mockup-design .mf .mf-value small.tight {
+  margin-left: 1px;
+}
+.mockup-design .mf .mf-reading-state {
+  font-size: 0.75rem;
+  color: var(--mf-muted);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+/* Keep the recorded value readable and label its actual freshness alongside it. */
+.mockup-design .mf .mf-card.tone-offline .mf-value {
+  color: var(--mf-faint);
+}
+.mockup-design .mf .mf-stale-dot {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  margin-left: 4px;
+  border-radius: 50%;
+  vertical-align: middle;
+  background: var(--mf-red);
+}
+/* Narrow cards: drop the name-column indent first, then fall back to a 2 x 2 grid. */
+@container (max-width: 340px) {
+  .mockup-design .mf .mf-metrics {
+    padding-left: 0;
+  }
+  .mockup-design .mf .mf-rule {
+    margin-left: 0;
+  }
+}
+@container (max-width: 290px) {
+  .mockup-design .mf .mf-metrics.n-4 {
+    --cols: 2;
+    row-gap: 12px;
+  }
+}
+
+/* ---------- Empty states ---------- */
+.mockup-design .mf .mf-empty {
+  display: grid;
+  gap: 4px;
+  margin: 0 16px;
+  padding: 48px 24px 32px;
+  background: #fff;
+  text-align: center;
+  color: var(--mf-muted);
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+.mockup-design .mf .mf-empty strong {
+  color: var(--mf-text);
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+/* ---------- Focus, narrow, motion ---------- */
+.mockup-design .mf :is(a, button):focus-visible {
+  outline: 2px solid var(--mf-green);
+  outline-offset: 2px;
+}
+@media (max-width: 359px) {
+  .mockup-design .mf .mf-feed {
+    padding-inline: 12px;
+  }
+  .mockup-design .mf .mf-filter {
+    margin-inline: 12px;
+  }
+  .mockup-design .mf .mf-card {
+    padding: 14px;
+  }
+  .mockup-design .mf .mf-card-top {
+    column-gap: 10px;
+  }
+  .mockup-design .mf .mf-tile {
+    width: 40px;
+    height: 40px;
+    border-radius: 11px;
+  }
+  .mockup-design .mf .mf-tile svg {
+    width: 20px;
+    height: 20px;
+  }
+  .mockup-design .mf .mf-name {
+    font-size: 0.9375rem;
+  }
+  .mockup-design .mf .mf-pill {
+    padding: 5px 10px;
+    font-size: 0.8125rem;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mockup-design .mf .mf-card,
+  .mockup-design .mf .mf-ring,
+  .mockup-design .mf .mf-bell,
+  .mockup-design .mf .mf-filter-thumb,
+  .mockup-design .mf .mf-filter button,
+  .mockup-design .mf .mf-filter button svg {
+    transition: none;
+  }
+  .mockup-design .mf .mf-card:active,
+  .mockup-design .mf .mf-story:active .mf-ring,
+  .mockup-design .mf .mf-bell:active,
+  .mockup-design .mf .mf-filter button:active svg {
+    transform: none;
+  }
+}
+
+/* The shell footer (different font, extra text) is hidden on the Monitoring tab for a clean feed. */
+.mockup-design.route-monitoring .workspace > footer {
+  display: none;
+}

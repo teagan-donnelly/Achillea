@@ -168,17 +168,25 @@ it("opens a focused task from Rounds and returns to that schedule", async () => 
     </MemoryRouter>,
   );
   fireEvent.click(
-    await screen.findByRole("link", { name: "Open bedside workspace" }),
+    await screen.findByRole("button", { name: /^Bedside assessment,/ }),
+  );
+  fireEvent.click(
+    screen.getByRole("link", { name: /^Open bedside workspace/ }),
   );
   expect(
     screen.getByRole("heading", { name: "Synthetic Patient" }),
   ).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Care" })).toHaveAttribute(
-    "aria-pressed",
+  // Patients redesign: ?section=tasks opens the Summary tab with Care tasks expanded.
+  expect(screen.getByRole("tab", { name: "Summary" })).toHaveAttribute(
+    "aria-selected",
     "true",
   );
-  fireEvent.click(screen.getByRole("link", { name: "Back to Rounds" }));
-  expect(screen.getByRole("heading", { name: "Rounds" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /^Care tasks/ })).toHaveAttribute(
+    "aria-expanded",
+    "true",
+  );
+  fireEvent.click(screen.getByRole("link", { name: "Back to Tasks" }));
+  expect(screen.getByRole("heading", { name: "Tasks" })).toBeInTheDocument();
 });
 it("opens monitoring from Activity and switches between actual recorded trends", async () => {
   const vitals: Vital[] = ["HEART_RATE", "SPO2"].flatMap((metric, i) =>
@@ -203,33 +211,32 @@ it("opens monitoring from Activity and switches between actual recorded trends",
         fixturePayload(url, { ...state, vitals, events: [event] }),
     })),
   );
+  // /activity is now the Handoff tab; open the patient's vitals as if from that tab.
   render(
-    <MemoryRouter>
+    <MemoryRouter
+      initialEntries={[{ pathname: "/patients/p1", search: "?section=vitals", state: { from: "/activity" } }]}
+    >
       <App />
     </MemoryRouter>,
   );
-  fireEvent.click(await screen.findByRole("link", { name: "Activity history" }));
-  fireEvent.click(await screen.findByRole("link", { name: /View patient/ }));
-  expect(screen.getByRole("button", { name: "Vitals" })).toHaveAttribute(
-    "aria-pressed",
+  // Patients redesign: ?section=vitals opens Trends, one swipeable card per recorded metric.
+  expect(await screen.findByRole("tab", { name: "Trends" })).toHaveAttribute(
+    "aria-selected",
     "true",
   );
   expect(
-    screen.getByRole("img", { name: /Heart rate historical trend/ }),
-  ).toBeInTheDocument();
-  fireEvent.change(screen.getByLabelText("Trend measurement"), {
-    target: { value: "SPO2" },
-  });
-  expect(
-    screen.getByRole("img", { name: /Oxygen saturation historical trend/ }),
+    screen.getByRole("article", { name: "Heart rate trend" }),
   ).toBeInTheDocument();
   expect(
-    screen.queryByRole("img", { name: /Heart rate historical trend/ }),
+    screen.getByRole("article", { name: "Oxygen saturation trend" }),
+  ).toBeInTheDocument();
+  expect(
+    screen.queryByRole("article", { name: /Temperature trend/ }),
   ).not.toBeInTheDocument();
-  fireEvent.click(screen.getByRole("link", { name: "Back to Activity" }));
+  fireEvent.click(screen.getByRole("link", { name: "Back to Handoff" }));
   await waitFor(() =>
     expect(
-      screen.getByRole("heading", { name: "Activity" }),
+      screen.getByRole("heading", { name: "Handoff" }),
     ).toBeInTheDocument(),
   );
 });
