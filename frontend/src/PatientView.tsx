@@ -334,33 +334,6 @@ export function PatientView({
               </p>
             </section>
           )}
-          <details className="monitor-demo-controls">
-            <summary>Monitor simulation controls</summary>
-            <button
-              className="secondary"
-              disabled={busy || monitor?.connectionState === "DISCONNECTED"}
-              onClick={() =>
-                void mutate(`/demo/scenarios/vital?patientId=${id}`).catch(
-                  () => {},
-                )
-              }
-            >
-              Receive simulated monitor reading
-            </button>
-            {monitor?.connectionState === "DISCONNECTED" && (
-              <button
-                className="secondary"
-                disabled={busy}
-                onClick={() =>
-                  void mutate(
-                    `/demo/scenarios/monitor-reconnect?patientId=${id}`,
-                  ).catch(() => {})
-                }
-              >
-                Reconnect simulated monitor
-              </button>
-            )}
-          </details>
         </>
       )}
       {tab === "Care tasks" && (

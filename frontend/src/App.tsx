@@ -13,7 +13,6 @@ import {
   Check,
   FlaskConical,
   Leaf,
-  RefreshCw,
   Search,
   Users,
   Wifi,
@@ -26,7 +25,6 @@ import { RoundsView } from "./RoundsView";
 import { ActivityHome, PatientCard } from "./WorkspaceViews";
 import { SwipeNavigation } from "./SwipeNavigation";
 import { loadWorkspace, type WorkspaceSnapshot } from "./workspace-feed";
-import { DemoPresets } from "./DemoPresets";
 export default function App() {
   const [state, setState] = useState<State | null>(null),
     [rounds, setRounds] = useState<Round[]>([]),
@@ -158,7 +156,7 @@ export default function App() {
             Built around your judgment.
           </p>
           <button className="demo-toggle" onClick={() => setDemo(!demo)}>
-            <FlaskConical size={18} /> Demo controls
+            <FlaskConical size={18} /> Demo information
           </button>
           <div className="nurse">
             <span className="avatar">JE</span>
@@ -211,7 +209,7 @@ export default function App() {
           )}
           <button
             className="mobile-demo secondary"
-            aria-label="Open demo controls"
+            aria-label="Open demo information"
             onClick={() => setDemo(!demo)}
           >
             <FlaskConical size={19} />
@@ -225,9 +223,9 @@ export default function App() {
           <main id="main" key={location.pathname}>
             {error && (
               <div className="error" role="alert">
-                <strong>Unable to reach the local backend.</strong>
+                <strong>Unable to refresh your workspace.</strong>
                 <p>
-                  {error}. Check the backend and API proxy configuration, then
+                  {error}. Check your connection and sign-in session, then
                   retry. Your unsaved note stays on screen.
                 </p>
                 <button onClick={() => void refresh()}>Retry connection</button>
@@ -354,102 +352,31 @@ export default function App() {
           {notice}
         </div>
       )}
-      {
-        <aside
-          hidden={!demo}
-          className="demo-panel"
-          aria-label="Simulation control panel"
-        >
-          <div className="section-heading">
-            <h2>
-              <FlaskConical size={20} /> Demo studio
-            </h2>
-            <button className="secondary" onClick={() => setDemo(false)}>
-              Close
-            </button>
-          </div>
-          <p>
-            Simulation controls only. Every action is recorded by the backend.
-          </p>
-          <DemoPresets
-            key={`${unit}:${state?.demoStartedAt ?? "loading"}`}
-            patients={patients}
-            busy={busy}
-            refresh={refresh}
-            onNavigate={(pid, section) => {
-              setDemo(false);
-              navigate(`/patients/${pid}?section=${section}`);
-            }}
-          />
-          <ol>
-            <li>L&D: send a reading, open Maya, save and confirm a note.</li>
-            <li>Switch to ICU. Compare partial and coordinated movement.</li>
-            <li>Review movement, verify care, then complete the task.</li>
-            <li>Show rounds and the activity timeline.</li>
-          </ol>
-          <div className="scenario-buttons">
-            {[
-              ["vital", "New monitor reading"],
-              ["flagged", "Flagged synthetic reading"],
-              ["partial", "Chest-only movement"],
-              ["coordinated", "Coordinated turn candidate"],
-              ...(unit === "ICU"
-                ? [
-                    ["pelvic-only", "Pelvis-only movement"],
-                    ["sensor-delay", "Delayed sensor evidence"],
-                    ["uncertain", "Uncertain sensor evidence"],
-                    ["incomplete", "Incomplete sensor evidence"],
-                  ]
-                : []),
-              ["no-movement", "Make turn review due"],
-              ["disconnect", "Disconnect pelvis sensor"],
-              ["reconnect", "Reconnect sensor"],
-              ["monitor-disconnect", "Disconnect bedside monitor"],
-              ["monitor-delay", "Delay bedside monitor"],
-              ["monitor-reconnect", "Reconnect bedside monitor"],
-            ].map(([key, title]) => (
-              <button
-                disabled={busy}
-                className="secondary"
-                key={key}
-                onClick={() =>
-                  void mutate(
-                    `/demo/scenarios/${key}?patientId=${(key === "vital" || key === "flagged" || key.startsWith("monitor-") ? patients[0]?.id : state?.patients.find((p) => p.repositionPlan)?.id) ?? "synthetic-icu-01"}`,
-                  ).catch(() => {})
-                }
-              >
-                {title}
-              </button>
-            ))}
-          </div>
-          <button
-            className="reset"
-            disabled={busy}
-            onClick={() => {
-              if (
-                window.confirm(
-                  "Reset all synthetic demo records, including drafts?",
-                )
-              )
-                void mutate("/demo/reset")
-                  .then(() => {
-                    for (const key of Object.keys(sessionStorage)) {
-                      if (key.startsWith("achillea-note-"))
-                        sessionStorage.removeItem(key);
-                    }
-                    navigate("/");
-                  })
-                  .catch(() => {});
-            }}
-          >
-            <RefreshCw size={16} /> Reset synthetic demo
+      <aside
+        hidden={!demo}
+        className="demo-panel"
+        aria-label="Demo information"
+      >
+        <div className="section-heading">
+          <h2>
+            <FlaskConical size={20} /> Synthetic demo
+          </h2>
+          <button className="secondary" onClick={() => setDemo(false)}>
+            Close
           </button>
-          <small>
-            Repositioning is enabled only by the ICU care plan. No AI key or
-            hardware required.
-          </small>
-        </aside>
-      }
+        </div>
+        <p>
+          Observations, orientation and device status come from the external
+          simulator. Achillea displays the stored evidence.
+        </p>
+        <ol>
+          <li>Review assigned patients and source timestamps.</li>
+          <li>Save a chart draft, review it, then explicitly confirm.</li>
+          <li>Review movement evidence before verifying prescribed care.</li>
+          <li>Use rounds and activity history to follow nursing work.</li>
+        </ol>
+        <p>Movement never confirms care. All records are synthetic.</p>
+      </aside>
     </div>
   );
 }

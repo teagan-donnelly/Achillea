@@ -1,0 +1,38 @@
+{
+  "name": "achillea-vercel",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": "24.x"
+  },
+  "workspaces": [
+    "frontend"
+  ],
+  "scripts": {
+    "dev": "node --env-file-if-exists=.env.local --import tsx scripts/dev.ts",
+    "build": "npm run typecheck:api && npm run build --workspace frontend",
+    "typecheck:api": "tsc --noEmit",
+    "typecheck": "npm run typecheck:api && npm run typecheck --workspace frontend",
+    "test": "vitest run --config vitest.config.ts && npm test --workspace frontend",
+    "test:api": "vitest run --config vitest.config.ts",
+    "test:db": "tsx scripts/test-database.ts",
+    "test:seed": "tsx scripts/test-data.ts seed",
+    "test:cleanup": "tsx scripts/test-data.ts cleanup",
+    "lint": "npm run lint --workspace frontend"
+  },
+  "dependencies": {
+    "@vercel/functions": "^3.0.0",
+    "pg": "^8.16.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/pg": "^8.15.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "jsdom": "^26.0.0",
+    "tsx": "^4.20.0",
+    "typescript": "~5.7.2",
+    "vite": "^6.4.0",
+    "vitest": "^5.1.0"
+  }
+}
