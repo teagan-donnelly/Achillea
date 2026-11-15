@@ -267,6 +267,68 @@ public class ApiController {
     return service.ingest(observation);
   }
 
+  /** Free-form roll angle for one body region (UPPER_TORSO or PELVIS). */
+  @PostMapping("/integrations/sensors/orientation")
+  public Object ingestOrientation(@RequestBody OrientationReading reading) {
+    demo();
+    return service.ingestOrientation(reading);
+  }
+
+  /** Free-form roll angles for both regions in one frame. */
+  @PostMapping("/integrations/sensors/posture")
+  public Object ingestPosture(@RequestBody PostureReading reading) {
+    demo();
+    return service.ingestPosture(reading);
+  }
+
+  /** Free-form movement (e.g. a finished turn) that becomes a nurse-review candidate. */
+  @PostMapping("/integrations/sensors/movements")
+  public Object recordMovement(@RequestBody MovementReading reading) {
+    demo();
+    return service.recordMovement(reading);
+  }
+
+  /** Latest stored roll per region, for driving a 3D body view. */
+  @GetMapping("/patients/{id}/posture")
+  public Object posture(@PathVariable String id) {
+    demo();
+    State s = service.read();
+    service.patient(s, id);
+    Map<String, Object> latest = new LinkedHashMap<>();
+    latest.put("patientId", id);
+    for (String region : List.of("UPPER_TORSO", "PELVIS")) latest.put(
+      region.equals("UPPER_TORSO") ? "upperTorso" : "pelvis",
+      s.samples
+        .stream()
+        .filter(x -> x.patientId().equals(id) && x.bodyRegion().equals(region))
+        .max(
+          Comparator.comparing(OrientationSample::capturedAt).thenComparing(
+            OrientationSample::receivedAt
+          )
+        )
+        .orElse(null)
+    );
+    latest.put(
+      "devices",
+      s.devices
+        .stream()
+        .filter(
+          d -> d.patientId.equals(id) && !d.bodyRegion.equals("BEDSIDE_MONITOR")
+        )
+        .toList()
+    );
+    latest.put(
+      "latestMovement",
+      s.movements
+        .stream()
+        .filter(m -> m.patientId.equals(id))
+        .max(Comparator.comparing(m -> m.capturedAt))
+        .orElse(null)
+    );
+    latest.put("serverTime", s.serverTime);
+    return latest;
+  }
+
   @PostMapping("/demo/scenarios/{key}")
   public Object scenario(
     @PathVariable String key,

@@ -63,6 +63,16 @@ Fresh data contains **10 L&D and 7 ICU census patients**, with **three assigned 
 
 V3 recording guidance and all five presets: [integration runbook](docs/INTEGRATION_V3.md). Original V2 guidance: [demo script](docs/DEMO_SCRIPT.md). No video is generated/uploaded automatically. This is a software simulation, not a claim of validated pressure relief, treatment recommendations, injury prevention, or clinical deployment readiness.
 
+## Sample data and simulator input
+
+With the backend running, seed 30 minutes of synthetic vitals, posture and one movement for three ICU patients (Alex Linden, Robin Ash, Sam Alder):
+
+```powershell
+node scripts/seed-sample-data.mjs          # add --live to keep streaming every 5 s
+```
+
+Set `ACHILLEA_API` (default `http://127.0.0.1:18184/api`) for another backend. External simulators send free-form body angles to `POST /api/integrations/sensors/posture` and turns to `POST /api/integrations/sensors/movements`; see [the API](docs/API.md). The H2 database stores one table per record type (`backend/src/main/resources/schema.sql`); older single-document databases are imported automatically.
+
 ## Checks
 
 ```sh

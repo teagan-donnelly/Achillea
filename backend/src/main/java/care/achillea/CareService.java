@@ -2,7 +2,6 @@ package care.achillea;
 
 import static care.achillea.Model.*;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.*;
@@ -13,27 +12,25 @@ import org.springframework.web.server.ResponseStatusException;
 
 /**
  * A single-process demo aggregate. Commands are synchronized until the repository
- * transaction commits; related task, chart, and audit changes are one atomic row write.
+ * transaction commits; related task, chart, and audit changes are written to their
+ * relational tables in one transaction (see RelationalStore).
  */
 @Service
 public class CareService {
 
-  private final StoreRepository repo;
-  private final ObjectMapper json;
+  private final RelationalStore store;
   private final Clock clock;
   private final DemoSeeder seeder;
   private final MonitorSimulation monitors;
   private final SensorAdapter sensor;
 
   public CareService(
-    StoreRepository repo,
-    ObjectMapper json,
+    RelationalStore store,
     Clock clock,
     DemoSeeder seeder,
     MonitorSimulation monitors
   ) {
-    this.repo = repo;
-    this.json = json;
+    this.store = store;
     this.clock = clock;
     this.seeder = seeder;
     this.monitors = monitors;
@@ -59,15 +56,8 @@ public class CareService {
   }
 
   private State load() {
-    State s = repo
-      .findById("demo")
-      .map(row -> {
-        try {
-          return json.readValue(row.payload, State.class);
-        } catch (Exception e) {
-          throw new IllegalStateException("Cannot read demo database", e);
-        }
-      })
+    State s = store
+      .load()
       .orElseGet(() -> save(seeder.create(clock.instant())));
     // Upgrade only additive device metadata for legacy snapshots, never reset notes/tasks.
     monitors.ensureDevices(s, clock.instant());
@@ -79,11 +69,9 @@ public class CareService {
 
   private State save(State s) {
     try {
-      Store row = repo.findById("demo").orElse(new Store("demo", ""));
-      row.payload = json.writeValueAsString(s);
-      repo.saveAndFlush(row);
+      store.save(s);
       return s;
-    } catch (Exception e) {
+    } catch (RuntimeException e) {
       throw new IllegalStateException("Cannot persist demo database", e);
     }
   }
@@ -756,6 +744,310 @@ public class CareService {
     );
     save(s);
     return v;
+  }
+
+  // ------------------------------------------------ free-form body orientation (simulator input)
+
+  static final Set<String> SENSOR_QUALITIES = Set.of(
+    "SIMULATED_GOOD",
+    "DELAYED",
+    "UNCERTAIN",
+    "INCOMPLETE"
+  );
+  /** Prototype demo threshold for calling a region "moved"; not a validated clinical value. */
+  static final double MOVEMENT_THRESHOLD_DEGREES = 15;
+
+  /** Streams one region's roll angle. Idempotent per sourceEventId (used as the sample ID). */
+  public synchronized OrientationSample ingestOrientation(OrientationReading in) {
+    validSensorEvent(in.sourceEventId(), in.capturedAt());
+    input(
+      Set.of("UPPER_TORSO", "PELVIS").contains(Objects.toString(in.bodyRegion(), "")),
+      "bodyRegion must be UPPER_TORSO or PELVIS"
+    );
+    input(in.rollDegrees() != null, "rollDegrees required");
+    validAngle(in.rollDegrees(), "rollDegrees");
+    String quality = sensorQuality(in.quality());
+    State s = load();
+    patient(s, in.patientId());
+    Optional<OrientationSample> previous = sample(s, in.sourceEventId());
+    if (previous.isPresent()) {
+      OrientationSample o = previous.get();
+      require(
+        o.patientId().equals(in.patientId()) &&
+          o.bodyRegion().equals(in.bodyRegion()) &&
+          o.rollDegrees() == in.rollDegrees() &&
+          o.capturedAt().equals(in.capturedAt()),
+        "Source event ID was already used for different data"
+      );
+      return o;
+    }
+    Device d = connectedSensor(s, in.patientId(), in.bodyRegion());
+    OrientationSample o = addSample(
+      s,
+      in.sourceEventId(),
+      d,
+      in.rollDegrees(),
+      in.capturedAt(),
+      quality
+    );
+    MonitorSimulation.freshness(s, clock.instant());
+    save(s);
+    return o;
+  }
+
+  /** Streams both regions in one frame. Sample IDs are sourceEventId + "-UPPER_TORSO"/"-PELVIS". */
+  public synchronized List<OrientationSample> ingestPosture(PostureReading in) {
+    validSensorEvent(in.sourceEventId(), in.capturedAt());
+    input(
+      in.upperTorsoDegrees() != null || in.pelvisDegrees() != null,
+      "upperTorsoDegrees or pelvisDegrees required"
+    );
+    validAngle(in.upperTorsoDegrees(), "upperTorsoDegrees");
+    validAngle(in.pelvisDegrees(), "pelvisDegrees");
+    String quality = sensorQuality(in.quality());
+    State s = load();
+    patient(s, in.patientId());
+    Map<String, Double> regions = new LinkedHashMap<>();
+    if (in.upperTorsoDegrees() != null) regions.put("UPPER_TORSO", in.upperTorsoDegrees());
+    if (in.pelvisDegrees() != null) regions.put("PELVIS", in.pelvisDegrees());
+    List<OrientationSample> existing = regions
+      .keySet()
+      .stream()
+      .map(r -> sample(s, in.sourceEventId() + "-" + r))
+      .flatMap(Optional::stream)
+      .toList();
+    if (!existing.isEmpty()) {
+      require(
+        existing.size() == regions.size() &&
+          existing
+            .stream()
+            .allMatch(
+              o ->
+                o.patientId().equals(in.patientId()) &&
+                o.rollDegrees() == regions.get(o.bodyRegion()) &&
+                o.capturedAt().equals(in.capturedAt())
+            ),
+        "Source event ID was already used for different data"
+      );
+      return existing;
+    }
+    Map<String, Device> sensors = new LinkedHashMap<>();
+    regions.keySet().forEach(r -> sensors.put(r, connectedSensor(s, in.patientId(), r)));
+    List<OrientationSample> added = new ArrayList<>();
+    regions.forEach((r, roll) ->
+      added.add(
+        addSample(
+          s,
+          in.sourceEventId() + "-" + r,
+          sensors.get(r),
+          roll,
+          in.capturedAt(),
+          quality
+        )
+      )
+    );
+    MonitorSimulation.freshness(s, clock.instant());
+    save(s);
+    return added;
+  }
+
+  /**
+   * Records a free-form movement candidate with its two region samples. Classification comes
+   * from the angle changes; like scripted scenarios it only creates evidence for nurse review.
+   */
+  public synchronized Movement recordMovement(MovementReading in) {
+    validSensorEvent(in.sourceEventId(), in.capturedAt());
+    input(in.upperTorsoAfter() != null, "upperTorsoAfter required");
+    validAngle(in.upperTorsoBefore(), "upperTorsoBefore");
+    validAngle(in.upperTorsoAfter(), "upperTorsoAfter");
+    validAngle(in.pelvisBefore(), "pelvisBefore");
+    validAngle(in.pelvisAfter(), "pelvisAfter");
+    input(
+      in.confidence() == null || (in.confidence() >= 0 && in.confidence() <= 1),
+      "confidence must be between 0 and 1"
+    );
+    String quality = sensorQuality(in.quality());
+    State s = load();
+    Patient p = patient(s, in.patientId());
+    input(
+      p.repositionPlan(),
+      "Movement evidence requires an assigned patient with a repositioning plan"
+    );
+    Optional<Movement> previous = s.movements
+      .stream()
+      .filter(x -> x.id.equals(in.sourceEventId()))
+      .findFirst();
+    if (previous.isPresent()) {
+      require(
+        previous.get().patientId.equals(in.patientId()),
+        "Source event ID was already used for different data"
+      );
+      return previous.get();
+    }
+    Device chest = connectedSensor(s, in.patientId(), "UPPER_TORSO");
+    Device pelvis = regionSensor(s, in.patientId(), "PELVIS");
+    boolean pelvisMissing =
+      in.pelvisAfter() == null || pelvis.connectionState.equals("DISCONNECTED");
+    Movement m = new Movement();
+    m.id = in.sourceEventId();
+    m.patientId = in.patientId();
+    m.chestSensorId = chest.id;
+    m.pelvisSensorId = pelvis.id;
+    m.capturedAt = in.capturedAt();
+    m.receivedAt = clock.instant();
+    m.chestBefore = in.upperTorsoBefore() != null
+      ? in.upperTorsoBefore()
+      : baseline(s, in.patientId(), chest.id, true);
+    m.pelvisBefore = in.pelvisBefore() != null
+      ? in.pelvisBefore()
+      : baseline(s, in.patientId(), pelvis.id, false);
+    m.chestAfter = in.upperTorsoAfter();
+    m.pelvisAfter = pelvisMissing ? m.pelvisBefore : in.pelvisAfter();
+    boolean chestMoved =
+      Math.abs(angleChange(m.chestBefore, m.chestAfter)) >= MOVEMENT_THRESHOLD_DEGREES;
+    boolean pelvisMoved =
+      !pelvisMissing &&
+      Math.abs(angleChange(m.pelvisBefore, m.pelvisAfter)) >= MOVEMENT_THRESHOLD_DEGREES;
+    m.classification = pelvisMissing
+      ? "UNKNOWN"
+      : chestMoved && pelvisMoved
+        ? "COORDINATED_TURN_CANDIDATE"
+        : chestMoved
+          ? "PARTIAL_TORSO_MOVEMENT"
+          : pelvisMoved ? "PARTIAL_PELVIC_MOVEMENT" : "SMALL_ADJUSTMENT";
+    m.quality = pelvisMissing ? "PELVIS_DISCONNECTED" : quality;
+    m.confidence = pelvisMissing
+      ? null
+      : in.confidence() != null
+        ? in.confidence()
+        : quality.equals("SIMULATED_GOOD") ? .85 : .35;
+    m.sampleIds = new ArrayList<>();
+    m.sampleIds.add(
+      addSample(s, m.id + "-chest", chest, m.chestAfter, m.capturedAt, m.quality).id()
+    );
+    if (!pelvisMissing) m.sampleIds.add(
+      addSample(s, m.id + "-pelvis", pelvis, m.pelvisAfter, m.capturedAt, m.quality).id()
+    );
+    WorkflowRules.classify(m);
+    s.movements.add(m);
+    event(
+      s,
+      m.patientId,
+      "movement.candidate",
+      "SIMULATED_SENSOR",
+      m.classification + " · " + m.quality + " · free-form simulator input"
+    );
+    event(
+      s,
+      m.patientId,
+      "movement.detected",
+      "SIMULATED_SENSOR",
+      "Independent region observations; awaiting nurse review"
+    );
+    MonitorSimulation.freshness(s, clock.instant());
+    WorkflowRules.apply(s, clock.instant());
+    save(s);
+    return m;
+  }
+
+  private void validSensorEvent(String sourceEventId, Instant at) {
+    input(
+      sourceEventId != null &&
+        !sourceEventId.isBlank() &&
+        sourceEventId.length() <= 120 &&
+        at != null &&
+        !at.isAfter(clock.instant().plusSeconds(60)),
+      "Valid source event ID (max 120 characters) and capture timestamp required"
+    );
+  }
+
+  private static void validAngle(Double degrees, String name) {
+    input(
+      degrees == null || (Double.isFinite(degrees) && Math.abs(degrees) <= 180),
+      name + " must be between -180 and 180 degrees"
+    );
+  }
+
+  private static String sensorQuality(String quality) {
+    String q = quality == null ? "SIMULATED_GOOD" : quality;
+    input(
+      SENSOR_QUALITIES.contains(q),
+      "quality must be one of SIMULATED_GOOD, DELAYED, UNCERTAIN, INCOMPLETE"
+    );
+    return q;
+  }
+
+  /** Signed shortest change in degrees, in [-180, 180). */
+  static double angleChange(double before, double after) {
+    return ((((after - before) % 360) + 540) % 360) - 180;
+  }
+
+  private static Optional<OrientationSample> sample(State s, String id) {
+    return s.samples.stream().filter(x -> x.id().equals(id)).findFirst();
+  }
+
+  private Device regionSensor(State s, String patientId, String region) {
+    return s.devices
+      .stream()
+      .filter(d -> d.patientId.equals(patientId) && region.equals(d.bodyRegion))
+      .findFirst()
+      .orElseThrow(() ->
+        new ResponseStatusException(
+          HttpStatus.NOT_FOUND,
+          "No " + region + " sensor assigned to this patient"
+        )
+      );
+  }
+
+  private Device connectedSensor(State s, String patientId, String region) {
+    Device d = regionSensor(s, patientId, region);
+    require(
+      !d.connectionState.equals("DISCONNECTED"),
+      d.id + " is disconnected; reconnect before sending samples"
+    );
+    return d;
+  }
+
+  /** Settled position: last movement's "after" angle, else the latest sample, else 0. */
+  private static double baseline(State s, String patientId, String sensorId, boolean chest) {
+    Optional<Movement> last = s.movements
+      .stream()
+      .filter(m -> m.patientId.equals(patientId))
+      .max(Comparator.comparing(m -> m.capturedAt));
+    if (last.isPresent()) return chest ? last.get().chestAfter : last.get().pelvisAfter;
+    return s.samples
+      .stream()
+      .filter(x -> x.sensorId().equals(sensorId))
+      .max(Comparator.comparing(OrientationSample::capturedAt))
+      .map(OrientationSample::rollDegrees)
+      .orElse(0.0);
+  }
+
+  private OrientationSample addSample(
+    State s,
+    String id,
+    Device d,
+    double roll,
+    Instant capturedAt,
+    String quality
+  ) {
+    Instant now = clock.instant();
+    OrientationSample o = new OrientationSample(
+      id,
+      d.id,
+      d.patientId,
+      d.bodyRegion,
+      roll,
+      capturedAt,
+      now,
+      quality,
+      "SIMULATED"
+    );
+    s.samples.add(o);
+    d.lastSeenAt = now;
+    if (d.lastSampledAt == null || capturedAt.isAfter(d.lastSampledAt)) d.lastSampledAt =
+      capturedAt;
+    return o;
   }
 
   public List<Round> rounds(State s, String unit) {
