@@ -1,17 +1,51 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-11-14T00:00:00-05:00",
-  "title": "Achillea bedside interface",
+  "generatedAt": "2026-11-15T03:26:46.861Z",
+  "title": "Achillea responsive mockup interface",
   "extensions": {
-    "shadows": [{"name":"care-surface","value":"0 6px 24px rgb(25 52 35 / 7%)","purpose":"Separate primary care sections from the sage ground"}],
-    "motion": [{"name":"accordion-chevron","value":"transform 160ms ease-out","purpose":"Reflect expanded state; disabled for reduced motion"}],
-    "breakpoints": [{"name":"small-phone","value":"360px"},{"name":"mobile","value":"760px"},{"name":"wide-rounds","value":"1050px"}]
+    "shadows": [
+      {
+        "name": "mockup-card",
+        "value": "0 3px 12px rgb(26 48 34 / 6%)",
+        "purpose": "White cards over ivory ground"
+      }
+    ],
+    "motion": [
+      {
+        "name": "accordion-chevron",
+        "value": "transform 160ms ease-out",
+        "purpose": "Reflect expanded state; disabled for reduced motion"
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "tablet",
+        "value": "768px"
+      },
+      {
+        "name": "desktop-sidebar",
+        "value": "1024px"
+      },
+      {
+        "name": "wide-patients",
+        "value": "1550px"
+      }
+    ]
   },
   "components": [],
   "narrative": {
-    "overview":"Source evidence and explicit nurse actions remain distinct in a compact forest-green and sage bedside interface.",
-    "keyCharacteristics":["Patient identity first","Truthful source metadata","Explicit human confirmation"],
-    "dos":["Preserve backend ordering and readable textual states"],
-    "donts":["Do not invent clinical records or imply physical integration"]
+    "overview": "The supplied mockup governs serif heroes, forest navigation, overlapping white vitals and data-driven clinical cards.",
+    "keyCharacteristics": [
+      "Fraunces titles and DM Sans body",
+      "Mockup composition with real data",
+      "Explicit nurse confirmations",
+      "Separate mobile and desktop layouts"
+    ],
+    "dos": [
+      "Preserve backend ordering and readable textual states"
+    ],
+    "donts": [
+      "Do not invent clinical records or imply physical integration"
+    ]
   }
 }

@@ -1,5 +1,6 @@
 import { useId, type ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
+import { CareIcon } from "./VisualPrimitives";
 
 export function CareSection({
   title,
@@ -16,7 +17,10 @@ export function CareSection({
 }) {
   const id = useId();
   return (
-    <section className={`care-section ${open ? "is-open" : ""}`}>
+    <section
+      data-care={title}
+      className={`care-section ${open ? "is-open" : ""}`}
+    >
       <h2>
         <button
           className="care-section-toggle"
@@ -24,6 +28,7 @@ export function CareSection({
           aria-controls={id}
           onClick={onToggle}
         >
+          <CareIcon title={title} />
           <span>
             <strong>{title}</strong>
             <small>{summary}</small>

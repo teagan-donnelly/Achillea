@@ -144,6 +144,7 @@ describe("Bedside mobile redesign", () => {
     ).toBeInTheDocument();
     expect(screen.queryByText("Outside selected day")).not.toBeInTheDocument();
     expect(screen.queryByText("Other patient event")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "View all" }));
     fireEvent.change(screen.getByLabelText("Filter patient timeline"), {
       target: { value: "Device" },
     });
@@ -156,6 +157,7 @@ describe("Bedside mobile redesign", () => {
   });
   it("selects a four-hour window and restores the full day", () => {
     render(<PatientTimeline state={state} patientId="p1" />);
+    fireEvent.click(screen.getByRole("button", { name: "View all" }));
     const window = screen.getByRole("button", { name: /From .*: 2 records/ });
     fireEvent.click(window);
     expect(window).toHaveAttribute("aria-pressed", "true");

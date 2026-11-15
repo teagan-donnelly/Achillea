@@ -1,3 +1,4 @@
+import { HeroShape, MetricIcon, PatientAvatar } from "./VisualPrimitives";
 import { useEffect, useState } from "react";
 import {
   Link,
@@ -5,7 +6,7 @@ import {
   useParams,
   useSearchParams,
 } from "react-router-dom";
-import { ArrowLeft, HeartPulse, Radio } from "lucide-react";
+import { ArrowLeft, Radio } from "lucide-react";
 import type { Chart, Movement, Round, State } from "./types";
 import { time, words } from "./api";
 import {
@@ -200,15 +201,17 @@ export function PatientView({
           this patient.
         </p>
       )}
-      <Link className="back" to={returnTo}>
-        <ArrowLeft size={16} />{" "}
-        {returnTo === "/rounds"
-          ? "Back to Rounds"
-          : returnTo === "/" || returnTo === "/activity"
-            ? "Back to Activity"
-            : "Assigned patients"}
-      </Link>
       <div className="patient-heading">
+        <HeroShape />
+        <Link className="back" to={returnTo}>
+          <ArrowLeft size={16} />{" "}
+          {returnTo === "/rounds"
+            ? "Back to Rounds"
+            : returnTo === "/" || returnTo === "/activity"
+              ? "Back to Activity"
+              : "Assigned patients"}
+        </Link>
+        <PatientAvatar />
         <div>
           <h1>{p.name}</h1>
           <p>
@@ -220,106 +223,78 @@ export function PatientView({
         </div>
         <button onClick={() => setTab("Chart")}>Document care</button>
       </div>
-      <section
-        className="patient-work-summary"
-        aria-label="Patient care summary"
-      >
-        <div>
-          <span className="summary-label">Care at a glance</span>
-          <strong>
-            {patientRounds.length} open tasks /{" "}
-            {charts.filter((c) => c.status === "DRAFT").length} chart drafts
-          </strong>
-          <p>
-            {patientRounds[0]
-              ? `${patientRounds[0].task.title} - due ${time(patientRounds[0].task.dueAt)}`
-              : "No outstanding scheduled tasks"}
-          </p>
-        </div>
-        <button className="secondary" onClick={() => setTab("Care tasks")}>
-          Review care
-        </button>
-      </section>
-      <div className="tabs" aria-label="Patient sections">
-        {[
-          "Overview",
-          "Vitals",
-          "Care tasks",
-          "Chart",
-          ...(p.repositionPlan ? ["Sensors"] : []),
-          "History",
-        ].map((t) => (
-          <button
-            aria-pressed={tab === t}
-            className={tab === t ? "selected" : ""}
-            key={t}
-            onClick={() => {
-              setTab(t);
-              if (t === "Sensors") setSensorExpanded(true);
-            }}
-          >
-            {t}
-          </button>
-        ))}
-      </div>
       {(tab === "Overview" || tab === "Vitals") && (
         <>
-          <div className="section-heading">
-            <h2>Latest observations</h2>
-            <span>
-              <Radio size={14} /> Simulated monitor
-            </span>
-          </div>
-          <DeviceStatus device={monitor} />
-          <div className="vital-grid">
-            {current.map((v) => (
-              <article className="vital" key={v.metric}>
-                <h3>
-                  <HeartPulse size={16} />
-                  {metricName(v.metric)}
-                </h3>
-                <p className="reading">
-                  {[
-                    "Unavailable",
-                    "Disconnected",
-                    "Signal unavailable",
-                  ].includes(readingState(v, monitor))
-                    ? "Unavailable"
-                    : v.value}
-                  <span>{v.unit}</span>
+          <section
+            className="patient-vitals"
+            aria-label="Latest patient measurements"
+          >
+            <div className="section-heading">
+              <h2>Latest observations</h2>
+              <span>
+                <Radio size={14} /> Simulated monitor
+              </span>
+            </div>
+            <div className="vital-grid">
+              {(tab === "Overview" ? current.slice(0, 3) : current).map((v) => (
+                <article className="vital" key={v.metric}>
+                  <h3>
+                    <MetricIcon metric={v.metric} />
+                    {metricName(v.metric)}
+                  </h3>
+                  <p className="reading">
+                    {[
+                      "Unavailable",
+                      "Disconnected",
+                      "Signal unavailable",
+                    ].includes(readingState(v, monitor))
+                      ? "Unavailable"
+                      : v.value}
+                    <span>{v.unit}</span>
+                  </p>
+                  {tab === "Overview" &&
+                    vitals.filter(
+                      (x) => x.metric === v.metric && x.quality === "VALID",
+                    ).length > 1 && (
+                      <Trend
+                        compact
+                        readings={vitals.filter((x) => x.metric === v.metric)}
+                      />
+                    )}
+                  <small className="vital-source">
+                    Observed {time(v.observedAt)} · received{" "}
+                    {time(v.receivedAt)}
+                  </small>
+                  <small>
+                    {v.source} · {words(v.quality)}
+                  </small>
+                  <span
+                    className={
+                      readingState(v, monitor) === "Old reading"
+                        ? "freshness old"
+                        : "freshness"
+                    }
+                  >
+                    {readingState(v, monitor)} · {freshness(v)}
+                  </span>
+                </article>
+              ))}
+              {!current.length && (
+                <p className="empty">
+                  No monitor readings available. Check source availability
+                  before documenting measurements.
                 </p>
-                <small>
-                  Observed {time(v.observedAt)} · received {time(v.receivedAt)}
-                </small>
-                <small>
-                  {v.source} · {words(v.quality)}
-                </small>
-                <span
-                  className={
-                    readingState(v, monitor) === "Old reading"
-                      ? "freshness old"
-                      : "freshness"
-                  }
-                >
-                  {readingState(v, monitor)} · {freshness(v)}
-                </span>
-              </article>
-            ))}
-            {!current.length && (
-              <p className="empty">
-                No monitor readings available. Check source availability before
-                documenting measurements.
-              </p>
-            )}
-          </div>
+              )}
+            </div>
+            <DeviceStatus device={monitor} />
+          </section>
           {tab === "Overview" && (
             <PatientTimeline state={state} patientId={p.id} />
           )}
-          {selectedMetric && (
+          {selectedMetric && tab === "Vitals" && (
             <section className="monitor-history" data-no-swipe>
               <div className="section-heading">
                 <div>
-                  <p className="eyebrow">CONNECTED MONITORING</p>
                   <h2>Recorded trend</h2>
                 </div>
                 <label>
@@ -338,7 +313,7 @@ export function PatientView({
                 </label>
               </div>
               <Trend
-                compact={tab === "Overview"}
+                compact={false}
                 readings={vitals.filter((v) => v.metric === selectedMetric)}
               />
               <p className="monitor-footnote">
@@ -376,6 +351,51 @@ export function PatientView({
           </details>
         </>
       )}
+      <div className="patient-quick-actions">
+        {" "}
+        <section
+          className="patient-work-summary"
+          aria-label="Patient care summary"
+        >
+          <div>
+            <span className="summary-label">Care at a glance</span>
+            <strong>
+              {patientRounds.length} open tasks /{" "}
+              {charts.filter((c) => c.status === "DRAFT").length} chart drafts
+            </strong>
+            <p>
+              {patientRounds[0]
+                ? `${patientRounds[0].task.title} - due ${time(patientRounds[0].task.dueAt)}`
+                : "No outstanding scheduled tasks"}
+            </p>
+          </div>
+          <button className="secondary" onClick={() => setTab("Care tasks")}>
+            Review care
+          </button>
+        </section>
+        <div className="tabs" aria-label="Patient sections">
+          {[
+            "Overview",
+            "Vitals",
+            "Care tasks",
+            "Chart",
+            ...(p.repositionPlan ? ["Sensors"] : []),
+            "History",
+          ].map((t) => (
+            <button
+              aria-pressed={tab === t}
+              className={tab === t ? "selected" : ""}
+              key={t}
+              onClick={() => {
+                setTab(t);
+                if (t === "Sensors") setSensorExpanded(true);
+              }}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+      </div>
       <CareSection
         title="Pending tasks"
         summary={`${patientRounds.length} open tasks - ${patientRounds.filter((r) => r.rank <= 1).length} require review`}
@@ -596,6 +616,20 @@ export function PatientView({
                               .catch(() => {});
                           }}
                         >
+                          <div className="sensor-review-header">
+                            <PatientAvatar />
+                            <div>
+                              <h3>Sensor Review</h3>
+                              <p>
+                                {p.name} · Room {p.room}
+                              </p>
+                            </div>
+                          </div>
+                          <p className="sensor-review-disclosure">
+                            Simulated evidence recorded {time(m.capturedAt)}.
+                            Nurse review and documented care completion are
+                            separate actions.
+                          </p>
                           <label>
                             Bedside verification note
                             <textarea

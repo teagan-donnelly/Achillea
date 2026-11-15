@@ -4,6 +4,7 @@ import { patientReturnState } from "./navigation-context";
 import type { ActivityItem, Event, Patient, State } from "./types";
 import { time, words } from "./api";
 import { EventTimeline } from "./EventTimeline";
+import { Activity, ClipboardList, Radio, CheckCircle } from "lucide-react";
 
 // Preserve backend chronology; only adjacent monitoring summary windows fold together.
 export function activityRuns(items: ActivityItem[]): ActivityItem[][] {
@@ -34,6 +35,14 @@ export function BackendActivity({
   const location = useLocation();
   function renderSummary(item: ActivityItem) {
     const patient = patients.find((p) => p.id === item.patientId);
+    const Icon =
+      item.category === "DOCUMENTATION"
+        ? ClipboardList
+        : item.category === "DEVICE_STATUS" || item.category === "SENSOR_REVIEW"
+          ? Radio
+          : item.category === "TASK_ATTENTION"
+            ? CheckCircle
+            : Activity;
     return (
       <article
         className={
@@ -42,6 +51,9 @@ export function BackendActivity({
         }
         key={item.id}
       >
+        <span className="shift-event-icon">
+          <Icon size={17} />
+        </span>
         <div>
           <small>{words(item.category)}</small>
           <strong>{item.summary}</strong>
@@ -51,8 +63,7 @@ export function BackendActivity({
               : "Demo environment"}
           </p>
           <small>
-            {time(item.startedAt)} ? {time(item.timestamp)} /{" "}
-            {item.sourceId ?? "Source unavailable"}
+            {time(item.startedAt)} – {time(item.timestamp)} · Synthetic source
           </small>
           {patient && (
             <Link
@@ -76,6 +87,7 @@ export function BackendActivity({
           )}
           <details>
             <summary>View source evidence</summary>
+            <p>Source: {item.sourceId ?? "Source unavailable"}</p>
             {item.measurementIds.map((id) => {
               const vital = state.vitals.find((v) => v.id === id);
               return (

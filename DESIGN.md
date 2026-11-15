@@ -1,75 +1,74 @@
 ---
-name: Achillea bedside interface
-description: Synthetic nursing workflow with explicit human confirmation
+name: Achillea mockup interface
+description: Mobile bedside workflows with explicit human confirmation
 colors:
-  forest: "#163e32"
-  forest-deep: "#103226"
-  paper: "#fafaf5"
-  ground: "#f4f6ef"
-  sage: "#eaf0e6"
-  text: "#20372c"
-  muted: "#52655b"
-  line: "#d9e2d8"
-  terracotta: "#874c36"
+  forest: "#0f3d2e"
+  secondary: "#2e6b57"
+  ivory: "#f5f7f1"
+  card: "#ffffff"
+  sage: "#cfe3d8"
+  text: "#283a32"
+  muted: "#59695e"
+  line: "#e2e6dd"
 typography:
+  display:
+    fontFamily: "Fraunces, Georgia, serif"
+    fontWeight: 500
+    fontSize: "2rem"
+    letterSpacing: "-0.025em"
   body:
     fontFamily: "DM Sans, sans-serif"
     fontSize: "1rem"
     fontWeight: 400
-  title:
-    fontFamily: "DM Sans, sans-serif"
-    fontSize: "1.125rem"
-    fontWeight: 600
 rounded:
   control: "10px"
   section: "14px"
-  patient: "16px"
+  card: "16px"
 spacing:
   small: "8px"
   medium: "16px"
   large: "24px"
 components:
-  patient-header:
+  page-hero:
     backgroundColor: "{colors.forest}"
-    textColor: "{colors.paper}"
-    rounded: "{rounded.patient}"
-    padding: "28px"
+    textColor: "{colors.card}"
+    padding: "20px"
 ---
 
-# Achillea frontend design system
+# Achillea responsive design system
 
 ## Overview
 
-Bedside software that makes source evidence and explicit nurse actions easy to distinguish. This is an Operate interface: prioritize patient identity, readable state, accessible controls and truthful simulated-data labels. The palette and compact mobile composition follow the user's written redesign brief; no reference-image fidelity or rendered review is claimed.
+The user's Achillea Nursing App UI Mockup.png governs this Operate interface. Translate its serif titles, forest-green heroes, ivory ground, white rounded cards, avatar identities, small purposeful icons and compact mobile navigation into real workflows. Do not copy the mockup's illustrative patient data or invent missing APIs. The prior lightweight redesign is superseded by frontend/src/responsive-design.css, scoped to .mockup-design.
 
 ## Colors
 
-Forest anchors patient identity, navigation and primary actions. Paper separates care surfaces from the light sage ground. Terracotta marks workflow attention without implying clinical triage. Status text, timestamps and reason disclosures accompany color.
+Forest #0F3D2E anchors page and patient identity, navigation and actions. Secondary #2E6B57 supports interactions. Ivory #F5F7F1 surrounds white cards. Sage #CFE3D8 and warm peach tints distinguish sources and attention; darker green/terracotta text preserves readability. Actual state labels and backend reasons accompany every priority treatment. No clinical urgency score is inferred.
 
 ## Typography
 
-Existing self-hosted DM Sans at 400/600/700. Patient names use `clamp(1.65rem, 5vw, 2.3rem)`. Section titles are generally 1.125rem; controls use 1rem to avoid input zoom. Supporting timestamps use tabular numerals, with 0.75rem labels reserved for source metadata. New heading tracking stays at -0.03em or looser.
+Self-hosted Fraunces 500/600 provides page heroes and patient-detail names. Existing DM Sans 400/600/700 carries body, cards, readings and controls. Phone titles use clamp(1.6rem,5vw,2rem); patient names use clamp(1.4rem,5.5vw,1.9rem). Source metadata is at least .75rem in the authoritative stylesheet; fields remain 1rem. Readings and timestamps use tabular numerals. Fraunces is SIL OFL 1.1; its copyright/license ships in frontend/public/licenses/Fraunces-OFL.txt.
 
 ## Layout
 
-Phone-first content with 16px gutters and a fixed bottom navigation preserving horizontal swipes. Patient detail has a 980px maximum; general content 1200px. At 760px and below, patient identification stacks and vital cards use two columns. At 360px and below, filters stack. At 1050px, rounds use three backend-ordered horizon columns. Evidence scrollers contain overflow; 24 hourly bars are grouped into six selectable four-hour targets of at least 44px, with contained horizontal scrolling on very narrow screens.
+Mobile baseline has 16px gutters (10px below 360px), a compact header, forest-green heroes and fixed forest bottom navigation with safe-area padding. Tablet starts at 768px with two patient-card columns. Desktop starts at 1024px with a 210px forest sidebar and 1160px bounded main region. Activity has queue/timeline plus a shift-summary column; bedside has monitoring/timeline plus care actions; Rounds has primary tasks and a 280px support column. Patient cards use three columns from 1550px. Components are shared across viewport sizes.
 
 ## Elevation & Depth
 
-Care surfaces use the shared offset shadow `0 6px 24px rgb(25 52 35 / 7%)` rather than decorative halos. Data records inside sections use dividers and tonal areas instead of adding more elevated cards.
+Cards use 0 3px 12px rgb(26 48 34 / 6%). Tonal strips and fine timeline connectors convey hierarchy inside cards without additional elevation. Header shapes are restrained geometric color fields drawn as SVG; they are not medical evidence or photographs.
 
 ## Shapes
 
-10px control corners, 14px care sections, 16px patient headers/cards. Focus is visibly outlined; disabled states stay distinct. Safe areas and reduced-motion preferences are respected.
+16px card corners, 14px expandable sections and 10px controls. Primary touch controls remain at least 44px. Evidence and timeline scrollers contain horizontal overflow and cannot initiate page swipe navigation. Visible focus and reduced motion remain supported.
 
 ## Components
 
-CareSection uses a native button with `aria-expanded`/`aria-controls` and a hidden content region. PatientTimeline displays source records within a rolling 24-hour window, permits time/category selection, and retains original IDs and timestamps in disclosures. BackendActivity folds only consecutive monitoring-summary runs; exceptions preserve backend chronology. Task order and reasons come from the backend. Chart confirmation and movement review always require the existing explicit nurse actions.
+PageHero, HeroShape and PatientAvatar establish the mockup's identity. CareSection uses a real button with aria-expanded/aria-controls and an icon/tinted background. Patient vitals sit in one white panel beneath the hero, with only supported measurements and actual recorded trends. TimelineRail groups recent real records by hour/category, displays the latest six groups, uses real timestamps and permits evidence selection; marker spacing supports touch and is not a proportional time scale. View all reveals complete source history and filters. BackendActivity preserves backend chronology and folds only consecutive monitoring summaries. Rounds preserves Now/Next/Later ordering and all explicit task actions. Sensor Review distinguishes source evidence, nurse review, care confirmation and resulting documentation.
 
 ## Do's and Don'ts
 
-- Do show missing, stale, delayed and disconnected evidence honestly.
-- Do distinguish detected movement, nursing review and documented care completion.
-- Do preserve textual statuses, keyboard access and working swipe gestures.
-- Don't invent medication records, vital values, hardware integration or urgency scores.
-- Don't treat source inspection, rendered mobile layout, or image fidelity as verified by component tests.
+- Do use the supplied mockup's composition rather than reskinning the old dashboard.
+- Do keep synthetic-data warnings, source availability, timestamps, pending reviews and explicit confirmation controls visible.
+- Do retain textual statuses and backend priorities, keyboard navigation, swipes and safe areas.
+- Don't fabricate medication, handoff, blood-pressure or hardware records to fill the mockup.
+- Don't claim all viewport layouts or image fidelity were visually tested by component tests. The user confirmed the new interface is visible; automated browser inspection remains prohibited.

@@ -26,6 +26,7 @@ import { RoundsView } from "./RoundsView";
 import { ActivityHome, PatientCard } from "./WorkspaceViews";
 import { SwipeNavigation } from "./SwipeNavigation";
 import { loadWorkspace, type WorkspaceSnapshot } from "./workspace-feed";
+import { PageHero } from "./VisualPrimitives";
 import { DemoPresets } from "./DemoPresets";
 export default function App() {
   const [state, setState] = useState<State | null>(null),
@@ -113,13 +114,28 @@ export default function App() {
   const patients = state?.patients.filter((p) => p.unit === unit) ?? [];
   const label =
     unit === "ICU" ? "ICU · expansion scenario" : "Labor & delivery";
+  function selectUnit(next: string, destination = "/") {
+    if (next === unit) return;
+    currentUnit.current = next;
+    unitGeneration.current++;
+    feed.current = null;
+    setState(null);
+    setActivity([]);
+    setUpdatedAt(null);
+    setUnit(next);
+    setRounds([]);
+    setSearch("");
+    navigate(destination);
+  }
   function patientCard(p: Patient) {
     return (
       <PatientCard key={p.id} patient={p} state={state!} rounds={rounds} />
     );
   }
   return (
-    <div className="app">
+    <div
+      className={`app mockup-design route-${location.pathname === "/" || location.pathname === "/activity" ? "activity" : location.pathname === "/patients" ? "patients" : location.pathname === "/rounds" ? "rounds" : "bedside"}`}
+    >
       <aside className="sidebar">
         <Link to="/" className="brand">
           <Leaf size={28} />
@@ -179,18 +195,7 @@ export default function App() {
             <select
               aria-label="Demo unit"
               value={unit}
-              onChange={(e) => {
-                currentUnit.current = e.target.value;
-                unitGeneration.current++;
-                feed.current = null;
-                setState(null);
-                setActivity([]);
-                setUpdatedAt(null);
-                setUnit(e.target.value);
-                setRounds([]);
-                setSearch("");
-                navigate("/");
-              }}
+              onChange={(e) => selectUnit(e.target.value)}
             >
               <option value="L_AND_D">Labor & delivery</option>
               <option value="ICU">ICU · expansion scenario</option>
@@ -257,7 +262,11 @@ export default function App() {
                   path="/patients"
                   element={
                     <>
-                      <h1>Your patients</h1>
+                      <PageHero
+                        title="Patients"
+                        subtitle={`${label} · ${patients.length} assigned patients`}
+                      />
+                      <h2 className="visually-hidden">Your patients</h2>
                       <p>
                         Assigned to Jordan Ellis, RN · {label} · Synthetic
                         records
@@ -271,7 +280,26 @@ export default function App() {
                           onChange={(e) => setSearch(e.target.value)}
                         />
                       </label>
-                      <div className="surface">
+                      <div
+                        className="filter-pills unit-filters"
+                        aria-label="Assigned patient unit"
+                        data-no-swipe
+                      >
+                        <button
+                          aria-pressed={unit === "L_AND_D"}
+                          onClick={() => selectUnit("L_AND_D", "/patients")}
+                        >
+                          L&amp;D
+                          {unit === "L_AND_D" ? ` (${patients.length})` : ""}
+                        </button>
+                        <button
+                          aria-pressed={unit === "ICU"}
+                          onClick={() => selectUnit("ICU", "/patients")}
+                        >
+                          ICU{unit === "ICU" ? ` (${patients.length})` : ""}
+                        </button>
+                      </div>
+                      <div className="surface patients-grid">
                         {patients
                           .filter((p) =>
                             (p.name + p.room + p.id)

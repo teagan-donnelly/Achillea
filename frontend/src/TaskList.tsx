@@ -5,6 +5,7 @@ import { ArrowUp, Check, Clock } from "lucide-react";
 import type { Round, State, Chart, Task } from "./types";
 import { time, words } from "./api";
 import { RoundReasons } from "./RoundReasons";
+import { PatientAvatar } from "./VisualPrimitives";
 export type Mutate = (
   path: string,
   body?: unknown,
@@ -68,11 +69,12 @@ export function TaskList({
               {t.title}
             </Link>
           </h3>
-          <p>
+          <p className="task-patient">
+            <PatientAvatar attention={rank === 0} />
             {state.patients.find((p) => p.id === t.patientId)?.name} · Room{" "}
             {state.patients.find((p) => p.id === t.patientId)?.room}
           </p>
-          <small>
+          <small className="task-reason">
             {why} · {words(t.source)}
           </small>
           {t.deferReason && <p>Deferred: {t.deferReason}</p>}

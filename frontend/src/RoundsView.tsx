@@ -1,3 +1,4 @@
+import { PageHero } from "./VisualPrimitives";
 import { Link, useLocation } from "react-router-dom";
 import { patientReturnState } from "./navigation-context";
 import { ArrowRight, CheckCircle } from "lucide-react";
@@ -53,13 +54,9 @@ export function RoundsView({
   );
   return (
     <>
-      <div className="overview-heading">
-        <div>
-          <h1>Rounds</h1>
-          <p>{label} · Care sequence</p>
-        </div>
-        <span className="count-badge">{rounds.length} open</span>
-      </div>
+      <PageHero title="Rounds" subtitle="Prioritized care for this shift">
+        <span className="hero-count">{rounds.length} open tasks</span>
+      </PageHero>
       <nav className="schedule-track" aria-label="Schedule segments">
         {groups.map((g) => (
           <a href={`#schedule-${g.title.toLowerCase()}`} key={g.title}>
@@ -73,94 +70,106 @@ export function RoundsView({
           </a>
         ))}
       </nav>
-      <ScheduleReview patients={state.patients} mutate={mutate} busy={busy} />
-      {rounds[0] && (
-        <section className="next-action">
-          <span className="summary-label">Next suggested action</span>
-          <h2>{rounds[0].task.title}</h2>
-          <p>
-            {
-              state.patients.find((p) => p.id === rounds[0].task.patientId)
-                ?.name
-            }{" "}
-            · Room{" "}
-            {
-              state.patients.find((p) => p.id === rounds[0].task.patientId)
-                ?.room
-            }{" "}
-            · Due {time(rounds[0].task.dueAt)}
-          </p>
-          <small>{rounds[0].reason}</small>
-          <Link
-            state={patientReturnState(location)}
-            className="primary"
-            to={`/patients/${rounds[0].task.patientId}?section=tasks#task-${rounds[0].task.id}`}
-          >
-            Open bedside workspace <ArrowRight size={17} />
-          </Link>
-        </section>
-      )}
-      <details className="explanation">
-        <summary>How this sequence is determined</summary>
-        <p>
-          Explicit high priority, then overdue, due within 30 minutes, then
-          routine future tasks. Backend due times and stable IDs break ties;
-          routine tasks retain nurse-selected ordering. These are workflow
-          rules, not clinical triage.
-        </p>
-      </details>
-      <div className="round-queue">
-        {groups
-          .filter((g) => g.items.length)
-          .map((g) => (
-            <section
-              key={g.title}
-              id={`schedule-${g.title.toLowerCase()}`}
-              className="schedule-segment"
-            >
-              <div className="section-heading">
-                <div>
-                  <h2>{g.title}</h2>
-                  <p>{g.description}</p>
-                </div>
-                <span className="count-badge">{g.items.length} tasks</span>
-              </div>
-              <TaskList
-                rounds={g.items}
-                state={state}
-                mutate={mutate}
-                busy={busy}
-              />
-            </section>
-          ))}
-      </div>
-      {!rounds.length && (
-        <div className="empty">
-          <CheckCircle size={28} />
-          <h2>No open tasks in this unit</h2>
-          <p>Completed care remains in the chart and activity history.</p>
+      <div className="rounds-layout">
+        <div className="rounds-primary">
+          {" "}
+          <div className="round-queue">
+            {groups
+              .filter((g) => g.items.length)
+              .map((g) => (
+                <section
+                  key={g.title}
+                  id={`schedule-${g.title.toLowerCase()}`}
+                  className="schedule-segment"
+                >
+                  <div className="section-heading">
+                    <div>
+                      <h2>{g.title}</h2>
+                      <p>{g.description}</p>
+                    </div>
+                    <span className="count-badge">{g.items.length} tasks</span>
+                  </div>
+                  <TaskList
+                    rounds={g.items}
+                    state={state}
+                    mutate={mutate}
+                    busy={busy}
+                  />
+                </section>
+              ))}
+          </div>
+          {!rounds.length && (
+            <div className="empty">
+              <CheckCircle size={28} />
+              <h2>No open tasks in this unit</h2>
+              <p>Completed care remains in the chart and activity history.</p>
+            </div>
+          )}
         </div>
-      )}
-      <div className="schedule-summary">
-        {groups
-          .filter((g) => !g.items.length)
-          .map((g) => (
-            <span key={g.title} id={`schedule-${g.title.toLowerCase()}`}>
-              {g.title}: no scheduled tasks
-            </span>
-          ))}
-      </div>
-      {completed.length > 0 && (
-        <details className="completed-care">
-          <summary>Completed care ({completed.length})</summary>
-          {completed.map((t) => (
-            <p key={t.id}>
-              <CheckCircle size={15} /> {t.title} ·{" "}
-              {t.completedAt && time(t.completedAt)}
+        <aside className="rounds-support">
+          {" "}
+          <ScheduleReview
+            patients={state.patients}
+            mutate={mutate}
+            busy={busy}
+          />
+          {rounds[0] && (
+            <section className="next-action">
+              <span className="summary-label">Next suggested action</span>
+              <h2>{rounds[0].task.title}</h2>
+              <p>
+                {
+                  state.patients.find((p) => p.id === rounds[0].task.patientId)
+                    ?.name
+                }{" "}
+                · Room{" "}
+                {
+                  state.patients.find((p) => p.id === rounds[0].task.patientId)
+                    ?.room
+                }{" "}
+                · Due {time(rounds[0].task.dueAt)}
+              </p>
+              <small>{rounds[0].reason}</small>
+              <Link
+                state={patientReturnState(location)}
+                className="primary"
+                to={`/patients/${rounds[0].task.patientId}?section=tasks#task-${rounds[0].task.id}`}
+              >
+                Open bedside workspace <ArrowRight size={17} />
+              </Link>
+            </section>
+          )}
+          <details className="explanation">
+            <summary>How this sequence is determined</summary>
+            <p>
+              Explicit high priority, then overdue, due within 30 minutes, then
+              routine future tasks. Backend due times and stable IDs break ties;
+              routine tasks retain nurse-selected ordering. These are workflow
+              rules, not clinical triage.
             </p>
-          ))}
-        </details>
-      )}
+          </details>
+          <div className="schedule-summary">
+            {groups
+              .filter((g) => !g.items.length)
+              .map((g) => (
+                <span key={g.title} id={`schedule-${g.title.toLowerCase()}`}>
+                  {g.title}: no scheduled tasks
+                </span>
+              ))}
+          </div>
+          {completed.length > 0 && (
+            <details className="completed-care">
+              <summary>Completed care ({completed.length})</summary>
+              {completed.map((t) => (
+                <p key={t.id}>
+                  <CheckCircle size={15} /> {t.title} ·{" "}
+                  {t.completedAt && time(t.completedAt)}
+                </p>
+              ))}
+            </details>
+          )}
+        </aside>
+      </div>
     </>
   );
 }

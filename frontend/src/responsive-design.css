@@ -1,0 +1,1505 @@
+/* Mockup composition. Functional V3 styles remain the fallback for expanded forms. */
+:root {
+  --green: #0f3d2e;
+  --forest: #0f3d2e;
+  --secondary: #2e6b57;
+  --sage: #cfe3d8;
+  --ivory: #f5f7f1;
+  --muted: #59695e;
+  --text: #283a32;
+  --line: #e2e6dd;
+  --font-serif: "Fraunces", Georgia, serif;
+  --radius-card: 16px;
+  --shadow-card: 0 3px 12px rgb(26 48 34 / 6%);
+}
+body {
+  background: var(--ivory);
+  color: var(--text);
+}
+.mockup-design {
+  background: var(--ivory);
+  min-height: 100dvh;
+}
+.mockup-design :is(h1, h2) {
+  font-family: var(--font-serif);
+  font-weight: 500;
+  letter-spacing: -0.025em;
+}
+.mockup-design :is(input, textarea, select) {
+  font-size: 1rem;
+}
+.mockup-design :is(button, .primary) {
+  min-height: 44px;
+}
+.mockup-design a {
+  text-underline-offset: 4px;
+}
+.mockup-design :focus-visible {
+  outline: 3px solid #926045;
+  outline-offset: 3px;
+}
+.mockup-design ::selection {
+  background: #cfe3d8;
+  color: #0f3d2e;
+}
+.mockup-design .workspace {
+  margin: 0;
+  min-width: 0;
+  padding-bottom: calc(88px + env(safe-area-inset-bottom));
+}
+.mockup-design main {
+  max-width: 1160px;
+  width: 100%;
+  padding: 12px 16px 28px;
+  margin-inline: auto;
+}
+.mockup-design .topbar {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 8px;
+  padding: 12px 16px 4px;
+  height: auto;
+  min-height: 0;
+  background: transparent;
+  border: 0;
+}
+.mockup-design .mobile-brand {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--font-serif);
+  font-size: 1.25rem;
+  color: var(--forest);
+  letter-spacing: -0.025em;
+}
+.mockup-design .mobile-brand svg {
+  color: #638b67;
+}
+.mockup-design .connection {
+  margin: 0;
+  font-size: 0.75rem;
+  gap: 4px;
+}
+.mockup-design .refresh-time {
+  display: none;
+}
+.mockup-design .unit-picker {
+  order: initial;
+  grid-column: 1/-1;
+  grid-row: 2;
+  display: flex;
+  flex-basis: auto;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+.mockup-design .unit-picker select {
+  flex: 1;
+  max-width: 250px;
+  min-width: 0;
+  min-height: 44px;
+  font-size: 0.8125rem;
+  padding: 7px 12px;
+  background: #ecefe7;
+  border: 0;
+  border-radius: 10px;
+}
+.mockup-design .mobile-demo {
+  display: inline-flex;
+  padding: 10px;
+  border: 0;
+  background: transparent;
+  color: var(--forest);
+}
+.mockup-design .simulation {
+  display: flex;
+  justify-content: center;
+  padding: 7px 12px;
+  background: #ebf0e6;
+  font-size: 0.75rem;
+  color: #4c604f;
+  line-height: 1.4;
+}
+.mockup-design .sidebar {
+  position: fixed;
+  inset: auto 0 0;
+  width: auto;
+  height: auto;
+  padding: 0;
+  background: var(--forest);
+  border: 0;
+  z-index: 40;
+  box-shadow: 0 -3px 14px rgb(15 61 46 / 12%);
+}
+.mockup-design .sidebar :is(.brand, .sidebar-bottom) {
+  display: none;
+}
+.mockup-design .sidebar nav {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-around;
+  gap: 6px;
+  margin: 0;
+  padding: 7px 10px calc(7px + env(safe-area-inset-bottom));
+  background: var(--forest);
+  border: 0;
+  box-shadow: none;
+}
+.mockup-design .sidebar nav a {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  min-height: 54px;
+  border: 0;
+  border-radius: 14px;
+  color: #f0f6eb;
+  font-size: 0.75rem;
+}
+.mockup-design .sidebar nav a.active {
+  background: #547760;
+  color: #fff;
+}
+.mockup-design .sidebar nav a.active::before {
+  display: none;
+}
+.mockup-design .sidebar nav a:hover {
+  background: #315b46;
+}
+.mockup-design footer {
+  font-size: 0.75rem;
+  padding: 14px 16px;
+}
+.page-hero {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  min-height: 96px;
+  padding: 20px;
+  margin-bottom: 16px;
+  overflow: hidden;
+  border-radius: 16px 16px 5px 5px;
+  background: var(--forest);
+  color: #fff;
+}
+.hero-shape {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -1;
+  pointer-events: none;
+}
+.page-hero h1 {
+  color: #fff;
+  font-size: clamp(1.6rem, 5vw, 2rem);
+  line-height: 1.15;
+  margin: 0 0 6px;
+}
+.page-hero p {
+  margin: 0;
+  color: #ecf3e6;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+.hero-context {
+  display: none;
+}
+.hero-count {
+  color: #e4efe0;
+  font-size: 0.75rem;
+  text-align: right;
+}
+.filter-pills {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+  margin: 12px 0 22px;
+}
+.filter-pills button {
+  background: #e9eee3;
+  border: 1px solid #dfe6d7;
+  color: #344c3c;
+  padding: 9px 14px;
+  border-radius: 24px;
+  font-size: 0.8125rem;
+  min-height: 44px;
+}
+.filter-pills button[aria-pressed="true"] {
+  background: var(--forest);
+  color: white;
+  border-color: var(--forest);
+}
+.mockup-design .section-heading h2 {
+  font-family: "DM Sans", sans-serif;
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+.mockup-design .count-badge {
+  background: transparent;
+  color: #4c604f;
+  padding: 0;
+  font-size: 0.75rem;
+}
+.mockup-design .shift-summary {
+  display: flex;
+  justify-content: space-between;
+  border: 0;
+  border-radius: 12px;
+  background: #e7ede1;
+  color: var(--forest);
+  padding: 14px;
+  margin: 14px 0 22px;
+}
+.mockup-design .shift-summary strong {
+  color: var(--forest);
+  font-size: 1.25rem;
+}
+.mockup-design .shift-summary span {
+  color: #4b6251;
+  font-size: 0.75rem;
+}
+.activity-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+}
+.mockup-design .attention-section {
+  margin-bottom: 14px;
+  min-width: 0;
+}
+.mockup-design .attention-list {
+  display: grid;
+  gap: 10px;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+}
+.mockup-design .attention-list > a {
+  position: relative;
+  display: flex;
+  padding: 15px;
+  border: 0;
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  background: #fff;
+  color: var(--text);
+}
+.mockup-design .attention-list > a.attention-high {
+  background: #fff9f4;
+}
+.mockup-design .attention-list > a:has(.attention-patient) {
+  display: block;
+  padding-right: 30px;
+}
+.attention-patient {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 10px;
+}
+.attention-patient > span:not(.patient-avatar) {
+  min-width: 0;
+}
+.attention-patient strong {
+  display: block;
+  font-size: 0.875rem;
+}
+.attention-patient small {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+.patient-avatar {
+  display: inline-flex;
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  align-items: center;
+  justify-content: center;
+  background: #d8e7d5;
+  border-radius: 50%;
+  color: #286b48;
+}
+.attention-avatar {
+  background: #f7ded4;
+  color: #a04d39;
+}
+.attention-patient .priority-pill {
+  margin-left: auto;
+  flex: 0 1 auto;
+  background: #f9e2d4;
+  color: #82432d;
+  padding: 5px 8px;
+  border-radius: 14px;
+  font-size: 0.75rem;
+  text-align: center;
+  line-height: 1.4;
+}
+.attention-content strong {
+  display: block;
+  font-size: 0.8125rem;
+  margin-bottom: 3px;
+}
+.attention-content small {
+  display: block;
+  font-size: 0.75rem;
+  color: #526052;
+  line-height: 1.5;
+}
+.attention-chevron {
+  position: absolute;
+  right: 10px;
+  top: calc(50% - 9px);
+  color: var(--forest);
+}
+.mockup-design .attention-list > a > svg:first-child {
+  background: #f7e8dd;
+  color: #8b573c;
+}
+.mockup-design .shift-timeline {
+  min-width: 0;
+}
+.mockup-design .shift-timeline .filters {
+  margin-block: 8px 14px;
+}
+.shift-timeline select[aria-label="Filter activity category"] {
+  display: none;
+}
+.mockup-design .timeline-grouping {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+.mockup-design .backend-summary {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) auto;
+  gap: 10px;
+  padding: 15px 12px 15px 0;
+  border: 0;
+  background: transparent;
+  border-radius: 0;
+  box-shadow: none;
+  position: relative;
+}
+.mockup-design .backend-summary::before {
+  display: none;
+}
+.mockup-design .backend-summary::after {
+  content: "";
+  position: absolute;
+  width: 1px;
+  background: #d7dfce;
+  top: 36px;
+  bottom: -7px;
+  left: 14px;
+}
+.shift-event-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 29px;
+  height: 29px;
+  border-radius: 50%;
+  background: #deecd4;
+  color: #2c6e40;
+  z-index: 1;
+}
+.category-documentation .shift-event-icon {
+  background: #eae3ef;
+  color: #715487;
+}
+.category-device-status .shift-event-icon,
+.category-sensor-review .shift-event-icon {
+  background: #fae5d8;
+  color: #9a5031;
+}
+.mockup-design .backend-summary > div > small:first-child {
+  display: none;
+}
+.mockup-design .backend-summary strong {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  margin: 0 0 4px;
+}
+.mockup-design .backend-summary p {
+  font-size: 0.75rem;
+  margin: 4px 0;
+}
+.mockup-design .backend-summary small {
+  font-size: 0.75rem;
+}
+.mockup-design .backend-summary > time {
+  position: static;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+.mockup-design .backend-summary details summary {
+  min-height: 44px;
+  font-size: 0.75rem;
+}
+.mockup-design .monitoring-fold {
+  margin: 6px 0;
+  padding: 13px;
+  background: #ebf1e6;
+  border-radius: 12px;
+}
+.mockup-design .monitoring-fold > summary {
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+.mockup-design .patients-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.mockup-design .search {
+  background: #eaece5;
+  border: 0;
+  border-radius: 12px;
+  margin: 16px 0;
+  min-height: 44px;
+}
+.mockup-design .search input {
+  min-width: 0;
+  background: transparent;
+  font-size: 0.875rem;
+}
+.mockup-design .patient-card-v3 {
+  position: relative;
+  display: block;
+  padding: 15px;
+  margin: 0;
+  border: 0;
+  border-radius: var(--radius-card);
+  background: #fff;
+  box-shadow: var(--shadow-card);
+  min-width: 0;
+}
+.mockup-design .patient-card-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-right: 52px;
+}
+.mockup-design .patient-card-heading h2 {
+  font-family: "DM Sans", sans-serif;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  margin: 0 0 4px;
+  letter-spacing: -0.025em;
+}
+.mockup-design .patient-card-heading > div > small {
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+.patient-task-pill {
+  position: absolute;
+  top: 16px;
+  right: 12px;
+  font-size: 0.75rem;
+  border-radius: 14px;
+  background: #fff0cd;
+  color: #815323;
+  padding: 5px 8px;
+}
+.mockup-design .patient-card-heading > svg:last-child {
+  position: absolute;
+  top: 53px;
+  right: 13px;
+  width: 16px;
+}
+.mockup-design .patient-card .patient-context {
+  display: none;
+}
+.mockup-design .patient-flags {
+  margin: 0;
+}
+.mockup-design .patient-flags > span:first-child {
+  display: none;
+}
+.mockup-design .patient-flags > span:not(:first-child) {
+  font-size: 0.75rem;
+  margin-top: 9px;
+}
+.mockup-design .compact-vitals {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  background: transparent;
+  padding: 14px 0 10px;
+  gap: 8px;
+}
+.mockup-design .compact-vitals strong {
+  display: block;
+  font-size: 1.125rem;
+  font-weight: 600;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+.mockup-design .compact-vitals strong span {
+  font-size: 0.75rem;
+}
+.metric-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #3c5a44;
+  font-size: 0.75rem;
+}
+.mockup-design .compact-vitals small {
+  font-size: 0.75rem;
+}
+.mockup-design .compact-vitals > div > .freshness {
+  display: block;
+  font-size: 0.75rem;
+  margin-top: 3px;
+  padding: 0;
+  background: transparent;
+}
+.mockup-design .monitor-status.compact {
+  font-size: 0.75rem;
+  padding: 8px;
+  background: #edf2e7;
+  border-radius: 8px;
+  margin: 0;
+}
+.mockup-design .patient-next {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+.mockup-design .patient-next .summary-label {
+  font-size: 0.75rem;
+}
+.mockup-design .patient-next p {
+  font-size: 0.75rem;
+}
+.mockup-design .patient-bedside {
+  max-width: none;
+  min-width: 0;
+}
+.mockup-design .patient-heading {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) 34px;
+  gap: 8px;
+  align-items: center;
+  min-height: 116px;
+  background: var(--forest);
+  border-radius: 16px 16px 4px 4px;
+  padding: 18px 15px 30px;
+  margin: 0;
+  box-shadow: none;
+  color: #fff;
+}
+.mockup-design .patient-heading .back {
+  grid-column: 1;
+  grid-row: 1;
+  color: white;
+  padding: 0;
+  min-height: 44px;
+  margin: 0;
+  font-size: 0;
+}
+.mockup-design .patient-heading > .patient-avatar {
+  grid-column: 3;
+  grid-row: 1;
+  background: transparent;
+  color: #e6f1e3;
+}
+.mockup-design .patient-heading > div:not(.patient-avatar) {
+  grid-column: 2;
+  grid-row: 1;
+}
+.mockup-design .patient-heading h1 {
+  font-size: clamp(1.4rem, 5.5vw, 1.9rem);
+  line-height: 1.2;
+  margin-bottom: 5px;
+}
+.mockup-design .patient-heading p {
+  font-size: 0.75rem;
+  line-height: 1.4;
+  margin: 0 0 5px;
+  color: #e8f1e4;
+}
+.mockup-design .patient-heading small {
+  display: block;
+  font-size: 0.75rem;
+  color: #dbe7d4;
+}
+.mockup-design .patient-heading > button {
+  grid-row: 2;
+  grid-column: 2;
+  background: transparent;
+  border: 1px solid #8eaf95;
+  color: #fff;
+  width: max-content;
+  max-width: 100%;
+  font-size: 0.75rem;
+  min-height: 44px;
+  padding: 8px 12px;
+  margin: 3px 0 0;
+}
+.mockup-design .patient-vitals {
+  position: relative;
+  border-radius: 16px;
+  background: #fff;
+  padding: 12px;
+  margin: -14px 0 20px;
+  box-shadow: var(--shadow-card);
+}
+.mockup-design .patient-vitals > .section-heading {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  margin: 0;
+}
+.mockup-design .patient-vitals .vital-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
+  margin: 0;
+}
+.mockup-design .patient-vitals .vital {
+  padding: 4px 9px 10px;
+  background: transparent;
+  box-shadow: none;
+  border: 0;
+  border-radius: 0;
+  min-width: 0;
+}
+.mockup-design .patient-vitals .vital + .vital {
+  border-left: 1px solid var(--line);
+}
+.mockup-design .patient-vitals .vital h3 {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  align-items: center;
+  font-family: "DM Sans", sans-serif;
+  font-size: 0.75rem;
+  margin: 0;
+  font-weight: 400;
+}
+.mockup-design .patient-vitals .reading {
+  font-size: clamp(1rem, 4.7vw, 1.65rem);
+  line-height: 1.25;
+  text-align: center;
+  margin: 8px 0;
+  color: #1e3426;
+}
+.mockup-design .patient-vitals .reading span {
+  font-size: 0.75rem;
+  margin-left: 2px;
+}
+.mockup-design .patient-vitals .trend-chart {
+  padding: 0;
+  margin: 4px 0;
+  color: #2b6346;
+  background: transparent;
+  border: 0;
+}
+.mockup-design .patient-vitals .trend-chart svg {
+  width: 100%;
+  height: 29px;
+  display: block;
+}
+.mockup-design .patient-vitals .trend-caption {
+  display: none;
+}
+.mockup-design .patient-vitals .vital > small {
+  display: none;
+}
+.mockup-design .patient-vitals .vital > .freshness {
+  display: block;
+  font-size: 0.75rem;
+  text-align: center;
+  padding: 0;
+  background: transparent;
+  margin: 5px 0 0;
+  line-height: 1.5;
+}
+.mockup-design .patient-vitals .monitor-status {
+  font-size: 0.75rem;
+  background: #ebf1e6;
+  color: #3f5d40;
+  border: 0;
+  border-radius: 9px;
+  padding: 9px;
+  margin: 8px 0 0;
+}
+.mockup-design .patient-vitals .monitor-status small {
+  display: block;
+  font-size: 0.75rem;
+}
+.mockup-design .patient-quick-actions {
+  margin: 14px 0;
+}
+.mockup-design .patient-work-summary {
+  background: #e8eee0;
+  border: 0;
+  padding: 13px;
+  border-radius: 12px;
+  margin: 0 0 10px;
+}
+.mockup-design .patient-work-summary .summary-label {
+  display: none;
+}
+.mockup-design .patient-work-summary strong {
+  font-size: 0.8125rem;
+}
+.mockup-design .patient-work-summary p {
+  font-size: 0.75rem;
+}
+.mockup-design .patient-work-summary button {
+  font-size: 0.75rem;
+  padding: 8px;
+}
+.mockup-design .tabs {
+  background: transparent;
+  padding: 0;
+  gap: 5px;
+  margin: 0;
+}
+.mockup-design .tabs button {
+  font-size: 0.75rem;
+  border: 1px solid #dce5d6;
+  background: #eef2e8;
+  min-height: 44px;
+  padding: 8px 11px;
+  border-radius: 22px;
+}
+.mockup-design .tabs button.selected {
+  background: var(--forest);
+  color: white;
+  box-shadow: none;
+}
+.mockup-design .patient-day {
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+  border-radius: 0;
+  margin: 0 0 18px;
+}
+.mockup-design .patient-day > .section-heading {
+  align-items: center;
+  margin-bottom: 10px;
+}
+.mockup-design .patient-day h2 {
+  font-family: "DM Sans", sans-serif;
+  font-size: 0.9375rem;
+  font-weight: 700;
+}
+.mockup-design .patient-day .section-heading p {
+  font-size: 0.75rem;
+}
+.timeline-view-all {
+  background: transparent;
+  color: var(--forest);
+  padding: 8px 0 8px 10px;
+  border: 0;
+  font-size: 0.75rem;
+  min-width: 64px;
+}
+.timeline-view-all:hover {
+  background: #e8eee1;
+}
+.timeline-rail {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  gap: 2px;
+  padding: 10px 5px;
+  background: white;
+  border-radius: 14px;
+  box-shadow: var(--shadow-card);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+.timeline-rail::before {
+  content: "";
+  height: 1px;
+  background: #d8e0d3;
+  position: absolute;
+  top: 50px;
+  left: 12px;
+  right: 12px;
+}
+.rail-marker {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1 0 44px;
+  min-width: 44px;
+  align-items: center;
+  padding: 5px 1px;
+  gap: 7px;
+  background: transparent;
+  color: #35533e;
+  font-size: 0.75rem;
+  border: 0;
+  border-radius: 8px;
+}
+.rail-marker:hover {
+  background: #eff4e9;
+}
+.rail-marker[aria-pressed="true"] {
+  background: #e8f0e0;
+}
+.rail-marker .rail-time {
+  display: block;
+  line-height: 1.5;
+  white-space: nowrap;
+  color: #4d5f50;
+  font-size: 0.75rem;
+}
+.rail-marker .rail-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #e1ecd6;
+  color: #276c42;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+}
+.rail-marker small {
+  font-size: 0.75rem;
+  line-height: 1.5;
+  max-width: 65px;
+  overflow-wrap: anywhere;
+}
+.rail-marker.category-documentation .rail-icon {
+  background: #eae1ee;
+  color: #745185;
+}
+.rail-marker.category-device .rail-icon,
+.rail-marker.category-sensor-review .rail-icon {
+  background: #f8e3d5;
+  color: #995132;
+}
+.timeline-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  padding: 10px 5px;
+}
+.timeline-legend span {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.75rem;
+  color: #4f6654;
+}
+.timeline-full {
+  display: none;
+}
+.timeline-full.is-visible {
+  display: block;
+  padding: 14px;
+  background: #fff;
+  border-radius: 14px;
+}
+.selected-event {
+  background: #e7efe0;
+  padding: 12px;
+  border-radius: 10px;
+  margin-top: 8px;
+  font-size: 0.8125rem;
+}
+.selected-event p {
+  font-size: 0.75rem;
+  margin: 6px 0;
+}
+.selected-event small {
+  font-size: 0.75rem;
+}
+.mockup-design .timeline-note {
+  font-size: 0.75rem;
+  margin-top: 5px;
+}
+.mockup-design .care-section {
+  background: #fff;
+  border: 0;
+  border-radius: 14px;
+  box-shadow: var(--shadow-card);
+  margin: 10px 0;
+  min-width: 0;
+}
+.mockup-design .care-section-toggle {
+  display: flex;
+  gap: 11px;
+  align-items: center;
+  padding: 14px 13px;
+  background: transparent;
+  color: #263b2b;
+}
+.mockup-design .care-section-toggle:hover {
+  background: #eef3e9;
+}
+.mockup-design .care-section-toggle > span:not(.care-card-icon) {
+  flex: 1;
+  min-width: 0;
+}
+.mockup-design .care-section-toggle strong {
+  font-family: "DM Sans", sans-serif;
+  font-size: 0.875rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.mockup-design .care-section-toggle small {
+  font-size: 0.75rem;
+  margin-top: 3px;
+  line-height: 1.5;
+}
+.care-card-icon {
+  display: inline-flex;
+  flex: 0 0 32px;
+  width: 32px;
+  height: 34px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9px;
+  background: #e6efde;
+  color: #2d6c40;
+}
+.care-card-icon.warm-icon {
+  color: #925031;
+  background: #f8e8dc;
+}
+.mockup-design .care-section-content {
+  padding: 5px 14px 18px;
+}
+.mockup-design .care-section-content :is(h2, h3) {
+  font-family: "DM Sans", sans-serif;
+}
+.mockup-design .plan {
+  padding: 10px 2px;
+  font-size: 0.8125rem;
+}
+.mockup-design .plan h2 {
+  font-size: 1rem;
+}
+.mockup-design .sensor-regions > div {
+  background: #eef4e8;
+  border: 0;
+  padding: 13px;
+  border-radius: 12px;
+}
+.mockup-design .sensor-regions {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.mockup-design .sensor-regions strong {
+  font-size: 0.8125rem;
+}
+.mockup-design .sensor-regions small {
+  font-size: 0.75rem;
+}
+.mockup-design .movement {
+  background: #f5f7f0;
+  border: 0;
+  padding: 15px;
+  border-radius: 12px;
+}
+.mockup-design .movement .actions {
+  display: flex;
+  flex-wrap: wrap;
+}
+.mockup-design .movement .actions button {
+  font-size: 0.75rem;
+  flex: 1;
+}
+.mockup-design .schedule-track {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding: 4px;
+  gap: 4px;
+  background: white;
+  border: 0;
+  border-radius: 14px;
+  box-shadow: var(--shadow-card);
+  margin-bottom: 18px;
+}
+.mockup-design .schedule-track a {
+  padding: 12px 8px;
+  border: 0;
+  border-radius: 10px;
+  text-align: center;
+  color: var(--forest);
+}
+.mockup-design .schedule-track a:first-child {
+  background: var(--forest);
+  color: white;
+}
+.mockup-design .schedule-track span {
+  font-size: 0.8125rem;
+}
+.mockup-design .schedule-track strong {
+  font-size: 1.5rem;
+  font-weight: 500;
+}
+.mockup-design .schedule-track small {
+  font-size: 0.75rem;
+}
+.mockup-design .round-queue {
+  display: block;
+}
+.mockup-design .task {
+  display: flex;
+  flex-direction: column;
+  background: white;
+  box-shadow: var(--shadow-card);
+  border: 0;
+  border-radius: 14px;
+  padding: 15px;
+  margin-bottom: 12px;
+}
+.mockup-design .task-top {
+  order: 0;
+  gap: 6px;
+}
+.mockup-design .task-top time {
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+.mockup-design .task .status {
+  font-size: 0.75rem;
+  background: #edf3e6;
+  color: #45633f;
+  padding: 4px 8px;
+}
+.mockup-design .task.high .status {
+  background: #ffe2d5;
+  color: #88432c;
+}
+.mockup-design .task .task-patient {
+  order: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 0.875rem;
+  margin: 10px 0;
+}
+.mockup-design .task h3 {
+  order: 2;
+  margin: 0 0 6px;
+  font-family: "DM Sans", sans-serif;
+  font-size: 0.875rem;
+}
+.mockup-design .task > .task-reason {
+  order: 3;
+  font-size: 0.75rem;
+  line-height: 1.55;
+}
+.mockup-design .task > p:not(.task-patient) {
+  order: 4;
+}
+.mockup-design .task > .round-reasons {
+  order: 5;
+  font-size: 0.75rem;
+  margin: 8px 0;
+}
+.mockup-design .task > .actions,
+.mockup-design .task > form {
+  order: 6;
+}
+.mockup-design .task .actions > button {
+  font-size: 0.75rem;
+  padding: 9px 10px;
+}
+.mockup-design .schedule-segment > .section-heading p {
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+.mockup-design .next-action {
+  padding: 16px;
+  background: #e8efe0;
+  border-radius: 14px;
+}
+.mockup-design .next-action h2 {
+  font-size: 1.125rem;
+}
+.mockup-design .next-action .summary-label {
+  font-size: 0.75rem;
+}
+.mockup-design .next-action .primary {
+  width: 100%;
+  font-size: 0.8125rem;
+  margin-top: 10px;
+}
+.mockup-design .explanation {
+  font-size: 0.75rem;
+  margin-block: 14px;
+}
+.mockup-design .schedule-review {
+  font-size: 0.8125rem;
+}
+.rounds-layout {
+  display: grid;
+  gap: 20px;
+}
+.rounds-primary,
+.rounds-support {
+  min-width: 0;
+}
+.mockup-design .rounds-support .next-action {
+  margin-top: 18px;
+}
+.mockup-design .evidence-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+}
+.mockup-design .evidence-scroll :is(td, th) {
+  font-size: 0.75rem;
+}
+.mockup-design .demo-panel {
+  max-width: min(460px, calc(100vw - 24px));
+  border-radius: 16px;
+}
+.mockup-design .demo-panel h2 {
+  font-family: var(--font-serif);
+}
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+@media (min-width: 768px) {
+  .mockup-design main {
+    padding: 24px 28px 36px;
+  }
+  .mockup-design .topbar {
+    padding-inline: 28px;
+  }
+  .mockup-design .patients-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+  }
+  .mockup-design .page-hero {
+    padding: 26px;
+    min-height: 116px;
+  }
+  .hero-context {
+    display: block;
+    color: #dfebd5;
+    font-size: 0.8125rem;
+  }
+  .mockup-design .patient-vitals {
+    padding: 20px;
+  }
+  .mockup-design .patient-vitals .vital h3 {
+    font-size: 0.8125rem;
+  }
+  .mockup-design .patient-vitals .reading {
+    font-size: 2rem;
+  }
+  .mockup-design .patient-vitals .reading span {
+    font-size: 0.8125rem;
+  }
+  .mockup-design .patient-vitals .vital > .freshness {
+    font-size: 0.75rem;
+  }
+  .mockup-design .patient-vitals .monitor-status {
+    font-size: 0.8125rem;
+  }
+  .mockup-design .patient-vitals .monitor-status small {
+    font-size: 0.75rem;
+  }
+  .rail-marker .rail-time,
+  .rail-marker small {
+    font-size: 0.75rem;
+  }
+  .mockup-design .round-queue {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+  }
+}
+@media (min-width: 1024px) {
+  .rounds-layout {
+    grid-template-columns: minmax(0, 1fr) 280px;
+    align-items: start;
+    gap: 24px;
+  }
+  .mockup-design .rounds-layout .round-queue {
+    display: block;
+  }
+  .rounds-support {
+    position: sticky;
+    top: 20px;
+  }
+  .mockup-design .sidebar {
+    inset: 0 auto 0 0;
+    width: 210px;
+    height: 100dvh;
+    padding: 28px 16px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: none;
+  }
+  .mockup-design .sidebar .brand {
+    display: flex;
+    color: #f5f8ef;
+    font-family: var(--font-serif);
+    font-size: 1.5rem;
+    padding: 0 6px;
+    gap: 9px;
+  }
+  .mockup-design .sidebar .brand small {
+    display: none;
+  }
+  .mockup-design .sidebar nav {
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    margin-top: 36px;
+    gap: 8px;
+  }
+  .mockup-design .sidebar nav a {
+    flex-direction: row;
+    justify-content: start;
+    padding: 13px;
+    font-size: 0.875rem;
+    min-height: 48px;
+    gap: 12px;
+  }
+  .mockup-design .sidebar .sidebar-bottom {
+    display: block;
+    margin-top: auto;
+  }
+  .mockup-design .sidebar-bottom > p {
+    display: none;
+  }
+  .mockup-design .sidebar .nurse {
+    padding-top: 20px;
+  }
+  .mockup-design .sidebar .nurse strong {
+    font-size: 0.75rem;
+  }
+  .mockup-design .sidebar .nurse small {
+    font-size: 0.75rem;
+  }
+  .mockup-design .workspace {
+    margin-left: 210px;
+    padding-bottom: 0;
+  }
+  .mockup-design .topbar {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    min-height: 76px;
+    max-width: 1160px;
+    margin: auto;
+    padding: 14px 28px;
+  }
+  .mockup-design .mobile-brand,
+  .mockup-design .mobile-demo {
+    display: none;
+  }
+  .mockup-design .unit-picker {
+    grid-row: 1;
+    grid-column: 1;
+  }
+  .mockup-design .connection {
+    font-size: 0.75rem;
+  }
+  .mockup-design .refresh-time {
+    display: block;
+    font-size: 0.75rem;
+  }
+  .mockup-design .simulation {
+    background: transparent;
+    justify-content: start;
+    max-width: 1160px;
+    padding-left: 28px;
+    margin: auto;
+  }
+  .mockup-design .page-hero h1 {
+    font-size: 2rem;
+  }
+  .route-activity main {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 265px;
+    gap: 0 26px;
+    align-items: start;
+  }
+  .route-activity main > .page-hero {
+    grid-column: 1/-1;
+  }
+  .route-activity main > .filter-pills {
+    grid-column: 1;
+    grid-row: 2;
+  }
+  .route-activity main > .shift-summary {
+    grid-column: 2;
+    grid-row: 2/4;
+    flex-direction: column;
+    gap: 22px;
+    padding: 24px;
+    margin-top: 12px;
+    position: sticky;
+    top: 20px;
+  }
+  .route-activity main > .activity-columns {
+    grid-column: 1;
+  }
+  .mockup-design .patient-bedside {
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(285px, 0.85fr);
+    column-gap: 24px;
+    align-items: start;
+  }
+  .mockup-design .patient-heading {
+    grid-column: 1;
+    grid-row: 1;
+    padding: 24px 20px 34px;
+  }
+  .mockup-design .patient-vitals {
+    grid-column: 1;
+    grid-row: 2;
+  }
+  .mockup-design .patient-day {
+    grid-column: 1;
+    grid-row: 3;
+  }
+  .mockup-design .monitor-history {
+    grid-column: 1;
+    grid-row: 4;
+  }
+  .mockup-design .monitor-demo-controls {
+    grid-column: 1;
+    grid-row: 5;
+  }
+  .mockup-design .patient-quick-actions {
+    grid-column: 2;
+    grid-row: 1;
+    margin: 0;
+  }
+  .mockup-design .patient-bedside > [data-care="Pending tasks"] {
+    grid-column: 2;
+    grid-row: 2;
+    margin-top: 0;
+  }
+  .mockup-design .patient-bedside > [data-care="Sensor monitoring"] {
+    grid-column: 2;
+    grid-row: 3;
+  }
+  .mockup-design .patient-bedside > [data-care="Original event history"] {
+    grid-column: 2;
+    grid-row: 4;
+  }
+  .mockup-design .patient-bedside > [data-care="Care & documentation"] {
+    grid-column: 2;
+    grid-row: 5;
+  }
+  .mockup-design .patient-bedside > .plan {
+    grid-column: 1;
+    grid-row: 6;
+  }
+  .mockup-design .patient-bedside .chart-layout {
+    display: block;
+  }
+  .mockup-design .patient-bedside .sensor-regions {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .mockup-design .round-queue {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (min-width: 1550px) {
+  .mockup-design .patients-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .mockup-design .round-queue {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 359px) {
+  .mockup-design main {
+    padding-inline: 10px;
+  }
+  .mockup-design .topbar {
+    padding-inline: 10px;
+  }
+  .mockup-design .connection {
+    font-size: 0.75rem;
+  }
+  .mockup-design .patient-heading {
+    padding-inline: 10px;
+  }
+  .mockup-design .patient-vitals {
+    padding: 10px 7px;
+  }
+  .mockup-design .patient-vitals .vital {
+    padding-inline: 5px;
+  }
+  .mockup-design .patient-vitals .vital h3 {
+    font-size: 0.75rem;
+  }
+  .mockup-design .filter-pills {
+    gap: 5px;
+  }
+  .mockup-design .filter-pills button {
+    padding-inline: 11px;
+    font-size: 0.75rem;
+  }
+  .mockup-design .patient-card-heading {
+    padding-right: 45px;
+  }
+  .mockup-design .compact-vitals strong {
+    font-size: 1rem;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mockup-design *,
+  .mockup-design *::before,
+  .mockup-design *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+.mockup-design .sensor-review-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.mockup-design .sensor-review-header h3 {
+  font-family: var(--font-serif);
+  font-size: 1.125rem;
+  margin: 0 0 4px;
+}
+.mockup-design .sensor-review-header p {
+  font-size: 0.75rem;
+  margin: 0;
+}
+.mockup-design .sensor-review-disclosure {
+  font-size: 0.8125rem;
+  background: #e9f0e2;
+  padding: 12px;
+  border-radius: 10px;
+  line-height: 1.6;
+}

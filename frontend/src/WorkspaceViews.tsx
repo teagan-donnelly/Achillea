@@ -1,3 +1,9 @@
+import {
+  PageHero,
+  PatientAvatar,
+  MetricIcon,
+  PatientAction,
+} from "./VisualPrimitives";
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { patientReturnState } from "./navigation-context";
@@ -57,17 +63,17 @@ export function PatientCard({
       to={`/patients/${p.id}`}
     >
       <div className="patient-card-heading">
-        <span className="room">
-          <small>ROOM</small>
-          {p.room}
-        </span>
+        <PatientAvatar />
         <div>
           <h2>{p.name}</h2>
           <small>
-            {p.unit === "ICU" ? "ICU" : "Labor & delivery"}
+            Room {p.room} · {p.unit === "ICU" ? "ICU" : "L&D"}
             {p.carePhase ? ` / ${p.carePhase}` : ""}
           </small>
         </div>
+        <span className="patient-task-pill">
+          {tasks.length} {tasks.length === 1 ? "task" : "tasks"}
+        </span>
         <ArrowRight size={18} />
       </div>
       <p className="patient-context">{p.summary}</p>
@@ -85,7 +91,10 @@ export function PatientCard({
       <div className="compact-vitals" aria-label="Selected latest measurements">
         {current.map((v) => (
           <div key={v.metric}>
-            <small>{metricName(v.metric)}</small>
+            <small className="metric-label">
+              <MetricIcon metric={v.metric} />
+              {metricName(v.metric)}
+            </small>
             <strong>
               {["Unavailable", "Disconnected", "Signal unavailable"].includes(
                 readingState(v, monitor),
@@ -209,12 +218,24 @@ export function ActivityHome({
   }
   return (
     <>
-      <div className="overview-heading">
-        <div>
-          <h1>Activity</h1>
-          <p>{label} · Your shift</p>
-        </div>
-        <span className="shift-person">Jordan Ellis, RN</span>
+      <PageHero title="Activity" subtitle="Shift activity & patient updates">
+        <span className="hero-context">{label}</span>
+      </PageHero>
+      <div className="filter-pills" aria-label="Activity filters" data-no-swipe>
+        {[
+          ["all", "All"],
+          ["monitoring", "Monitoring"],
+          ["documentation", "Care"],
+          ["tasks", "Tasks"],
+        ].map(([value, title]) => (
+          <button
+            key={value}
+            aria-pressed={filter === value}
+            onClick={() => setFilter(value)}
+          >
+            {title}
+          </button>
+        ))}
       </div>
       <section className="shift-summary" aria-label="Shift summary">
         <span>
@@ -239,174 +260,185 @@ export function ActivityHome({
           next due action
         </span>
       </section>
-      <section className="attention-section">
-        <div className="section-heading">
-          <h2>Needs attention</h2>
-          <span className="count-badge">{count} to review</span>
-        </div>
-        <div
-          id="shift-attention"
-          className={`attention-list ${allAttention ? "expanded" : "condensed"}`}
-        >
-          {attention.map((r) => (
-            <Link
-              state={patientReturnState(location)}
-              key={r.task.id}
-              className={r.rank === 0 ? "attention-high" : "attention-due"}
-              to={`/patients/${r.task.patientId}?section=tasks#task-${r.task.id}`}
-            >
-              <ClipboardList size={20} />
-              <span>
-                <strong>{r.task.title}</strong>
-                {r.rank === 0 && <small>Explicit priority review</small>}
-                <small>
-                  {identity(r.task.patientId)} · Due {time(r.task.dueAt)}
-                </small>
-                <small>{r.reason}</small>
-              </span>
-              <ArrowRight size={17} />
-            </Link>
-          ))}
-          {drafts.map((c) => (
-            <Link
-              state={patientReturnState(location)}
-              key={c.id}
-              to={`/patients/${c.patientId}?section=chart&entry=${c.id}`}
-            >
-              <ClipboardList size={20} />
-              <span>
-                <strong>Chart draft awaiting confirmation</strong>
-                <small>
-                  {identity(c.patientId)} · Saved {time(c.authoredAt)}
-                </small>
-              </span>
-              <ArrowRight size={17} />
-            </Link>
-          ))}
-          {disconnected.map((p) => (
-            <Link
-              state={patientReturnState(location)}
-              key={p.id}
-              to={`/patients/${p.id}?section=sensors`}
-            >
-              <Radio size={20} />
-              <span>
-                <strong>Pelvic sensor disconnected</strong>
-                <small>{identity(p.id)} · Review monitoring availability</small>
-              </span>
-              <ArrowRight size={17} />
-            </Link>
-          ))}
-          {unavailableMonitors.map((d) => (
-            <Link
-              state={patientReturnState(location)}
-              key={d.id}
-              to={`/patients/${d.patientId}?section=vitals`}
-            >
-              <Radio size={20} />
-              <span>
-                <strong>
-                  Monitor {words(d.connectionState)} · {words(d.freshness)}
-                </strong>
-                <small>
-                  {identity(d.patientId)} · Review source availability
-                </small>
-              </span>
-              <ArrowRight size={17} />
-            </Link>
-          ))}
-          {movements.map((m) => (
-            <Link
-              state={patientReturnState(location)}
-              key={m.id}
-              to={`/patients/${m.patientId}?section=sensors`}
-            >
-              <Radio size={20} />
-              <span>
-                <strong>Movement awaiting nurse review</strong>
-                <small>
-                  {identity(m.patientId)} · {time(m.capturedAt)}
-                </small>
-                <small>
-                  {words(m.classification)} · Detection does not confirm care
-                </small>
-              </span>
-              <ArrowRight size={17} />
-            </Link>
-          ))}
-          {!count && (
-            <div className="attention-clear">
-              <CheckCircle size={23} />
-              <span>No outstanding reviews. Upcoming care is in Rounds.</span>
-            </div>
-          )}
-        </div>
-        {count > 4 && (
-          <button
-            className="secondary attention-expand"
-            aria-expanded={allAttention}
-            aria-controls="shift-attention"
-            onClick={() => setAllAttention(!allAttention)}
+      <div className="activity-columns">
+        <section className="attention-section">
+          <div className="section-heading">
+            <h2>Needs attention</h2>
+            <span className="count-badge">{count} to review</span>
+          </div>
+          <div
+            id="shift-attention"
+            className={`attention-list ${allAttention ? "expanded" : "condensed"}`}
           >
-            {allAttention
-              ? "Show first four reviews"
-              : `View all ${count} reviews`}
-          </button>
-        )}
-      </section>
-      <section className="activity-timeline">
-        <div className="section-heading">
-          <h2>Activity timeline</h2>
-          <Link to="/rounds">
-            Open rounds <ArrowRight size={16} />
-          </Link>
-        </div>
-        <div className="filters">
-          <select
-            aria-label="Filter activity category"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-          >
-            <option value="all">All activity</option>
-            <option value="documentation">Documentation</option>
-            <option value="monitoring">Monitoring</option>
-            <option value="tasks">Care tasks</option>
-          </select>
-          <select
-            aria-label="Filter activity by patient"
-            value={patient}
-            onChange={(e) => setPatient(e.target.value)}
-          >
-            <option value="">All assigned patients</option>
-            {patients.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
+            {attention.map((r) => (
+              <Link
+                state={patientReturnState(location)}
+                key={r.task.id}
+                className={r.rank === 0 ? "attention-high" : "attention-due"}
+                to={`/patients/${r.task.patientId}?section=tasks#task-${r.task.id}`}
+              >
+                <PatientAction
+                  name={
+                    patients.find((p) => p.id === r.task.patientId)?.name ??
+                    "Assigned patient"
+                  }
+                  room={
+                    patients.find((p) => p.id === r.task.patientId)?.room ??
+                    "Unknown"
+                  }
+                  task={r.task.title}
+                  detail={r.reason}
+                  due={
+                    r.rank === 0
+                      ? "Priority review"
+                      : `Due ${time(r.task.dueAt)}`
+                  }
+                />
+              </Link>
             ))}
-          </select>
-        </div>
-        {summaries ? (
-          <BackendActivity
-            state={state}
-            events={events}
-            patients={patients}
-            items={summaries.filter(
-              (item) =>
-                (!patient || item.patientId === patient) &&
-                (filter === "all" ||
-                  (filter === "documentation"
-                    ? item.type.startsWith("chart")
-                    : filter === "monitoring"
-                      ? /^(monitoring|measurement|vital|movement|device)/.test(
-                          item.type,
-                        )
-                      : item.type.startsWith("task"))),
+            {drafts.map((c) => (
+              <Link
+                state={patientReturnState(location)}
+                key={c.id}
+                to={`/patients/${c.patientId}?section=chart&entry=${c.id}`}
+              >
+                <ClipboardList size={20} />
+                <span>
+                  <strong>Chart draft awaiting confirmation</strong>
+                  <small>
+                    {identity(c.patientId)} · Saved {time(c.authoredAt)}
+                  </small>
+                </span>
+                <ArrowRight size={17} />
+              </Link>
+            ))}
+            {disconnected.map((p) => (
+              <Link
+                state={patientReturnState(location)}
+                key={p.id}
+                to={`/patients/${p.id}?section=sensors`}
+              >
+                <Radio size={20} />
+                <span>
+                  <strong>Pelvic sensor disconnected</strong>
+                  <small>
+                    {identity(p.id)} · Review monitoring availability
+                  </small>
+                </span>
+                <ArrowRight size={17} />
+              </Link>
+            ))}
+            {unavailableMonitors.map((d) => (
+              <Link
+                state={patientReturnState(location)}
+                key={d.id}
+                to={`/patients/${d.patientId}?section=vitals`}
+              >
+                <Radio size={20} />
+                <span>
+                  <strong>
+                    Monitor {words(d.connectionState)} · {words(d.freshness)}
+                  </strong>
+                  <small>
+                    {identity(d.patientId)} · Review source availability
+                  </small>
+                </span>
+                <ArrowRight size={17} />
+              </Link>
+            ))}
+            {movements.map((m) => (
+              <Link
+                state={patientReturnState(location)}
+                key={m.id}
+                to={`/patients/${m.patientId}?section=sensors`}
+              >
+                <Radio size={20} />
+                <span>
+                  <strong>Movement awaiting nurse review</strong>
+                  <small>
+                    {identity(m.patientId)} · {time(m.capturedAt)}
+                  </small>
+                  <small>
+                    {words(m.classification)} · Detection does not confirm care
+                  </small>
+                </span>
+                <ArrowRight size={17} />
+              </Link>
+            ))}
+            {!count && (
+              <div className="attention-clear">
+                <CheckCircle size={23} />
+                <span>No outstanding reviews. Upcoming care is in Rounds.</span>
+              </div>
             )}
-          />
-        ) : (
-          <EventTimeline events={events} patients={patients} />
-        )}
-      </section>
+          </div>
+          {count > 4 && (
+            <button
+              className="secondary attention-expand"
+              aria-expanded={allAttention}
+              aria-controls="shift-attention"
+              onClick={() => setAllAttention(!allAttention)}
+            >
+              {allAttention
+                ? "Show first four reviews"
+                : `View all ${count} reviews`}
+            </button>
+          )}
+        </section>
+        <section className="activity-timeline shift-timeline">
+          <div className="section-heading">
+            <h2>Shift timeline</h2>
+            <Link to="/rounds">
+              Open rounds <ArrowRight size={16} />
+            </Link>
+          </div>
+          <div className="filters">
+            <select
+              aria-label="Filter activity category"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+            >
+              <option value="all">All activity</option>
+              <option value="documentation">Documentation</option>
+              <option value="monitoring">Monitoring</option>
+              <option value="tasks">Care tasks</option>
+            </select>
+            <select
+              aria-label="Filter activity by patient"
+              value={patient}
+              onChange={(e) => setPatient(e.target.value)}
+            >
+              <option value="">All assigned patients</option>
+              {patients.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          {summaries ? (
+            <BackendActivity
+              state={state}
+              events={events}
+              patients={patients}
+              items={summaries.filter(
+                (item) =>
+                  (!patient || item.patientId === patient) &&
+                  (filter === "all" ||
+                    (filter === "documentation"
+                      ? item.type.startsWith("chart")
+                      : filter === "monitoring"
+                        ? /^(monitoring|measurement|vital|movement|device)/.test(
+                            item.type,
+                          )
+                        : item.type.startsWith("task"))),
+              )}
+            />
+          ) : (
+            <EventTimeline events={events} patients={patients} />
+          )}
+        </section>
+      </div>
     </>
   );
 }

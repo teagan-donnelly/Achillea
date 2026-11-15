@@ -1,3 +1,5 @@
+import "@fontsource/fraunces/500.css";
+import "@fontsource/fraunces/600.css";
 import "@fontsource/dm-sans/400.css";
 import "@fontsource/dm-sans/600.css";
 import "@fontsource/dm-sans/700.css";
@@ -18,3 +20,5 @@ import "./v3.css";
 import "./integration-v3.css";
 
 import "./final-mobile.css";
+
+import "./responsive-design.css";
