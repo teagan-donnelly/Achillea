@@ -2,8 +2,8 @@
 ## Platform
 Mobile-first web application.
 ## Stack
-User-specified React, TypeScript, Vite, Java 21, Spring Boot, Maven, file H2.
+React, TypeScript, standard Vite tooling, Vercel API functions and the existing Tiger Data PostgreSQL schema. Source and configuration live at the repository root.
 ## Users and purpose
 Demo nurses review assigned synthetic L&D patients, document bedside care, and switch to a separate ICU expansion scenario for dual-region movement review.
 ## Constraints
-Educational simulation only. Movement never verifies care. No hardware, AI key, hospital connection, or production authentication required. All product and visual decisions follow ACHILLEA_CODEX_MASTER_PROMPT.md supplied by the user.
+Educational synthetic demo only. The external simulator owns observation generation and processing. Achillea displays stored evidence and manages explicit nurse workflows. Movement never verifies care. Optional demo sessions are temporarily disabled; hospital identity, physical-device validation, EHR integration and clinical use remain outside scope.

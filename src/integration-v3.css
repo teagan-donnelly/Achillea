@@ -1,0 +1,55 @@
+.demo-panel[hidden] {
+  display: none;
+}
+.backend-summary {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+.backend-summary details,
+.sensor-evidence details,
+.round-reasons,
+.schedule-review {
+  margin-block: 1rem;
+}
+.backend-summary p,
+.backend-summary small,
+.sensor-evidence p,
+.sensor-evidence small {
+  overflow-wrap: anywhere;
+}
+.schedule-review form {
+  display: grid;
+  gap: 1rem;
+}
+.schedule-review label {
+  display: grid;
+  gap: 0.5rem;
+}
+.evidence-scroll {
+  overflow-x: auto;
+  max-width: 100%;
+}
+.evidence-scroll table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+.evidence-scroll th,
+.evidence-scroll td {
+  padding: 0.75rem;
+  text-align: start;
+  border-bottom: 1px solid var(--line, #d7e1dc);
+}
+.sensor-evidence article {
+  margin-block: 1rem;
+}
+.round-reasons small {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 600px) {
+  .backend-summary {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .schedule-review button {
+    width: 100%;
+  }
+}

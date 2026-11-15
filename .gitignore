@@ -6,5 +6,23 @@ data/
 *.mv.db
 *.trace.db
 .env
+.env.*
+!.env.example
+!.env.*.example
+# Local database credentials, private keys, exports and Python caches.
+.pgpass
+pgpass.conf
+.pg_service.conf
+pg_service.conf
+*.pem
+*.key
+*.p12
+*.pfx
+*.dump
+*.backup
+__pycache__/
+*.pyc
 *.log
 .impeccable/review/
+.vercel/
+coverage/

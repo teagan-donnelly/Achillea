@@ -1,0 +1,56 @@
+{
+  "name": "achillea-vercel",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": "24.x"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "typecheck:api": "tsc -p tsconfig.node.json --noEmit",
+    "typecheck": "npm run typecheck:api && tsc -p tsconfig.app.json",
+    "test": "vitest run",
+    "test:api": "vitest run --project api",
+    "test:ui": "vitest run --project ui",
+    "test:db": "tsx scripts/test-database.ts",
+    "test:seed": "tsx scripts/test-data.ts seed",
+    "test:cleanup": "tsx scripts/test-data.ts cleanup",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@fontsource/dm-sans": "^5.3.0",
+    "@vercel/functions": "^3.0.0",
+    "lucide-react": "^0.468.0",
+    "pg": "^8.16.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-router-dom": "^7.0.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.0.0",
+    "@testing-library/jest-dom": "^6.6.0",
+    "@testing-library/react": "^16.0.0",
+    "@types/node": "^24.0.0",
+    "@types/pg": "^8.15.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "eslint": "^9.0.0",
+    "eslint-plugin-react-hooks": "^5.1.0",
+    "globals": "^15.0.0",
+    "jsdom": "^26.0.0",
+    "tsx": "^4.20.0",
+    "typescript": "~5.7.2",
+    "typescript-eslint": "^8.72.2",
+    "vite": "^6.4.6",
+    "@vitejs/plugin-react": "^4.3.4",
+    "vitest": "^5.1.0"
+  },
+  "overrides": {
+    "@typescript-eslint/typescript-estree": {
+      "minimatch": "^11.0.1"
+    }
+  }
+}
