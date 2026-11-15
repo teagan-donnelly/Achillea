@@ -119,6 +119,8 @@ try {
   const code = await npm(["run", "test:api"]);
   process.exitCode = code;
   if (code === 0) {
+    if ((await npm(["run", "build"])) !== 0)
+      throw new Error("React production build failed");
     const httpPort = await new Promise<number>((done, reject) => {
       const s = createServer();
       s.once("error", reject);
@@ -129,11 +131,15 @@ try {
       });
     });
     const base = `http://127.0.0.1:${httpPort}`;
-    const app = spawn(process.execPath, ["--import", "tsx", "scripts/dev.ts"], {
-      env: { ...env, PORT: String(httpPort) },
-      stdio: "inherit",
-      windowsHide: true,
-    });
+    const app = spawn(
+      process.execPath,
+      ["--import", "tsx", "tests/http-server.ts"],
+      {
+        env: { ...env, PORT: String(httpPort) },
+        stdio: "inherit",
+        windowsHide: true,
+      },
+    );
     try {
       let ready = false;
       for (let i = 0; i < 100; i++) {
@@ -143,8 +149,8 @@ try {
         if (ready) break;
         await new Promise((done) => setTimeout(done, 200));
       }
-      if (!ready) throw new Error("Local Vite/function adapter did not start");
-      process.exitCode = await npm(["test", "--workspace", "frontend"], {
+      if (!ready) throw new Error("Disposable HTTP test adapter did not start");
+      process.exitCode = await npm(["run", "test:ui"], {
         ACHILLEA_INTEGRATION_URL: base,
       });
     } finally {

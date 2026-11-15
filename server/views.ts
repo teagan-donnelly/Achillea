@@ -1,5 +1,5 @@
 import type { State, Task } from "./store.js";
-import type { Round, ActivityItem } from "../frontend/src/types.js";
+import type { Round, ActivityItem } from "../src/types.js";
 
 export function rounds(state: State, unit: string, now = Date.now()): Round[] {
   const ids = new Set(

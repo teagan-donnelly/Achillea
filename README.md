@@ -1,6 +1,6 @@
 # Achillea
 
-Care that moves with you. A React/Vite nursing workflow demo with TypeScript Vercel Functions and an existing Tiger Data PostgreSQL database. Synthetic data only; not for clinical use.
+Care that moves with you. A React/TypeScript nursing workflow demo running on Vercel with an existing Tiger Data PostgreSQL database. Synthetic data only; not for clinical use.
 
 This is the `feature/vercel-tiger` architecture. The complete Spring Boot implementation is preserved on [`feature/tiger-simulation`](https://github.com/teagan-donnelly/Achillea/tree/feature/tiger-simulation) at `697ad60d6e11dc3d6b21ad2f3c22c934d57305a4`. Obsolete backend archives and runbooks have been removed from this branch.
 
@@ -8,13 +8,13 @@ Requires **Node 24** and npm. No Java, Maven, Next.js, Express server or separat
 
 ```sh
 npm ci
-# Copy .env.example to .env.local and supply your private server settings.
-npm run dev
+# Keep your existing root .env.local database settings.
+npm start
 ```
 
-Open `http://127.0.0.1:5173`. Session login is temporarily disabled by default, so the workspace opens directly. To restore it, set `APP_AUTH_ENABLED=true` and configure `APP_ACCESS_PASSWORD` plus a distinct `APP_SESSION_SECRET`. The local Node listener is only a development adapter for the same function handler Vercel executes in production.
+Open `http://localhost:3000`. `npm start` runs **Vercel CLI**, serving the React app and API functions together; `npm run dev` is an alias. The alias avoids Vercel's prohibition on a `dev` script directly invoking `vercel dev`. No Vite application server runs. Vercel CLI may request a one-time account login/project link if this computer has not already been linked. Session login is temporarily disabled by default. Existing database environment variable names and values are unchanged.
 
-Deploy the **repository root**, not `frontend/`, as a Vercel project. `vercel.json` declares the Vite preset, install/build commands and standard root `dist/` output; no dashboard build/output overrides are needed. It routes `/api/*` to `api/index.ts` and retains React deep links. Add server secrets in Vercel settings; see the [deployment guide](docs/VERCEL_TIGER.md).
+The project has a conventional root layout: `src/index.tsx` and React components, `public/index.html`, `api/` functions, `server/` workflow logic, and one `package.json`. There is no nested frontend workspace. `vercel.json` declares the generic React/static build, Vercel development command, root `dist/` output, and API/SPA routing. The React assets are compiled with esbuild; Vite is not used to build or serve the application. Existing Vercel database secrets still need to be configured in the hosting account; local `.env.local` is never uploaded as credentials. See the [deployment guide](docs/VERCEL_TIGER.md).
 
 The runtime does **not** migrate, seed, reset or alter Tiger. Historical V1/V2 SQL files remain byte-for-byte unchanged under `backend/src/main/resources/db/migration/`. The external simulator owns raw observations, orientation, classifications, stream state and device status. Achillea reads that evidence and writes only nursing workflow records and review fields. Movement never automatically confirms care.
 

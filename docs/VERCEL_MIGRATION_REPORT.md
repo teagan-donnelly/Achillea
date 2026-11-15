@@ -8,7 +8,7 @@ The clean source branch was `feature/tiger-simulation`, local and remote HEAD `6
 
 Session-password enforcement is now temporarily opt-in via `APP_AUTH_ENABLED=true`. With the default disabled setting, the workspace opens directly and API requests need no password/cookie or session secret. Existing same-origin, assignment, transaction and explicit-care checks remain active. Enabled-session behavior is retained and tested for later restoration.
 
-The existing React/Vite frontend now calls TypeScript Node Vercel Functions in the same repository/deployment. `api/index.ts` dispatches the existing patient, history, device, rounds, activity and nursing command paths. `server/` contains TLS-verified PostgreSQL pooling, assignment-scoped SQL, presentation logic, transactions, workflow validation and demo session authentication. `vercel.json`, a root npm workspace/lockfile and Node-only development adapter provide deployment and local operation without a persistent production Node server, Java, Maven, Spring or Next.js.
+The existing React frontend now calls TypeScript Node Vercel Functions in the same repository/deployment. `api/index.ts` dispatches patient, history, device, rounds, activity and nursing command paths. `server/` contains TLS-verified PostgreSQL pooling, assignment-scoped SQL, presentation logic, transactions, workflow validation and optional demo sessions. The final layout has root `src/`, `public/`, one package/lockfile and `npm start` (also `npm run dev`) invoking Vercel CLI on port 3000. Vite application configs, nested workspace and the custom development backend are removed. esbuild compiles static React assets to `dist/`; no Java, Maven, Next.js or persistent production Node service is required. Existing private local/environment variables are unchanged. The CLI command alias avoids Vercel's direct development-script recursion guard.
 
 Preserved functions include chart drafts, explicit confirmations, linked amendments, task acknowledgment/deferral/priority/reordering/completion, movement review and single-use evidence. Encounter row locks coordinate concurrent workflow requests; existing database unique constraints and chart/evidence guards remain authoritative. Confirmation does not follow from sensor movement automatically. Review only updates nurse-owned review columns, not simulator classification or raw evidence.
 
@@ -30,15 +30,17 @@ V1/V2 migration files remain at their original paths, byte-for-byte identical to
 | Frontend component + actual HTTP integration tests | 45 passed, including 4 live tests |
 | Root/API and frontend TypeScript checks | Passed |
 | Frontend ESLint | Passed |
-| React/Vite production build | Passed |
-| npm audit after compatible dependency patches | Zero vulnerabilities |
+| Root React/esbuild production build | Passed |
+| npm audit --omit=dev | Zero runtime vulnerabilities |
+| Full dependency audit including Vercel CLI | 38 development-tool advisories; no critical advisories after tar override |
 | Migration byte comparison against original branch | Identical |
 | Live Tiger connection using TypeScript | Not executed; current credentials unavailable |
 | Actual external simulator direct writer | Not available; not modified or tested |
-| Vercel-hosted deployment, routing and login | Not executed; project/deployment access unavailable |
+| Vercel-hosted deployment | Not executed |
+| Vercel CLI live local routing | Skipped at user request; attempted session stopped, recursion guard corrected |
 | Real browser/mobile device | Not executed; UI integration uses React/jsdom plus real HTTP |
 
-The database suite ran on native PostgreSQL 14.22, not an in-memory SQL substitute. It exercises patient/unit/assignment scoping, server-side TLS settings, session forgery/rotation, CSRF, malformed/oversized inputs, history filters, inclusive delta ties, source timestamps, device freshness, stored sensor evidence, draft/confirmation/amendment behavior, cross-patient link rejection, concurrent movement consumption, review ownership, scheduling, deterministic rounds, persistence across pool restart and idempotent isolated seeding/cleanup. The live React suite covers assigned lists and actual historical trends, draft confirmation, unit switching/independent-region evidence, and SPA/API route separation through the local Vite/function adapter.
+The database suite ran on native PostgreSQL 14.22, not an in-memory SQL substitute. It exercises assignment scoping, TLS, optional sessions, CSRF, malformed/oversized inputs, history filters, inclusive delta ties, source timestamps, device freshness, stored sensor evidence, draft/confirmation/amendment behavior, cross-patient link rejection, concurrent movement consumption, review ownership, scheduling, deterministic rounds, persistence and isolated seed/cleanup. React HTTP tests cover assigned lists and historical trends, draft confirmation, unit switching/region evidence, and SPA/API separation against the actual built assets and TypeScript handler. No Vite application server runs in these checks.
 
 Synthetic fixtures contain six assigned patients across L&D and ICU plus an unassigned control patient. They are deterministic and confined to disposable local PostgreSQL. Test utilities refuse normal application schemas and hosted database hosts. No production/integration patient fixture was inserted. Temporary test files are retained for inspection and test services stop at completion.
 

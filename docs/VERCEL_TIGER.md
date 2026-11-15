@@ -2,7 +2,7 @@
 
 ## Deployment
 
-Import `teagan-donnelly/Achillea` into Vercel and select `feature/vercel-tiger` for a preview. Deploy the repository root with Node 24. The committed `vercel.json` supplies the Vite preset, `npm ci`, `npm run build`, standard root `dist/` output and API/SPA routing; no dashboard build/output overrides are needed. Root Vite tooling also resolves the existing frontend through `vite.config.ts`. An existing Vercel project's Git branch and Root Directory are project-level settings that files cannot override: it must build this branch from the repository root, not `frontend`. Do not merge the PR or change your production branch merely to preview it.
+Import `teagan-donnelly/Achillea` into Vercel and select `feature/vercel-tiger` for a preview. Deploy the repository root with Node 24. React source is in root `src/`, the HTML template is `public/index.html`, API functions remain in `api/`, and there is one root package/lockfile. The committed `vercel.json` uses `framework:null` (generic React/static application), `npm ci`, `npm run build`, `dist/`, and API/SPA routing. No Vite application server, Vite preset or nested frontend build is involved. Existing Git branch/Root Directory selections are account settings that repository files cannot rewrite; select this branch at the repository root. Do not merge the PR merely to preview it.
 
 Add these **server-side** environment variables for the intended preview/production scope:
 
@@ -27,13 +27,13 @@ There is no deploy-time database migration, seed or reset. If the existing Tiger
 
 The deployment URL's `/api/health` performs a PostgreSQL query. Open `/`, sign in, verify assigned lists, unit switching, histories, rounds, a chart draft/confirmation, and a linked amendment using intended synthetic demo records. A real deployment smoke test writes workflow records, so use an explicitly approved integration patient. No hosted smoke was run during this migration because current database/deployment credentials were unavailable.
 
-Vercel references: [Vite and functions](https://vercel.com/docs/frameworks/frontend/vite), [Node function runtime](https://vercel.com/docs/functions/runtimes/node-js), [rewrites](https://vercel.com/docs/routing/rewrites), [database pool lifecycle](https://vercel.com/docs/functions/functions-api-reference/vercel-functions-package). PostgreSQL TLS parsing follows [node-postgres SSL guidance](https://github.com/brianc/node-postgres/blob/master/docs/pages/features/ssl.mdx).
+Vercel references: [CLI development](https://vercel.com/docs/cli/dev), [configuration and generic framework preset](https://vercel.com/docs/project-configuration/vercel-json), [Node function runtime](https://vercel.com/docs/functions/runtimes/node-js), [rewrites](https://vercel.com/docs/routing/rewrites), [database pool lifecycle](https://vercel.com/docs/functions/functions-api-reference/vercel-functions-package). PostgreSQL TLS parsing follows [node-postgres SSL guidance](https://github.com/brianc/node-postgres/blob/master/docs/pages/features/ssl.mdx).
 
 ## Runtime architecture and security
 
 ```mermaid
 flowchart LR
-  U[Browser: existing React/Vite UI] -->|Same-origin REST + HttpOnly session| F[Vercel Node function: api/index.ts]
+  U[Browser: existing React UI] -->|Same-origin REST| F[Vercel Node function: api/index.ts]
   F -->|TLS + parameterized SQL| D[(Existing Tiger PostgreSQL schema)]
   X[Independent external simulator] -->|Own processing and database writer| D
   D -->|Stored evidence| F
@@ -80,9 +80,9 @@ See [the simulator writer handoff](backend/SIMULATOR_STORAGE_HANDOFF.md) before 
 
 ## Local verification and isolated test records
 
-`npm run dev` loads the ignored root `.env.local`; copy `.env.example` and configure actual values privately. No Java/Maven is used. `npm ci` at the root installs the existing frontend workspace and API dependencies using one root lockfile. The obsolete standalone frontend lockfile has been removed.
+Run `npm ci` and `npm start` from the repository root; `npm run dev` aliases the same command. `start` invokes `vercel dev --listen 3000`, while Vercel's configured child `devCommand` invokes only the React asset watcher. This avoids the CLI's direct `dev: vercel dev` recursion guard. Vercel CLI owns frontend/API routing and reads local environment configuration. Keep your existing `.env.local` and hosting secrets; no variable rename or new application variable is required by this layout change. On an unlinked machine, Vercel itself requires a one-time login/project link. The esbuild watcher uses Vercel's assigned child port, not a separate application backend. Production builds type-check the application and create JS, CSS, fonts and HTML in `dist/`. Browser bundles receive no server environment values. Vitest remains test tooling only; its internal build dependencies are not used to run the application.
 
-`npm run test:db` starts PostgreSQL from native local binaries, creates a temporary cluster under the OS temp directory and a random `achillea_test_*` schema, and applies unchanged V1/V2 bytes there. The existing Tiger schema is not a target. Set `PG_BIN` to the PostgreSQL bin directory; the existing Windows `embedded-pg/PG-*/bin` cache can also be discovered. No extension is required. The runner overrides hosted URL/username/password variables and creates deterministic fixtures for six assigned patients plus one unassigned patient, both units, paired regions, historical readings, tasks and movement evidence. It runs API tests and all frontend tests through a real local Vite/function adapter, then stops both services. Temporary files remain for inspection; it does not recursively delete directories.
+`npm run test:db` starts PostgreSQL from native local binaries, creates a temporary cluster under the OS temp directory and a random `achillea_test_*` schema, and applies unchanged V1/V2 bytes there. The existing Tiger schema is not a target. Set `PG_BIN` to the PostgreSQL bin directory; the existing Windows `embedded-pg/PG-*/bin` cache can also be discovered. No extension is required. The runner overrides hosted credentials and creates deterministic fixtures for six assigned patients plus an unassigned patient, both units, paired regions, historical readings, tasks and movement evidence. It runs API tests, builds the actual React assets, and runs component/HTTP tests through a test-only static/function adapter. This adapter exists only under `tests/`, not as an alternative application development server. It stops all test services afterward. Temporary database files remain for inspection.
 
 Manual `npm run test:seed` and `npm run test:cleanup` require all of: `ACHILLEA_TEST_MODE=isolated`, loopback database host, `DB_SCHEMA=achillea_test_*` and that existing isolated structure. Set those process variables explicitly. Seed uses stable IDs with `ON CONFLICT DO NOTHING`; cleanup is repeatable and rejects unexpected patient identities. Both operate only on a separately prepared local test schema. Cleanup removes rows only in that schema; it never truncates or drops integration tables. Normal startup and Vercel builds never invoke these commands. Do not run the original Spring branch's reset/import tools against this integration database.
 

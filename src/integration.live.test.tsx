@@ -14,7 +14,7 @@ const base = process.env.ACHILLEA_INTEGRATION_URL;
 const networkFetch = globalThis.fetch.bind(globalThis);
 let cookie = "";
 describe.skipIf(!base)(
-  "React + Vite + Vercel handler + isolated PostgreSQL",
+  "React + Vercel handler + isolated PostgreSQL",
   () => {
     beforeAll(async () => {
       if (

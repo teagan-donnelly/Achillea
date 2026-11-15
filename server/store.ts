@@ -9,7 +9,7 @@ import type {
   Vital,
   OrientationSample,
   Event,
-} from "../frontend/src/types.js";
+} from "../src/types.js";
 import { ApiError, input } from "./errors.js";
 
 export type {
